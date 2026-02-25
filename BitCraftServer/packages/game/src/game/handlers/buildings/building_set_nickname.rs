@@ -19,7 +19,7 @@ pub fn building_set_nickname(ctx: &ReducerContext, request: PlayerBuildingSetNic
 pub fn reduce(ctx: &ReducerContext, actor_id: u64, building_entity_id: u64, nickname: String) -> Result<(), String> {
     HealthState::check_incapacitated(ctx, actor_id, true)?;
 
-    UserModerationState::validate_chat_privileges(ctx, actor_id, "Your naming priveleges have been suspended")?;
+    UserModerationState::validate_chat_privileges(ctx, &ctx.sender, "Your naming privileges have been suspended")?;
 
     let building_state = unwrap_or_err!(ctx.db.building_state().entity_id().find(&building_entity_id), "No such building.");
 

@@ -3,7 +3,7 @@ use spacetimedb::ReducerContext;
 use crate::{
     inventory_state,
     messages::{components::RentState, game_util::ItemStack},
-    parameters_desc_v2, unwrap_or_err,
+    parameters_desc, unwrap_or_err,
 };
 
 use super::building_state::InventoryState;
@@ -18,7 +18,7 @@ impl RentState {
     }
 
     pub fn pay_rent(&mut self, ctx: &ReducerContext, player_entity_id: u64, amount: u32) -> Result<(), String> {
-        let max_amount = self.daily_rent * ctx.db.parameters_desc_v2().version().find(0).unwrap().max_rental_deposit_days as u32;
+        let max_amount = self.daily_rent * ctx.db.parameters_desc().version().find(0).unwrap().max_rental_deposit_days as u32;
         if self.paid_rent >= max_amount {
             return Err("Funds are already at maximum capacity".into());
         }

@@ -274,13 +274,13 @@ impl ResourceState {
         check_buildings: bool,
         check_resources: bool,
     ) -> Result<u64, String> {
-        log::info!(
-            "Spawn Resource id {} at ({},{},{})",
-            resource_id,
-            coordinates.x,
-            coordinates.z,
-            coordinates.dimension,
-        );
+        //log::info!(
+        //    "Spawn Resource id {} at ({},{},{})",
+        //    resource_id,
+        //    coordinates.x,
+        //    coordinates.z,
+        //    coordinates.dimension,
+        //);
         let offset = coordinates.to_offset_coordinates();
 
         let entity_id = entity_id.unwrap_or(game_state::create_entity(ctx));

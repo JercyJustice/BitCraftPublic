@@ -21,6 +21,7 @@ use crate::{
     messages::{
         action_request::PlayerExtractRequest,
         components::*,
+        empire_shared::{empire_chunk_state, empire_player_data_state},
         game_util::{ItemStack, ItemType},
         static_data::*,
     },
@@ -212,7 +213,7 @@ fn reduce(
     let mut deployable_radius = 0.0;
     if let Some(mounting) = mounting {
         let deployable = ctx.db.deployable_state().entity_id().find(mounting.deployable_entity_id).unwrap();
-        let deployable_desc = ctx.db.deployable_desc_v4().id().find(deployable.deployable_description_id).unwrap();
+        let deployable_desc = ctx.db.deployable_desc().id().find(deployable.deployable_description_id).unwrap();
         deployable_radius = deployable_desc.radius;
         if !deployable_desc.allow_driver_extract {
             dismount_deployable_and_set_deployable_position(ctx, actor_id, false, actor_coords.into());
@@ -301,9 +302,42 @@ fn reduce(
         }
     }
 
+    // Validate empire requirements
+    if let Some(empire_req) = recipe.empire_rank_requirement {
+        let chunk_index = coordinates.chunk_coordinates().chunk_index();
+        if let Some(empire_chunk) = ctx.db.empire_chunk_state().chunk_index().find(chunk_index) {
+            if let Some(player_empire) = ctx.db.empire_player_data_state().entity_id().find(actor_id) {
+                if empire_chunk.empire_entity_id != player_empire.empire_entity_id {
+                    return Err("Cannot extract this resource when not fully under your empire control".into());
+                }
+                if player_empire.rank > empire_req as u8 {
+                    return Err("You don't have the necessary rank to extract this".into());
+                }
+            } else {
+                return Err("You need to be part of an empire to extract this".into());
+            }
+        } else {
+            return Err("This resource is not controlled by your empire".into());
+        }
+    }
+
     for required_knowledge_id in &recipe.required_knowledges {
         if !Discovery::already_acquired_secondary(ctx, actor_id, *required_knowledge_id) {
             return Err("You don't have the knowledge required to perform this action".into());
+        }
+    }
+
+    if recipe.blocking_knowledges.len() > 0 {
+        let mut possess_all_knowledges = true;
+        let secondary_knowledge = ctx.db.knowledge_secondary_state().entity_id().find(actor_id).unwrap();
+        for knowledge_id in &recipe.blocking_knowledges {
+            possess_all_knowledges &= secondary_knowledge
+                .entries
+                .iter()
+                .any(|knowledge| knowledge.id == *knowledge_id && knowledge.state == KnowledgeState::Acquired);
+        }
+        if possess_all_knowledges {
+            return Err("You don't need this resource anymore".into());
         }
     }
 
@@ -446,6 +480,8 @@ fn reduce(
             },
             false,
         )?;
+
+        PlayerActionState::mark_as_consumed(ctx, actor_id)?;
     }
 
     player_action_helpers::post_reducer_update_cargo(ctx, actor_id);

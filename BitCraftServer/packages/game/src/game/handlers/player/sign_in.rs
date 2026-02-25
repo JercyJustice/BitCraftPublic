@@ -3,15 +3,19 @@ use spacetimedb::{log, ReducerContext, Table};
 
 use crate::{
     game::{
-        discovery::Discovery,
         entities::buff,
         game_state::{self, game_state_filters},
         handlers::{
             authentication::has_role, player_vault::deployable_hide::hide_deployable_timer, queue::end_grace_period::end_grace_period_timer,
         },
     },
-    messages::{action_request::PlayerSignInRequest, authentication::Role, components::*, generic::RegionSignInParameters},
-    parameters_desc_v2, unwrap_or_err,
+    messages::{
+        action_request::PlayerSignInRequest,
+        authentication::Role,
+        components::*,
+        generic::{region_control_info, RegionControlInfo, RegionSignInParameters},
+    },
+    parameters_desc, unwrap_or_err,
 };
 
 #[spacetimedb::reducer]
@@ -26,6 +30,23 @@ pub fn sign_in(ctx: &ReducerContext, _request: PlayerSignInRequest) -> Result<()
     let region_sign_in_parameters = unwrap_or_err!(RegionSignInParameters::get(ctx), "Failed to get RegionSignInParameters");
     if region_sign_in_parameters.is_signing_in_blocked && !has_role(ctx, &ctx.sender, Role::Gm) {
         return Err(format!("Server is unavailable at this time, please try again later."));
+    }
+
+    let region_id = region_sign_in_parameters.region_id;
+    let region_control = ctx
+        .db
+        .region_control_info()
+        .region_id()
+        .find(region_id)
+        .unwrap_or(RegionControlInfo {
+            region_id,
+            initialized: false,
+            allow_players: false,
+            allow_player_spawns: false,
+        });
+    if !region_control.initialized {
+        //Prevent anyone from logging in if there's no world
+        return Err("This region does not currently accept sign ins".into());
     }
 
     if ctx.db.signed_in_player_state().entity_id().find(actor_id).is_some() {
@@ -59,7 +80,7 @@ pub fn sign_in(ctx: &ReducerContext, _request: PlayerSignInRequest) -> Result<()
         InteriorPlayerCountState::inc(ctx, network.dimension_network_entity_id);
     }
 
-    let moderations = ctx.db.user_moderation_state().target_entity_id().filter(actor_id);
+    let moderations = ctx.db.user_moderation_state().target_identity().filter(&ctx.sender);
 
     for moderation in moderations {
         if moderation.user_moderation_policy == UserModerationPolicy::PermanentBlockLogin {
@@ -98,8 +119,10 @@ pub fn sign_in(ctx: &ReducerContext, _request: PlayerSignInRequest) -> Result<()
     active_buff_state.restart_all_buffs(ctx);
 
     // Refresh Innerlight buff with a short login immunity
-    let innerlight_buff_duration = ctx.db.parameters_desc_v2().version().find(&0).unwrap().sign_in_aggro_immunity;
+    let innerlight_buff_duration = ctx.db.parameters_desc().version().find(&0).unwrap().sign_in_aggro_immunity;
     active_buff_state.set_innerlight_buff(ctx, innerlight_buff_duration);
+
+    PlayerState::collect_stats_with_uncommited_buffs(ctx, &active_buff_state);
 
     // Update the last action timestamp on login so the auto-logout agent doesn't kick the player out immediately
     let mut player_action_state = PlayerActionState::get_state(ctx, &actor_id, &PlayerActionLayer::Base).unwrap();
@@ -112,8 +135,6 @@ pub fn sign_in(ctx: &ReducerContext, _request: PlayerSignInRequest) -> Result<()
 
     PlayerState::collect_stats(ctx, actor_id);
 
-    Discovery::refresh_knowledges(ctx, actor_id);
-
     AlertState::on_sign_in(ctx, actor_id);
 
     ctx.db
@@ -123,7 +144,7 @@ pub fn sign_in(ctx: &ReducerContext, _request: PlayerSignInRequest) -> Result<()
     let mut mobile = ctx.db.mobile_entity_state().entity_id().find(&actor_id).unwrap();
     mobile.destination_x = mobile.location_x;
     mobile.destination_z = mobile.location_z;
-    mobile.is_running = false;
+    mobile.is_walking = false;
     buff::deactivate_sprint(ctx, mobile.entity_id);
     mobile.timestamp = game_state::unix_ms(ctx.timestamp);
     ctx.db.mobile_entity_state().entity_id().update(mobile);

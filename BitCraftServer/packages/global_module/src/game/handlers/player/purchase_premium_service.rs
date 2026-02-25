@@ -55,7 +55,7 @@ fn purchase_premium_service(
         ctx.db.premium_purchase_state().insert(PremiumPurchaseState {
             entity_id: 0,
             identity: ctx.sender,
-            collectible_desc_id: None,
+            collectible_desc_ids: None,
             price: premium_service_desc.price,
             timestamp: ctx.timestamp,
             processed: false,

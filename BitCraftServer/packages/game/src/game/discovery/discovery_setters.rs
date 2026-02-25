@@ -1,10 +1,15 @@
-use spacetimedb::{log, ReducerContext, Table};
+use std::borrow::Borrow;
+
+use spacetimedb::{log, ReducerContext};
 
 use super::Discovery;
 use crate::{
-    cargo_desc, construction_recipe_desc_v2, crafting_recipe_desc, extraction_recipe_desc, item_desc, item_list_desc,
-    messages::{components::*, game_util::ItemType, static_data::pillar_shaping_desc},
-    paving_tile_desc, resource_placement_recipe_desc_v2,
+    messages::{
+        components::*,
+        game_util::ItemType,
+        static_data::{crafting_recipe_discovery_item_desc, pillar_shaping_desc},
+    },
+    *,
 };
 
 impl Discovery {
@@ -25,7 +30,7 @@ impl Discovery {
     }
 
     pub(super) fn discover_construction_recipe_components(&mut self, ctx: &ReducerContext, recipe_id: i32) {
-        if let Some(recipe) = ctx.db.construction_recipe_desc_v2().id().find(&recipe_id) {
+        if let Some(recipe) = ctx.db.construction_recipe_desc().id().find(&recipe_id) {
             // discover produced building
             self.discover_building(ctx, recipe.building_description_id);
             // discover required items
@@ -40,7 +45,7 @@ impl Discovery {
     }
 
     pub(super) fn discover_resource_placement_recipe_components(&mut self, ctx: &ReducerContext, recipe_id: i32) {
-        if let Some(recipe) = ctx.db.resource_placement_recipe_desc_v2().id().find(&recipe_id) {
+        if let Some(recipe) = ctx.db.resource_placement_recipe_desc().id().find(&recipe_id) {
             // discover produced resource
             self.discover_resource(ctx, recipe.resource_description_id);
             // discover required items
@@ -132,6 +137,47 @@ impl Discovery {
             if recipe.secondary_knowledge_id != 0 {
                 self.acquire_secondary(ctx, recipe.secondary_knowledge_id);
             }
+
+            self.evaluate_craft_discoveries(
+                ctx,
+                ctx.db
+                    .crafting_recipe_discovery_item_desc()
+                    .item_id()
+                    .filter(item_id)
+                    .map(|r| ctx.db.crafting_recipe_desc().id().find(r.recipe_id).unwrap()),
+            );
+            self.evaluate_construction_discoveries(
+                ctx,
+                ctx.db
+                    .construction_recipe_discovery_item_desc()
+                    .item_id()
+                    .filter(item_id)
+                    .map(|r| ctx.db.construction_recipe_desc().id().find(r.recipe_id).unwrap()),
+            );
+            self.evaluate_paving_discoveries(
+                ctx,
+                ctx.db
+                    .paving_recipe_discovery_item_desc()
+                    .item_id()
+                    .filter(item_id)
+                    .map(|r| ctx.db.paving_tile_desc().id().find(r.recipe_id).unwrap()),
+            );
+            self.evaluate_resource_placement_discoveries(
+                ctx,
+                ctx.db
+                    .resource_placement_recipe_discovery_item_desc()
+                    .item_id()
+                    .filter(item_id)
+                    .map(|r| ctx.db.resource_placement_recipe_desc().id().find(r.recipe_id).unwrap()),
+            );
+            self.evaluate_pillar_shaping_discoveries(
+                ctx,
+                ctx.db
+                    .pillar_shaping_recipe_discovery_item_desc()
+                    .item_id()
+                    .filter(item_id)
+                    .map(|r| ctx.db.pillar_shaping_desc().id().find(r.recipe_id).unwrap()),
+            );
         }
     }
 
@@ -141,11 +187,108 @@ impl Discovery {
             if recipe.secondary_knowledge_id != 0 {
                 self.acquire_secondary(ctx, recipe.secondary_knowledge_id);
             }
+
+            self.evaluate_craft_discoveries(
+                ctx,
+                ctx.db
+                    .crafting_recipe_discovery_cargo_desc()
+                    .cargo_id()
+                    .filter(cargo_id)
+                    .map(|r| ctx.db.crafting_recipe_desc().id().find(r.recipe_id).unwrap()),
+            );
+            self.evaluate_construction_discoveries(
+                ctx,
+                ctx.db
+                    .construction_recipe_discovery_cargo_desc()
+                    .cargo_id()
+                    .filter(cargo_id)
+                    .map(|r| ctx.db.construction_recipe_desc().id().find(r.recipe_id).unwrap()),
+            );
+            self.evaluate_paving_discoveries(
+                ctx,
+                ctx.db
+                    .paving_recipe_discovery_cargo_desc()
+                    .cargo_id()
+                    .filter(cargo_id)
+                    .map(|r| ctx.db.paving_tile_desc().id().find(r.recipe_id).unwrap()),
+            );
+            self.evaluate_resource_placement_discoveries(
+                ctx,
+                ctx.db
+                    .resource_placement_recipe_discovery_cargo_desc()
+                    .cargo_id()
+                    .filter(cargo_id)
+                    .map(|r| ctx.db.resource_placement_recipe_desc().id().find(r.recipe_id).unwrap()),
+            );
+            self.evaluate_pillar_shaping_discoveries(
+                ctx,
+                ctx.db
+                    .pillar_shaping_recipe_discovery_cargo_desc()
+                    .cargo_id()
+                    .filter(cargo_id)
+                    .map(|r| ctx.db.pillar_shaping_desc().id().find(r.recipe_id).unwrap()),
+            );
         }
     }
 
-    fn evaluate_craft_discoveries(&mut self, ctx: &ReducerContext) {
-        for recipe in ctx.db.crafting_recipe_desc().iter() {
+    pub(super) fn on_secondary_acquired(&mut self, ctx: &ReducerContext, knowledge_id: i32) {
+        self.evaluate_craft_discoveries(
+            ctx,
+            ctx.db
+                .crafting_recipe_discovery_knowledge_desc()
+                .knowledge_id()
+                .filter(knowledge_id)
+                .map(|r| ctx.db.crafting_recipe_desc().id().find(r.recipe_id).unwrap()),
+        );
+        self.evaluate_construction_discoveries(
+            ctx,
+            ctx.db
+                .construction_recipe_discovery_knowledge_desc()
+                .knowledge_id()
+                .filter(knowledge_id)
+                .map(|r| ctx.db.construction_recipe_desc().id().find(r.recipe_id).unwrap()),
+        );
+        self.evaluate_extract_discoveries(
+            ctx,
+            ctx.db
+                .construction_recipe_discovery_knowledge_desc()
+                .knowledge_id()
+                .filter(knowledge_id)
+                .map(|r| ctx.db.construction_recipe_desc().id().find(r.recipe_id).unwrap()),
+        );
+        self.evaluate_paving_discoveries(
+            ctx,
+            ctx.db
+                .paving_recipe_discovery_knowledge_desc()
+                .knowledge_id()
+                .filter(knowledge_id)
+                .map(|r| ctx.db.paving_tile_desc().id().find(r.recipe_id).unwrap()),
+        );
+        self.evaluate_resource_placement_discoveries(
+            ctx,
+            ctx.db
+                .resource_placement_recipe_discovery_knowledge_desc()
+                .knowledge_id()
+                .filter(knowledge_id)
+                .map(|r| ctx.db.resource_placement_recipe_desc().id().find(r.recipe_id).unwrap()),
+        );
+        self.evaluate_pillar_shaping_discoveries(
+            ctx,
+            ctx.db
+                .pillar_shaping_recipe_discovery_knowledge_desc()
+                .knowledge_id()
+                .filter(knowledge_id)
+                .map(|r| ctx.db.pillar_shaping_desc().id().find(r.recipe_id).unwrap()),
+        );
+    }
+
+    fn evaluate_craft_discoveries<I>(&mut self, ctx: &ReducerContext, recipes: I)
+    where
+        I: IntoIterator,
+        I::Item: Borrow<CraftingRecipeDesc>,
+    {
+        for recipe in recipes {
+            let recipe = recipe.borrow();
             if !self.has_discovered_craft(recipe.id) {
                 let mut discover_recipe = false;
 
@@ -197,8 +340,13 @@ impl Discovery {
         }
     }
 
-    fn evaluate_construction_discoveries(&mut self, ctx: &ReducerContext) {
-        for recipe in ctx.db.construction_recipe_desc_v2().iter() {
+    fn evaluate_construction_discoveries<I>(&mut self, ctx: &ReducerContext, recipes: I)
+    where
+        I: IntoIterator,
+        I::Item: Borrow<ConstructionRecipeDesc>,
+    {
+        for recipe in recipes {
+            let recipe = recipe.borrow();
             if !self.has_discovered_construction(recipe.id) {
                 let mut discover_recipe = false;
 
@@ -252,8 +400,13 @@ impl Discovery {
         }
     }
 
-    fn evaluate_pillar_shaping_discoveries(&mut self, ctx: &ReducerContext) {
-        for recipe in ctx.db.pillar_shaping_desc().iter() {
+    fn evaluate_pillar_shaping_discoveries<I>(&mut self, ctx: &ReducerContext, recipes: I)
+    where
+        I: IntoIterator,
+        I::Item: Borrow<PillarShapingDesc>,
+    {
+        for recipe in recipes {
+            let recipe = recipe.borrow();
             if !self.has_discovered_pillar_shaping(recipe.id) {
                 let mut discover_recipe = false;
 
@@ -305,8 +458,13 @@ impl Discovery {
         }
     }
 
-    fn evaluate_resource_placement_discoveries(&mut self, ctx: &ReducerContext) {
-        for recipe in ctx.db.resource_placement_recipe_desc_v2().iter() {
+    fn evaluate_resource_placement_discoveries<I>(&mut self, ctx: &ReducerContext, recipes: I)
+    where
+        I: IntoIterator,
+        I::Item: Borrow<ResourcePlacementRecipeDesc>,
+    {
+        for recipe in recipes {
+            let recipe = recipe.borrow();
             if !self.has_discovered_resource_placement(recipe.id) {
                 let mut discover_recipe = false;
 
@@ -360,8 +518,13 @@ impl Discovery {
         }
     }
 
-    fn evaluate_extract_discoveries(&mut self, ctx: &ReducerContext) {
-        for recipe in ctx.db.construction_recipe_desc_v2().iter() {
+    fn evaluate_extract_discoveries<I>(&mut self, ctx: &ReducerContext, recipes: I)
+    where
+        I: IntoIterator,
+        I::Item: Borrow<ConstructionRecipeDesc>,
+    {
+        for recipe in recipes {
+            let recipe = recipe.borrow();
             if !self.has_discovered_extract(recipe.id) {
                 // extraction is a special case. The discovery trigger teaches extraction instead of simply discovering it.
                 for dt_id in &recipe.discovery_triggers {
@@ -374,8 +537,13 @@ impl Discovery {
         }
     }
 
-    fn evaluate_paving_discoveries(&mut self, ctx: &ReducerContext) {
-        for recipe in ctx.db.paving_tile_desc().iter() {
+    fn evaluate_paving_discoveries<I>(&mut self, ctx: &ReducerContext, recipes: I)
+    where
+        I: IntoIterator,
+        I::Item: Borrow<PavingTileDesc>,
+    {
+        for recipe in recipes {
+            let recipe = recipe.borrow();
             if !self.has_discovered_paving(recipe.id) {
                 let mut discover_recipe = false;
 
@@ -427,26 +595,25 @@ impl Discovery {
         }
     }
 
-    // discover every action that could result from
-    pub(super) fn on_knowledge_acquired(&mut self, ctx: &ReducerContext) {
-        // in order to limit the amount of transactions and to avoid browsing through all uncommitted transactions, creating an horrendous exponential loop of lag,
-        // we will make mutable copies of all existing knowledge arrays and update them directly, then commit the ones that were modified as a result of the
-        // knowledge acquisition
-
-        self.evaluate_craft_discoveries(ctx);
-        self.evaluate_construction_discoveries(ctx);
-        self.evaluate_resource_placement_discoveries(ctx);
-        self.evaluate_extract_discoveries(ctx);
-        self.evaluate_paving_discoveries(ctx);
-        self.evaluate_pillar_shaping_discoveries(ctx);
-    }
-
     // Refresh all auto-discovered recipes
-    pub fn refresh_knowledges(ctx: &ReducerContext, player_entity_id: u64) {
-        let mut discovery = Discovery::new(player_entity_id);
-        discovery.initialize(ctx);
-        discovery.on_knowledge_acquired(ctx);
-        discovery.commit(ctx);
+    pub fn refresh_all_players_knowledges(ctx: &ReducerContext) {
+        let crafting_recipes: Vec<CraftingRecipeDesc> = ctx.db.crafting_recipe_desc().iter().collect();
+        let construction_recipes: Vec<ConstructionRecipeDesc> = ctx.db.construction_recipe_desc().iter().collect();
+        let resource_placement_recipes: Vec<ResourcePlacementRecipeDesc> = ctx.db.resource_placement_recipe_desc().iter().collect();
+        let paving_tile_recipes: Vec<PavingTileDesc> = ctx.db.paving_tile_desc().iter().collect();
+        let pillar_shaping_recipes: Vec<PillarShapingDesc> = ctx.db.pillar_shaping_desc().iter().collect();
+
+        for p in ctx.db.player_state().iter() {
+            let mut discovery = Discovery::new(p.entity_id);
+            discovery.initialize(ctx);
+            discovery.evaluate_craft_discoveries(ctx, crafting_recipes.iter());
+            discovery.evaluate_construction_discoveries(ctx, construction_recipes.iter());
+            discovery.evaluate_resource_placement_discoveries(ctx, resource_placement_recipes.iter());
+            discovery.evaluate_extract_discoveries(ctx, construction_recipes.iter());
+            discovery.evaluate_paving_discoveries(ctx, paving_tile_recipes.iter());
+            discovery.evaluate_pillar_shaping_discoveries(ctx, pillar_shaping_recipes.iter());
+            discovery.commit(ctx);
+        }
     }
 
     pub fn discover_item_and_item_list(&mut self, ctx: &ReducerContext, item_id: i32) {

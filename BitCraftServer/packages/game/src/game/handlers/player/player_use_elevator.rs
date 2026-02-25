@@ -54,6 +54,12 @@ pub fn player_use_elevator(ctx: &ReducerContext, platform_entity_id: u64) -> Res
         ctx.db.elevator_desc().building_id().find(&building.building_description_id),
         "Building is not an elevator"
     );
+
+    let player_coord = game_state_filters::coordinates_any(ctx, actor_id);
+    if building.distance_to(ctx, &player_coord.into()) > 2 {
+        return Err("Too far".into());
+    }
+
     let origin_platform_location =
         unwrap_or_err!(ctx.db.location_state().entity_id().find(&platform_entity_id), "Unknown Location").coordinates();
     let destination_platform_location = origin_platform_location.neighbor(HexDirection::from(building.direction_index));

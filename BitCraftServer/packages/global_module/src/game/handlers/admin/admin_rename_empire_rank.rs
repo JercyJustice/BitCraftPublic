@@ -1,12 +1,12 @@
 use bitcraft_macro::shared_table_reducer;
-use spacetimedb::{ReducerContext, Table};
+use spacetimedb::ReducerContext;
 
 use crate::{
     game::handlers::authentication::has_role,
     inter_module::InterModuleDestination,
     messages::{
         authentication::Role,
-        empire_shared::{empire_rank_state, empire_state, EmpireRankState},
+        empire_shared::{empire_lowercase_name_state, empire_rank_state, EmpireRankState},
     },
     unwrap_or_err,
 };
@@ -19,7 +19,7 @@ pub fn admin_rename_empire_rank(ctx: &ReducerContext, empire_name: String, rank:
 
     let name_lower = empire_name.to_lowercase();
     let entity_id = unwrap_or_err!(
-        ctx.db.empire_state().iter().filter(|e| e.name.to_lowercase() == name_lower).next(),
+        ctx.db.empire_lowercase_name_state().name_lowercase().find(name_lower),
         "Empire not found"
     )
     .entity_id;

@@ -13,3 +13,4 @@ pub mod stats_helpers;
 pub mod timer_helpers;
 pub mod user_text_input_helpers;
 pub mod deployable_helpers;
+pub mod world_placement_helpers;

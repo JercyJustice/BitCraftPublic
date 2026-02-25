@@ -11,7 +11,7 @@ use crate::{
 pub fn create_chat_channel(ctx: &ReducerContext, name: String, description: String, visibility: ChatChannelVisibility) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     
-    UserModerationState::validate_chat_privileges(ctx, actor_id, "Your chat priveleges have been suspended")?;
+    UserModerationState::validate_chat_privileges(ctx, &ctx.sender, "Your chat privileges have been suspended")?;
 
     let mut permissions = ctx.db.chat_channel_permission_state().player_entity_id().filter(&actor_id);
     if permissions.any(|p| p.rank == (ChatChannelPermission::Owner as i32)) { // This assumes all permission states are chat channel related, which is true atm in the global module

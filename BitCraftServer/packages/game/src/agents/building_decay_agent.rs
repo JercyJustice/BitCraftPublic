@@ -8,7 +8,7 @@ use crate::{
     game::{dimensions, entities::building_state::BuildingState, reducer_helpers::building_helpers::delete_building},
     health_state, location_state,
     messages::authentication::ServerIdentity,
-    parameters_desc_v2,
+    parameters_desc,
 };
 
 #[spacetimedb::table(name = building_decay_loop_timer, scheduled(building_decay_agent_loop, at = scheduled_at))]
@@ -20,7 +20,7 @@ pub struct BuildingDecayLoopTimer {
 }
 
 pub fn update_timer(ctx: &ReducerContext) {
-    let tick_length = ctx.db.parameters_desc_v2().version().find(&0).unwrap().building_decay_tick_millis as u64;
+    let tick_length = ctx.db.parameters_desc().version().find(&0).unwrap().building_decay_tick_millis as u64;
     let mut count = 0;
     for mut timer in ctx.db.building_decay_loop_timer().iter() {
         count += 1;
@@ -35,7 +35,7 @@ pub fn update_timer(ctx: &ReducerContext) {
 
 pub fn init(ctx: &ReducerContext) {
     // schedule first tick
-    let tick_length = ctx.db.parameters_desc_v2().version().find(&0).unwrap().building_decay_tick_millis as u64;
+    let tick_length = ctx.db.parameters_desc().version().find(&0).unwrap().building_decay_tick_millis as u64;
     ctx.db
         .building_decay_loop_timer()
         .try_insert(BuildingDecayLoopTimer {

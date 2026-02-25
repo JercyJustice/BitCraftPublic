@@ -3,7 +3,7 @@ use spacetimedb::{ReducerContext, Timestamp};
 use crate::{
     claim_state, claim_tech_state,
     inter_module::claim_create_empire_settlement_state,
-    messages::{authentication::ServerIdentity, components::ClaimTechState, static_data::claim_tech_desc_v2},
+    messages::{authentication::ServerIdentity, components::ClaimTechState, static_data::claim_tech_desc},
     unwrap_or_err, unwrap_or_return,
 };
 
@@ -68,10 +68,7 @@ pub fn unlock_claim_tech(ctx: &ReducerContext, claim_tech: &mut ClaimTechState, 
         }
     }
 
-    let tech_desc = unwrap_or_return!(
-        ctx.db.claim_tech_desc_v2().id().find(tech_id),
-        "Claim tech id {tech_id} doesn't exist"
-    );
+    let tech_desc = unwrap_or_return!(ctx.db.claim_tech_desc().id().find(tech_id), "Claim tech id {tech_id} doesn't exist");
     for unlocked_tech in &tech_desc.unlocks_techs {
         unlock_claim_tech(ctx, claim_tech, *unlocked_tech, ignore_if_already_learned);
     }

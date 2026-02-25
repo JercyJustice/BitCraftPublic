@@ -1,6 +1,6 @@
 use crate::game::game_state::{self, game_state_filters};
 use crate::messages::components::{active_buff_state, HealthState, PlayerActionState, StaminaState};
-use crate::{health_state, parameters_desc_v2, unwrap_or_err, SatiationState};
+use crate::{health_state, parameters_desc, unwrap_or_err, SatiationState};
 use bitcraft_macro::shared_table_reducer;
 use spacetimedb::ReducerContext;
 
@@ -11,7 +11,7 @@ use super::sleep;
 fn player_respawn(ctx: &ReducerContext, teleport_home: bool) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
 
-    let respawn_seconds = ctx.db.parameters_desc_v2().version().find(&0).unwrap().respawn_seconds;
+    let respawn_seconds = ctx.db.parameters_desc().version().find(&0).unwrap().respawn_seconds;
 
     // Revive with 1 hp
     let mut health_state = unwrap_or_err!(ctx.db.health_state().entity_id().find(&actor_id), "Unable to update actor health");
@@ -41,7 +41,7 @@ fn player_respawn(ctx: &ReducerContext, teleport_home: bool) -> Result<(), Strin
         ctx.db.active_buff_state().entity_id().find(&actor_id),
         "Player has no active buff state."
     );
-    let innerlight_buff_duration = ctx.db.parameters_desc_v2().version().find(&0).unwrap().respawn_aggro_immunity;
+    let innerlight_buff_duration = ctx.db.parameters_desc().version().find(&0).unwrap().respawn_aggro_immunity;
     active_buff_state.set_innerlight_buff(ctx, innerlight_buff_duration);
     ctx.db.active_buff_state().entity_id().update(active_buff_state);
 

@@ -10,7 +10,7 @@ use crate::{
     messages::{
         components::{contribution_state, enemy_state, player_state, InventoryState, ThreatState},
         game_util::ItemType,
-        static_data::{contribution_loot_desc_v2, enemy_desc, item_list_desc, ItemListDesc},
+        static_data::{contribution_loot_desc, enemy_desc, item_list_desc, ItemListDesc},
     },
     ContributionState,
 };
@@ -60,7 +60,7 @@ impl ContributionState {
         if let Some(enemy) = ctx.db.enemy_state().entity_id().find(defender_entity_id) {
             return ctx
                 .db
-                .contribution_loot_desc_v2()
+                .contribution_loot_desc()
                 .enemy_type_id()
                 .filter(enemy.enemy_type as i32)
                 .next()
@@ -76,7 +76,7 @@ impl ContributionState {
 
         let mut contribution_prizes: Vec<(i32, i32, bool)> = ctx
             .db
-            .contribution_loot_desc_v2()
+            .contribution_loot_desc()
             .enemy_type_id()
             .filter(enemy_type_id)
             .map(|c| (c.minimum_contribution, c.item_list_id, c.weighted))

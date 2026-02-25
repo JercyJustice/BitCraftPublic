@@ -5,15 +5,15 @@ use crate::{
     messages::{
         components::{deployable_state, trade_order_state, PlayerNotificationEvent},
         inter_module::OnDeployableRecoveredMsg,
-        static_data::deployable_desc_v4,
+        static_data::deployable_desc,
     },
     unwrap_or_err,
 };
 
 pub fn process_message_on_destination(ctx: &ReducerContext, msg: OnDeployableRecoveredMsg) -> Result<(), String> {
     let desc = unwrap_or_err!(
-        ctx.db.deployable_desc_v4().id().find(msg.deployable_desc_id),
-        "DeployableDescV4 doesn't exist"
+        ctx.db.deployable_desc().id().find(msg.deployable_desc_id),
+        "DeployableDesc doesn't exist"
     );
     if let Err(err) = deployable_helpers::deactivate_deployable_collectible(ctx, msg.player_entity_id, &desc, false) {
         spacetimedb::log::error!("Failed to recover deployable: {}", err);

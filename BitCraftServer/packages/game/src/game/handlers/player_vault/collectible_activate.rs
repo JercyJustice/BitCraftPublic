@@ -5,7 +5,7 @@ use crate::{
         discovery::Discovery,
         game_state::{self, game_state_filters},
     },
-    messages::{action_request::PlayerCollectibleActivateRequest, components::*, static_data::*},
+    messages::{action_request::PlayerCollectibleActivateRequest, components::*, empire_shared::empire_player_data_state, static_data::*},
     unwrap_or_err,
 };
 
@@ -36,6 +36,12 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, vault_index: i32, activated: 
 
     if collectible_desc.collectible_type == CollectibleType::Emote {
         return Err("Cannot activate emotes".into());
+    }
+
+    if collectible_desc.collectible_type == CollectibleType::ClothesCape && activated {
+        if ctx.db.empire_player_data_state().entity_id().find(actor_id).is_none() {
+            return Err("Cannot equip an empire cloak when not part of an empire".into());
+        }
     }
 
     for knowledge_req in &collectible_desc.required_knowledges_to_use {

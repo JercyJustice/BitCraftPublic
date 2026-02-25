@@ -9,6 +9,7 @@ pub mod generic;
 pub mod handlers;
 pub mod load_config;
 pub mod location_cache;
+pub mod npc_empire;
 pub mod permission_helper;
 pub mod reducer_helpers;
 pub mod static_data;

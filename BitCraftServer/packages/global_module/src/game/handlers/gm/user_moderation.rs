@@ -1,9 +1,9 @@
 use std::time::Duration;
 
 use bitcraft_macro::shared_table_reducer;
-use spacetimedb::{log, ReducerContext, Table, TimeDuration};
+use spacetimedb::{log, ReducerContext, TimeDuration};
 
-use crate::game::game_state::{self, create_entity};
+use crate::game::game_state::create_entity;
 use crate::game::handlers::authentication::has_role;
 use crate::inter_module::*;
 use crate::messages::action_request::UserModerationCreateUserPolicyRequest;
@@ -18,16 +18,14 @@ fn user_moderation_create(ctx: &ReducerContext, request: UserModerationCreateUse
         return Err("Unauthorized".into());
     }
 
-    let actor_id = game_state::actor_id(&ctx, false).unwrap_or(0);
     let duration = Duration::from_millis(request.duration_ms);
     let user_moderation = UserModerationState {
         entity_id: create_entity(ctx),
-        target_entity_id: request.target_entity_id,
-        created_by_entity_id: actor_id,
+        target_identity: request.target_identity,
+        created_by_identity: ctx.sender,
         user_moderation_policy: request.user_moderation_policy,
         created_time: ctx.timestamp,
         expiration_time: ctx.timestamp + TimeDuration::from(duration),
-        duration_ms: request.duration_ms,
     };
 
     log::info!("[GM] user_moderation_create(): Adding a new instance {:?}", user_moderation);
@@ -36,18 +34,22 @@ fn user_moderation_create(ctx: &ReducerContext, request: UserModerationCreateUse
         UserModerationPolicy::PermanentBlockLogin,
         UserModerationPolicy::TemporaryBlockLogin,
         UserModerationPolicy::BlockChat,
+        UserModerationPolicy::PermanentBlockChat,
     ];
     let delete_chat = delete_chat_policies.contains(&request.user_moderation_policy);
 
     log::info!("[GM] user_moderation_create(): delete_chat : {}", delete_chat);
 
     if delete_chat {
-        let deleted_count = ctx.db.chat_message_state().owner_entity_id().delete(request.target_entity_id);
-        log::info!(
-            "[GM] user_moderation_create(): Deleted chat messages for user : {}, count : {}",
-            &request.target_entity_id,
-            deleted_count
-        );
+        // Look up the player's entity_id from their identity to delete chat messages
+        if let Some(user) = ctx.db.user_state().identity().find(&request.target_identity) {
+            let deleted_count = ctx.db.chat_message_state().owner_entity_id().delete(user.entity_id);
+            log::info!(
+                "[GM] user_moderation_create(): Deleted chat messages for user identity : {}, count : {}",
+                &request.target_identity.to_hex(),
+                deleted_count
+            );
+        }
     }
 
     let sign_out_policies = [UserModerationPolicy::PermanentBlockLogin, UserModerationPolicy::TemporaryBlockLogin];
@@ -56,16 +58,21 @@ fn user_moderation_create(ctx: &ReducerContext, request: UserModerationCreateUse
 
     if sign_out_user {
         log::info!(
-            "[GM] user_moderation_create(): Trying to sign out the user ... Looking for the UserState by target_entity_id : {}",
-            &request.target_entity_id
+            "[GM] user_moderation_create(): Trying to sign out the user ... by target_identity : {}",
+            &request.target_identity.to_hex()
         );
 
-        if let Some(user) = ctx.db.user_state().entity_id().find(&request.target_entity_id) {
-            sign_player_out::send_message(ctx, user.identity)?;
-
+        let result = sign_player_out::send_message(ctx, request.target_identity);
+        if result.is_err() {
             log::info!(
-                "[GM] user_moderation_create(): Signed out the user by target_entity_id : {}",
-                &request.target_entity_id
+                "[GM] user_moderation_create(): Failed to sign out the user by target_identity : {}, error: {}",
+                &request.target_identity.to_hex(),
+                result.err().unwrap()
+            );
+        } else {
+            log::info!(
+                "[GM] user_moderation_create(): Successfully signed out the user by target_identity : {}",
+                &request.target_identity.to_hex()
             );
         }
     }
@@ -98,53 +105,13 @@ fn user_moderation_clear_all(ctx: &ReducerContext, request: UserModerationCreate
         return Err("Unauthorized".into());
     }
 
-    if let Some(existing_state) = ctx.db.user_moderation_state().entity_id().find(&request.target_entity_id) {
+    for existing_state in ctx.db.user_moderation_state().target_identity().filter(&request.target_identity) {
         log::info!(
-            "[GM] user_moderation_clear_all(): filter_by_entity_id: Found existing_state {:?}",
-            existing_state,
-        );
-    } else {
-        log::info!("[GM] user_moderation_clear_all(): filter_by_entity_id: Found no UserModerationState");
-    }
-
-    for existing_state in ctx.db.user_moderation_state().target_entity_id().filter(request.target_entity_id) {
-        log::info!(
-            "[GM] user_moderation_clear_all(): filter_by_target_entity_id: Found existing_state {:?}",
+            "[GM] user_moderation_clear_all(): filter_by_target_identity: Found existing_state {:?}",
             existing_state,
         );
 
         UserModerationState::delete_shared(ctx, existing_state, InterModuleDestination::AllOtherRegions);
-    }
-
-    Ok(())
-}
-
-// This is implemented for debugging purposes
-#[spacetimedb::reducer]
-fn user_moderation_list_all(ctx: &ReducerContext, request: UserModerationCreateUserPolicyRequest) -> Result<(), String> {
-    if !has_role(ctx, &ctx.sender, Role::Mod) {
-        return Err("Unauthorized".into());
-    }
-
-    for existing_state in ctx.db.user_moderation_state().iter() {
-        log::info!("[GM] user_moderation_list_all(): Iterating {:?}", existing_state,);
-    }
-
-    if let Some(existing_state) = ctx.db.user_moderation_state().entity_id().find(&request.target_entity_id) {
-        log::info!(
-            "[GM] user_moderation_list_all(): filter_by_entity_id: With filter {} : Found existing_state {:?}",
-            request.target_entity_id,
-            existing_state,
-        );
-    } else {
-        log::info!("[GM] user_moderation_list_all(): filter_by_entity_id: Found no UserModerationState");
-    }
-
-    for existing_state in ctx.db.user_moderation_state().target_entity_id().filter(request.target_entity_id) {
-        log::info!(
-            "[GM] user_moderation_list_all(): filter_by_target_entity_id: Found existing_state {:?}",
-            existing_state,
-        );
     }
 
     Ok(())

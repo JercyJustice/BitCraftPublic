@@ -1,7 +1,7 @@
 use bitcraft_macro::shared_table_reducer;
 use spacetimedb::{log, Identity, ReducerContext, Table};
 
-use crate::deployable_desc_v4;
+use crate::deployable_desc;
 use crate::game::handlers::player_vault::deployable_hide::{hide_deployable_timer, HideDeployableTimer};
 use crate::game::handlers::queue::end_grace_period::{EndGracePeriodTimer, GracePeriodType};
 use crate::game::handlers::server::player_clear_action_state;
@@ -118,7 +118,7 @@ pub fn sign_out_internal(ctx: &ReducerContext, identity: Identity, insert_grace_
             for deployable in ctx.db.deployable_state().owner_id().filter(player_entity_id) {
                 let deployable_desc = ctx
                     .db
-                    .deployable_desc_v4()
+                    .deployable_desc()
                     .id()
                     .find(&deployable.deployable_description_id)
                     .unwrap();

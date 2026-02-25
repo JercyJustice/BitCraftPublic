@@ -4,7 +4,7 @@ use crate::{
     game::{dimensions, game_state::game_state_filters},
     messages::{
         components::{character_stats_state, teleportation_energy_state, TeleportationEnergyState},
-        static_data::{parameters_desc_v2, CharacterStatType},
+        static_data::{parameters_desc, CharacterStatType},
     },
     params,
 };
@@ -62,7 +62,7 @@ impl TeleportationEnergyState {
     }
 
     pub fn teleport_home_cost(&self, ctx: &ReducerContext, from_death: bool) -> f32 {
-        let base_cost = ctx.db.parameters_desc_v2().version().find(0).unwrap().teleportation_home_energy_cost as i32;
+        let base_cost = ctx.db.parameters_desc().version().find(0).unwrap().teleportation_home_energy_cost as i32;
         let death_cost = if from_death { 0 } else { 0 };
         (base_cost + death_cost) as f32
     }

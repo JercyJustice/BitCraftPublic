@@ -9,6 +9,7 @@ pub mod game_util;
 pub mod generic;
 pub mod global;
 pub mod inter_module;
+pub mod moderation_config;
 pub mod queue;
 pub mod static_data;
 pub mod util;

@@ -3,7 +3,7 @@ use std::time::Duration;
 use spacetimedb::ReducerContext;
 
 use crate::{
-    deployable_desc_v4,
+    deployable_desc,
     game::{
         game_state::{self},
         reducer_helpers::{deployable_helpers::store_deployable, player_action_helpers},
@@ -16,11 +16,11 @@ use crate::{
 pub fn event_delay(ctx: &ReducerContext, request: &DeployableStoreRequest) -> Duration {
     if let Some(deployable) = ctx
         .db
-        .deployable_collectible_state_v2()
+        .deployable_collectible_state()
         .deployable_entity_id()
         .find(&request.deployable_entity_id)
     {
-        let deployable_description = ctx.db.deployable_desc_v4().id().find(&deployable.deployable_desc_id).unwrap();
+        let deployable_description = ctx.db.deployable_desc().id().find(&deployable.deployable_desc_id).unwrap();
         let duration = match request.remotely {
             true => 30f32,
             false => deployable_description.deploy_time,
@@ -126,7 +126,7 @@ fn reduce_recover(ctx: &ReducerContext, actor_id: u64, request: &DeployableStore
         //Deployable is on another region
         let collectible = unwrap_or_err!(
             ctx.db
-                .deployable_collectible_state_v2()
+                .deployable_collectible_state()
                 .deployable_entity_id()
                 .find(request.deployable_entity_id),
             "Deployable doesn't exist"
@@ -134,7 +134,7 @@ fn reduce_recover(ctx: &ReducerContext, actor_id: u64, request: &DeployableStore
         //We don't know which region deployable is on, so we just blast messages to all regions and see if one of them succeeds
         send_inter_module_message(
             ctx,
-            crate::messages::inter_module::MessageContentsV4::RecoverDeployable(crate::messages::inter_module::RecoverDeployableMsg {
+            crate::messages::inter_module::MessageContents::RecoverDeployable(crate::messages::inter_module::RecoverDeployableMsg {
                 player_entity_id: actor_id,
                 deployable_entity_id: request.deployable_entity_id,
                 deployable_desc_id: collectible.deployable_desc_id,

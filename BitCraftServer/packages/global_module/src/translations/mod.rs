@@ -62,7 +62,12 @@ pub fn add_official_translator(ctx: &ReducerContext, username: String, lang: Str
         return Err("Unauthorized".into());
     }
 
-    if let Some(player) = ctx.db.player_lowercase_username_state().username_lowercase().find(&username.to_lowercase()) {
+    if let Some(player) = ctx
+        .db
+        .player_lowercase_username_state()
+        .username_lowercase()
+        .find(&username.to_lowercase())
+    {
         let new_entry = OfficialTranslators {
             lang,
             player_entity_id: player.entity_id,

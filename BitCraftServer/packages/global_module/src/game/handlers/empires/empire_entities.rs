@@ -8,7 +8,7 @@ use crate::{
     inter_module::send_inter_module_message,
     location_state,
     messages::{
-        components::{building_nickname_state, claim_member_state},
+        components::{building_nickname_state, claim_member_state, user_state},
         empire_schema::*,
         empire_shared::*,
         generic::world_region_state,
@@ -18,11 +18,12 @@ use crate::{
         },
         static_data::EmpireNotificationType,
     },
-    parameters_desc_v2, signed_in_player_state, unwrap_or_err, unwrap_or_return, ChunkCoordinates, ParametersDescV2, SmallHexTile,
+    parameters_desc, signed_in_player_state, unwrap_or_err, unwrap_or_return, ChunkCoordinates, ParametersDesc, SmallHexTile,
     TerrainChunkState,
 };
 
 use super::empires::delete_empire_building;
+use super::npc_empire::is_npc_empire;
 
 impl EmpireNodeState {
     pub fn chunk_coordinates(&self, ctx: &ReducerContext) -> Option<ChunkCoordinates> {
@@ -49,8 +50,8 @@ impl EmpireNodeState {
         }
     }
 
-    pub fn add_energy(&mut self, ctx: &ReducerContext, energy: i32, params: Option<ParametersDescV2>) -> bool {
-        let params = params.unwrap_or_else(|| ctx.db.parameters_desc_v2().version().find(&0).unwrap());
+    pub fn add_energy(&mut self, ctx: &ReducerContext, energy: i32, params: Option<ParametersDesc>) -> bool {
+        let params = params.unwrap_or_else(|| ctx.db.parameters_desc().version().find(&0).unwrap());
         if self.energy >= params.empire_node_max_energy {
             return false;
         }
@@ -135,6 +136,12 @@ impl EmpireNodeState {
             }
         }
 
+        // Delete chunks assigned to this watchtower
+        let chunks: Vec<EmpireChunkState> = ctx.db.empire_chunk_state().watchtower_entity_id().filter(self.entity_id).collect();
+        for chunk in chunks {
+            EmpireChunkState::delete_shared(ctx, chunk, crate::inter_module::InterModuleDestination::AllOtherRegions);
+        }
+
         // Delete sieges happening in this node
         for siege in ctx.db.empire_node_siege_state().building_entity_id().filter(self.entity_id) {
             EmpireNodeSiegeState::delete_shared(ctx, siege, crate::inter_module::InterModuleDestination::AllOtherRegions);
@@ -143,50 +150,48 @@ impl EmpireNodeState {
         EmpireNodeState::delete_shared(ctx, self, crate::inter_module::InterModuleDestination::AllOtherRegions);
     }
 
-    // Stamps the empire influence on this node chunk and surrounding chunks
-    // Returns a list of all empires whose territory size changed (due to newly contested chunk or newly acquired chunk)
+    // Stamps the empire influence on all chunks assigned to this watchtower.
+    // Chunks are pre-created during world gen with watchtower_entity_id set.
+    // Returns a list of all empires whose territory size changed (due to newly acquired chunk)
     pub fn stamp_influence(&self, ctx: &ReducerContext) -> HashSet<u64> {
         let mut set = HashSet::new();
 
-        for chunk_index in TerrainChunkState::chunk_indexes_near_chunk_index(ctx, self.chunk_index, 2) {
-            if let Some(empire_chunk) = ctx.db.empire_chunk_state().chunk_index().find(chunk_index) {
-                let was_contested = empire_chunk.contested();
-                let previous_owner = empire_chunk.empire_entity_id[0];
-                let will_update_territory = !was_contested && self.empire_entity_id != previous_owner;
+        let chunks: Vec<EmpireChunkState> = ctx.db.empire_chunk_state().watchtower_entity_id().filter(self.entity_id).collect();
+
+        for empire_chunk in chunks {
+            if empire_chunk.empire_entity_id == 0 {
+                // Chunk has no current owner - this empire is claiming it
                 empire_chunk.stamp_and_commit(ctx, self.empire_entity_id);
-                if will_update_territory {
-                    set.insert(previous_owner); // previous empire no longer controls this chunk (-1)
-                }
-            } else {
-                EmpireChunkState::insert_shared(
-                    ctx,
-                    EmpireChunkState {
-                        chunk_index: chunk_index,
-                        empire_entity_id: vec![self.empire_entity_id],
-                    },
-                    crate::inter_module::InterModuleDestination::AllOtherRegions,
-                );
                 set.insert(self.empire_entity_id); // this empire now controls this chunk (+1)
+            } else if empire_chunk.empire_entity_id != self.empire_entity_id {
+                // Chunk owned by different empire - should not happen with non-overlapping watchtowers
+                log::warn!(
+                    "Chunk {} already owned by empire {} when stamping for empire {}",
+                    empire_chunk.chunk_index,
+                    empire_chunk.empire_entity_id,
+                    self.empire_entity_id
+                );
+                let previous_owner = empire_chunk.empire_entity_id;
+                empire_chunk.stamp_and_commit(ctx, self.empire_entity_id);
+                set.insert(previous_owner);
+                set.insert(self.empire_entity_id);
             }
+            // else: already owned by same empire, no-op
         }
         set
     }
 
-    // Unstamp the empire influence from this chunk and surrounding chunks.
-    // Evaluate if influence disappears (in case of overlap with same empire) or changes allegiance (if contested with another empire)
+    // Unstamp the empire influence from all chunks assigned to this watchtower.
+    // Returns a list of all empires whose territory size changed
     pub fn unstamp_influence(&self, ctx: &ReducerContext) -> HashSet<u64> {
         let mut set = HashSet::new();
-        for chunk_index in TerrainChunkState::chunk_indexes_near_chunk_index(ctx, self.chunk_index, 2) {
-            if let Some(empire_chunk) = ctx.db.empire_chunk_state().chunk_index().find(chunk_index) {
-                let was_contested = empire_chunk.contested();
+
+        let chunks: Vec<EmpireChunkState> = ctx.db.empire_chunk_state().watchtower_entity_id().filter(self.entity_id).collect();
+
+        for empire_chunk in chunks {
+            if empire_chunk.empire_entity_id == self.empire_entity_id {
                 empire_chunk.unstamp_and_commit(ctx, self.empire_entity_id);
-                if let Some(updated_chunk) = ctx.db.empire_chunk_state().chunk_index().find(chunk_index) {
-                    if was_contested && !updated_chunk.contested() {
-                        set.insert(updated_chunk.empire_entity_id[0]); // another empire now controls this chunk (+1)
-                    }
-                } else {
-                    set.insert(self.empire_entity_id); // this empire no longer controls this chunk(-1)
-                }
+                set.insert(self.empire_entity_id); // this empire no longer controls this chunk (-1)
             }
         }
         set
@@ -253,17 +258,12 @@ impl EmpireState {
 
             send_inter_module_message(
                 ctx,
-                crate::messages::inter_module::MessageContentsV3::OnPlayerLeftEmpire(OnPlayerLeftEmpireMsg {
+                crate::messages::inter_module::MessageContents::OnPlayerLeftEmpire(OnPlayerLeftEmpireMsg {
                     player_entity_id: rank_entity_id,
                     empire_entity_id: self.entity_id,
                 }),
                 crate::inter_module::InterModuleDestination::Region(region),
             );
-        }
-
-        // All aligned expansion marks will become unaligned
-        for expansion in ctx.db.empire_expansion_state().iter() {
-            expansion.unstamp_all_and_commit(ctx, self.entity_id);
         }
 
         // All ranks for this empire need to disappear
@@ -289,6 +289,7 @@ impl EmpireState {
 
         let entity_id = self.entity_id;
         EmpireState::delete_shared(ctx, self.clone(), crate::inter_module::InterModuleDestination::AllOtherRegions);
+        ctx.db.empire_lowercase_name_state().entity_id().delete(entity_id);
         ctx.db.empire_log_state().entity_id().delete(&entity_id);
         ctx.db.empire_emblem_state().entity_id().delete(entity_id);
     }
@@ -340,6 +341,7 @@ impl EmpireState {
 
         // Transfer treasury
         new_empire_state.shard_treasury += self.shard_treasury;
+        new_empire_state.empire_currency_treasury += self.empire_currency_treasury;
         EmpireState::update_shared(ctx, new_empire_state, crate::inter_module::InterModuleDestination::AllOtherRegions);
 
         // all ongoing sieges for this empire will be transferred to the new empire
@@ -375,9 +377,14 @@ impl EmpireState {
     }
 
     pub fn update_empire_upkeep(ctx: &ReducerContext, empire_entity_id: u64) {
-        log::info!("Recalculating upkeep for every node");
+        // NPC empire watchtowers use fixed upkeep values set at placement time
+        if is_npc_empire(ctx, empire_entity_id) {
+            return;
+        }
 
         let empire = ctx.db.empire_state().entity_id().find(&empire_entity_id).unwrap();
+
+        log::info!("Recalculating upkeep for every node");
         let chunk_index = SmallHexTile::from(empire.location).chunk_coordinates().chunk_index();
         let capital_coord = TerrainChunkState::chunk_coord_from_chunk_index(chunk_index);
 
@@ -387,14 +394,9 @@ impl EmpireState {
         let mut owned_chunks: Vec<u64> = ctx
             .db
             .empire_chunk_state()
-            .iter()
-            .filter_map(|c| {
-                if c.empire_entity_id.iter().any(|e| *e != empire_entity_id) {
-                    None
-                } else {
-                    Some(c.chunk_index)
-                }
-            })
+            .empire_entity_id()
+            .filter(empire_entity_id)
+            .map(|c| c.chunk_index)
             .collect();
 
         let mut allied_settlements_chunk_indexes: Vec<u64> = ctx
@@ -496,12 +498,17 @@ impl EmpireState {
         let region = game_state::player_region(ctx, player_entity_id).expect("Player region not found");
         send_inter_module_message(
             ctx,
-            crate::messages::inter_module::MessageContentsV3::EmpireRemoveCrown(EmpireRemoveCrownMsg { player_entity_id }),
+            crate::messages::inter_module::MessageContents::EmpireRemoveCrown(EmpireRemoveCrownMsg { player_entity_id }),
             crate::inter_module::InterModuleDestination::Region(region),
         );
     }
 
     pub fn update_crown_status(ctx: &ReducerContext, empire_entity_id: u64) {
+        // NPC empire has no players, so no emperor to update crown for
+        if is_npc_empire(ctx, empire_entity_id) {
+            return;
+        }
+
         let emperor = unwrap_or_return!(
             ctx.db
                 .empire_player_data_state()
@@ -514,7 +521,7 @@ impl EmpireState {
         let region = game_state::player_region(ctx, emperor.entity_id).expect("Player region not found");
         send_inter_module_message(
             ctx,
-            crate::messages::inter_module::MessageContentsV3::EmpireUpdateEmperorCrown(EmpireUpdateEmperorCrownMsg { empire_entity_id }),
+            crate::messages::inter_module::MessageContents::EmpireUpdateEmperorCrown(EmpireUpdateEmperorCrownMsg { empire_entity_id }),
             crate::inter_module::InterModuleDestination::Region(region),
         );
     }
@@ -550,7 +557,7 @@ impl EmpireSettlementState {
                             if rank.entity_id == ignored_player_eid {
                                 0
                             } else {
-                                rank.donated_shards
+                                rank.donated_shards + rank.donated_empire_currency
                             }
                         } else {
                             0
@@ -606,45 +613,36 @@ impl EmpireSettlementState {
 }
 
 impl EmpireChunkState {
-    pub fn contested(&self) -> bool {
-        self.empire_entity_id.len() > 1 && self.empire_entity_id.iter().any(|eid| *eid != self.empire_entity_id[0])
-    }
-
     pub fn stamp_and_commit(mut self, ctx: &ReducerContext, empire_entity_id: u64) {
-        self.empire_entity_id.push(empire_entity_id);
+        self.empire_entity_id = empire_entity_id;
         EmpireChunkState::update_shared(ctx, self, crate::inter_module::InterModuleDestination::AllOtherRegions);
     }
 
     pub fn unstamp_and_commit(mut self, ctx: &ReducerContext, empire_entity_id: u64) {
-        if let Some(i) = self.empire_entity_id.iter().position(|eid| *eid == empire_entity_id) {
-            self.empire_entity_id.remove(i);
+        if self.empire_entity_id == empire_entity_id {
+            self.empire_entity_id = 0;
             self.apply_transaction(ctx);
         }
     }
 
     pub fn unstamp_all_and_commit(mut self, ctx: &ReducerContext, empire_entity_id: u64) {
-        self.empire_entity_id.retain(|eid| *eid != empire_entity_id);
+        if self.empire_entity_id == empire_entity_id {
+            self.empire_entity_id = 0;
+        }
         self.apply_transaction(ctx);
     }
 
     pub fn convert_and_commit(mut self, ctx: &ReducerContext, previous_empire_entity_id: u64, new_empire_entity_id: u64) {
-        let new_empire_entity_id: Vec<u64> = self
-            .empire_entity_id
-            .iter()
-            .map(|eid| {
-                if *eid == previous_empire_entity_id {
-                    new_empire_entity_id
-                } else {
-                    *eid
-                }
-            })
-            .collect();
-        self.empire_entity_id = new_empire_entity_id;
+        if self.empire_entity_id == previous_empire_entity_id {
+            self.empire_entity_id = new_empire_entity_id;
+        }
         EmpireChunkState::update_shared(ctx, self, crate::inter_module::InterModuleDestination::AllOtherRegions);
     }
 
     fn apply_transaction(self, ctx: &ReducerContext) {
-        if self.empire_entity_id.len() == 0 {
+        if self.empire_entity_id == 0 && self.watchtower_entity_id == 0 {
+            // Only delete chunks that were NOT pre-assigned to a watchtower.
+            // Watchtower territory chunks are permanent and should remain with empty ownership.
             EmpireChunkState::delete_shared(ctx, self, crate::inter_module::InterModuleDestination::AllOtherRegions);
         } else {
             EmpireChunkState::update_shared(ctx, self, crate::inter_module::InterModuleDestination::AllOtherRegions);
@@ -662,14 +660,16 @@ impl EmpirePlayerDataState {
                 rank,
                 donated_shards: 0,
                 noble: None,
+                donated_empire_currency: 0,
             },
             crate::inter_module::InterModuleDestination::AllOtherRegions,
         );
 
-        let region = unwrap_or_err!(ctx.db.user_region_state().identity().find(ctx.sender), "Player region not found").region_id;
+        let user = ctx.db.user_state().entity_id().find(actor_id).unwrap();
+        let region = unwrap_or_err!(ctx.db.user_region_state().identity().find(user.identity), "Player region not found").region_id;
         send_inter_module_message(
             ctx,
-            crate::messages::inter_module::MessageContentsV3::OnPlayerJoinedEmpire(OnPlayerJoinedEmpireMsg {
+            crate::messages::inter_module::MessageContents::OnPlayerJoinedEmpire(OnPlayerJoinedEmpireMsg {
                 player_entity_id: actor_id,
                 empire_entity_id,
             }),
@@ -698,20 +698,6 @@ impl EmpirePlayerDataState {
             return Some(rank.empire_entity_id);
         }
         None
-    }
-}
-
-impl EmpireExpansionState {
-    pub fn unstamp_all_and_commit(mut self, ctx: &ReducerContext, empire_entity_id: u64) {
-        let previous_len = self.empire_entity_id.len();
-        self.empire_entity_id.retain(|eid| *eid != empire_entity_id);
-        if self.empire_entity_id.len() != previous_len {
-            if self.empire_entity_id.len() == 0 {
-                EmpireExpansionState::delete_shared(ctx, self, crate::inter_module::InterModuleDestination::AllOtherRegions);
-            } else {
-                EmpireExpansionState::update_shared(ctx, self, crate::inter_module::InterModuleDestination::AllOtherRegions);
-            }
-        }
     }
 }
 
@@ -762,7 +748,7 @@ impl EmpireNodeSiegeState {
 
             send_inter_module_message(
                 ctx,
-                crate::messages::inter_module::MessageContentsV3::RegionDestroySiegeEngine(RegionDestroySiegeEngineMsg {
+                crate::messages::inter_module::MessageContents::RegionDestroySiegeEngine(RegionDestroySiegeEngineMsg {
                     deployable_entity_id: siege_engine.entity_id,
                 }),
                 crate::inter_module::InterModuleDestination::Region(game_state::region_index_from_entity_id(defense.building_entity_id)),

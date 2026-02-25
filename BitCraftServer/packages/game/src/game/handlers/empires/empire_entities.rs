@@ -29,32 +29,20 @@ impl EmpireState {
         ctx.db.vault_state().entity_id().update(vault);
     }
 
-    pub fn update_cloak_availability(ctx: &ReducerContext, player_entity_id: u64, enabled: bool) {
+    pub fn unequip_cloak(ctx: &ReducerContext, player_entity_id: u64) {
         // Remove or enable all cloak collectibles from that player's vault.
         // Design: There's only one cloak, and it's only when you're part of empire.
         let mut vault = ctx.db.vault_state().entity_id().find(&player_entity_id).unwrap();
         // Note: we can't index collectibles by an enum yet, therefore we need to iterate through all entries.
-        if enabled {
-            for cloak_collectible in ctx
-                .db
-                .collectible_desc()
-                .iter()
-                .filter(|c| c.collectible_type == CollectibleType::ClothesCape)
-            {
-                if vault.collectibles.iter().find(|c| c.id == cloak_collectible.id).is_none() {
-                    let _ = vault.add_collectible(ctx, cloak_collectible.id, false);
-                }
-            }
-        } else {
-            for cloak_collectible in ctx
-                .db
-                .collectible_desc()
-                .iter()
-                .filter(|c| c.collectible_type == CollectibleType::ClothesCape)
-            {
-                if let Some(i) = vault.collectibles.iter().position(|c| c.id == cloak_collectible.id) {
-                    vault.collectibles.remove(i);
-                }
+
+        for cloak_collectible in ctx
+            .db
+            .collectible_desc()
+            .iter()
+            .filter(|c| c.collectible_type == CollectibleType::ClothesCape)
+        {
+            if let Some(collectible) = vault.collectibles.iter_mut().find(|c| c.id == cloak_collectible.id) {
+                collectible.activated = false;
             }
         }
 
@@ -63,18 +51,7 @@ impl EmpireState {
 
     pub fn update_crown_status(ctx: &ReducerContext, empire_entity_id: u64) -> Result<(), String> {
         // Unlock or lock crown collectibles based on empire size
-        let num_chunks = ctx
-            .db
-            .empire_chunk_state()
-            .iter()
-            .filter_map(|c| {
-                if c.empire_entity_id.iter().any(|e| *e != empire_entity_id) {
-                    None
-                } else {
-                    Some(c.chunk_index)
-                }
-            })
-            .count() as u16;
+        let num_chunks = ctx.db.empire_chunk_state().empire_entity_id().filter(empire_entity_id).count() as u16;
 
         let emperor_entity_id = unwrap_or_err!(
             ctx.db
@@ -219,7 +196,7 @@ impl EmpireNodeSiegeState {
 
         send_inter_module_message(
             ctx,
-            crate::messages::inter_module::MessageContentsV4::EmpireSiegeAddSupplies(EmpireSiegeAddSuppliesMsg {
+            crate::messages::inter_module::MessageContents::EmpireSiegeAddSupplies(EmpireSiegeAddSuppliesMsg {
                 siege_entity_id: siege.unwrap().entity_id,
                 player_entity_id: actor_id,
                 supplies,

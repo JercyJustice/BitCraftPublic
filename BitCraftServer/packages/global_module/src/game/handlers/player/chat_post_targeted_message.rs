@@ -28,7 +28,7 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, text: String, target_entity_i
         return Err("Failed to send chat messages".into());
     }
 
-    UserModerationState::validate_chat_privileges(ctx, actor_id, "Your chat priveleges have been suspended")?;
+    UserModerationState::validate_chat_privileges(ctx, &ctx.sender, "Your chat privileges have been suspended")?;
 
     let username = unwrap_or_err!(ctx.db.player_username_state().entity_id().find(actor_id), "Invalid player").username;
 

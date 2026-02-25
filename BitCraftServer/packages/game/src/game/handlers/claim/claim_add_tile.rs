@@ -8,7 +8,7 @@ use crate::{
         game_state::{self, game_state_filters},
     },
     messages::{action_request::PlayerClaimAddTileRequest, components::*},
-    parameters_desc_v2,
+    parameters_desc,
     table_caches::{claim_tile_state_cache::ClaimTileStateCache, location_state_cache::LocationStateCache},
     unwrap_or_err, ChunkCoordinates,
 };
@@ -64,7 +64,7 @@ fn reduce(ctx: &ReducerContext, actor_id: u64, claim_entity_id: u64, t: SmallHex
     }
 
     // Make sure the location is not within range of a different claim
-    let min_distance_between_claims = ctx.db.parameters_desc_v2().version().find(0).unwrap().min_distance_between_claims;
+    let min_distance_between_claims = ctx.db.parameters_desc().version().find(0).unwrap().min_distance_between_claims;
 
     let is_close_to_other_claim = claim_cache
         .any_claim_in_radius_except(ctx, t, min_distance_between_claims, claim_entity_id)

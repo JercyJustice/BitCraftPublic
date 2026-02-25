@@ -4,7 +4,7 @@ use crate::{
     game::game_state,
     messages::{
         components::{ability_state, action_bar_state, combat_state, AbilityType, ActionBarState, PlayerState},
-        static_data::{combat_action_desc_v3, weapon_desc, CombatActionDescV3},
+        static_data::{combat_action_desc, weapon_desc, CombatActionDesc},
     },
     AbilityState, ActionCooldown,
 };
@@ -85,7 +85,7 @@ impl AbilityState {
             let weapon_type = ctx.db.weapon_desc().item_id().find(hunting_weapon.item_id).unwrap().weapon_type;
             if let Some(action) = ctx
                 .db
-                .combat_action_desc_v3()
+                .combat_action_desc()
                 .iter()
                 .find(|a| a.auto_cast && a.weapon_type_requirements.contains(&weapon_type))
             {
@@ -108,7 +108,7 @@ impl AbilityState {
             let weapon_type = ctx.db.weapon_desc().item_id().find(combat_weapon.item_id).unwrap().weapon_type;
             if let Some(action) = ctx
                 .db
-                .combat_action_desc_v3()
+                .combat_action_desc()
                 .iter()
                 .find(|a| a.auto_cast && a.weapon_type_requirements.contains(&weapon_type))
             {
@@ -148,7 +148,7 @@ impl AbilityState {
 
     pub fn set_combat_action_cooldown(
         &mut self,
-        combat_action: &CombatActionDescV3,
+        combat_action: &CombatActionDesc,
         cooldown_multiplier: f32,
         weapon_cooldown_multiplier: f32,
         timestamp: Timestamp,

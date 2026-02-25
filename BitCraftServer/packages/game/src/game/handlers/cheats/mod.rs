@@ -25,6 +25,7 @@ pub mod cheat_pillar_shaping_add_pillar;
 pub mod cheat_pillar_shaping_destroy;
 pub mod cheat_project_site_add_all_materials;
 pub mod cheat_quest_advance_to_handin;
+pub mod cheat_quest_clear;
 pub mod cheat_quest_restart;
 pub mod cheat_quest_skip;
 pub mod cheat_quest_skip_stage;

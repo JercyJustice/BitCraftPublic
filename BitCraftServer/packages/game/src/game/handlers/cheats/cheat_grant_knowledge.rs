@@ -1,8 +1,8 @@
 use crate::game::handlers::cheats::cheat_type::{can_run_cheat, CheatType};
 use crate::messages::static_data::pillar_shaping_desc;
 use crate::{
-    building_desc, cargo_desc, collectible_desc, construction_recipe_desc_v2, crafting_recipe_desc, deployable_desc_v4, enemy_desc,
-    extraction_recipe_desc, item_desc, knowledge_scroll_desc, npc_desc, paving_tile_desc, resource_desc, resource_placement_recipe_desc_v2,
+    building_desc, cargo_desc, collectible_desc, construction_recipe_desc, crafting_recipe_desc, deployable_desc, enemy_desc,
+    extraction_recipe_desc, item_desc, knowledge_scroll_desc, npc_desc, paving_tile_desc, resource_desc, resource_placement_recipe_desc,
     secondary_knowledge_desc,
 };
 use spacetimedb::{log, ReducerContext, Table};
@@ -44,7 +44,7 @@ fn cheat_grant_knowledge(ctx: &ReducerContext, request: CheatGrantKnowledgeReque
     }
 
     // construction
-    let construction_ids: Vec<i32> = ctx.db.construction_recipe_desc_v2().iter().map(|x| x.id).collect();
+    let construction_ids: Vec<i32> = ctx.db.construction_recipe_desc().iter().map(|x| x.id).collect();
     for construction_id in construction_ids {
         if also_learn {
             discovery.acquire_construction(ctx, construction_id);
@@ -134,7 +134,7 @@ fn cheat_grant_knowledge(ctx: &ReducerContext, request: CheatGrantKnowledgeReque
     }
 
     // resource placement
-    let resource_placement_ids: Vec<i32> = ctx.db.resource_placement_recipe_desc_v2().iter().map(|x| x.id).collect();
+    let resource_placement_ids: Vec<i32> = ctx.db.resource_placement_recipe_desc().iter().map(|x| x.id).collect();
     for resource_placement_id in resource_placement_ids {
         if also_learn {
             discovery.acquire_resource_placement(ctx, resource_placement_id);
@@ -166,7 +166,7 @@ fn cheat_grant_knowledge(ctx: &ReducerContext, request: CheatGrantKnowledgeReque
     }
 
     // deployable
-    let deployable_ids: Vec<i32> = ctx.db.deployable_desc_v4().iter().map(|x| x.id).collect();
+    let deployable_ids: Vec<i32> = ctx.db.deployable_desc().iter().map(|x| x.id).collect();
     for deployable_id in deployable_ids {
         if also_learn {
             discovery.acquire_deployable(ctx, deployable_id);

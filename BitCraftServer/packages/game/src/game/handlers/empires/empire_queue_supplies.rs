@@ -3,7 +3,7 @@ use spacetimedb::ReducerContext;
 use crate::{
     game::game_state,
     inter_module::*,
-    messages::{components::*, empire_shared::*, inter_module::*, static_data::parameters_desc_v2},
+    messages::{components::*, empire_shared::*, inter_module::*, static_data::parameters_desc},
     params, unwrap_or_err, unwrap_or_return,
 };
 
@@ -33,8 +33,8 @@ pub fn empire_queue_supplies(ctx: &ReducerContext, request: EmpireQueueSuppliesR
         "The foundry can only be used in the capital city"
     );
 
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
-    let shard_cost = params.hexite_capsule_shard_cost as u32;
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
+    let empire_currency_cost = params.hexite_capsule_shard_cost as u32;
     let supplies_cost = params.hexite_capsule_supply_cost;
     let threshold_hours = match ctx
         .db
@@ -51,8 +51,8 @@ pub fn empire_queue_supplies(ctx: &ReducerContext, request: EmpireQueueSuppliesR
         return Err("You don't have enough claim supplies to craft a hexite capsule".into());
     }
 
-    if empire.shard_treasury < shard_cost {
-        return Err("You don't have enough shards in treasury to craft a hexite capsule".into());
+    if empire.empire_currency_treasury < empire_currency_cost {
+        return Err("You don't have enough in treasury to craft a hexite capsule".into());
     }
 
     claim_local.supplies -= supplies_cost;
@@ -60,7 +60,7 @@ pub fn empire_queue_supplies(ctx: &ReducerContext, request: EmpireQueueSuppliesR
 
     send_inter_module_message(
         ctx,
-        crate::messages::inter_module::MessageContentsV4::EmpireQueueSupplies(EmpireQueueSuppliesMsg {
+        crate::messages::inter_module::MessageContents::EmpireQueueSupplies(EmpireQueueSuppliesMsg {
             player_entity_id: actor_id,
             building_entity_id: request.building_entity_id,
             claim_entity_id: claim.entity_id,

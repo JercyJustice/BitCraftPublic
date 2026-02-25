@@ -14,7 +14,7 @@ use crate::{
         empire_shared::*,
         game_util::{ItemStack, ItemType, PocketKey},
         inter_module::*,
-        static_data::{empire_supplies_desc, parameters_desc_v2},
+        static_data::{empire_supplies_desc, parameters_desc},
     },
     unwrap_or_err, unwrap_or_return,
 };
@@ -27,7 +27,7 @@ pub fn empire_resupply_node_start(ctx: &ReducerContext, request: EmpireResupplyN
 
     HealthState::check_incapacitated(ctx, actor_id, true)?;
 
-    let delay = ctx.db.parameters_desc_v2().version().find(&0).unwrap().repair_building_duration as f32;
+    let delay = ctx.db.parameters_desc().version().find(&0).unwrap().repair_building_duration as f32;
     let delay = Duration::from_secs_f32(delay);
     let target = request.building_entity_id;
 
@@ -109,7 +109,7 @@ pub fn empire_resupply_node_reduce(
     let supplies_count = ctx.db.empire_supplies_desc().cargo_id().find(&cargo_id).unwrap().energy;
     send_inter_module_message(
         ctx,
-        crate::messages::inter_module::MessageContentsV4::EmpireResupplyNode(EmpireResupplyNodeMsg {
+        crate::messages::inter_module::MessageContents::EmpireResupplyNode(EmpireResupplyNodeMsg {
             building_entity_id,
             supplies_count,
             player_entity_id: actor_id,

@@ -20,12 +20,7 @@ pub fn event_delay(ctx: &ReducerContext, actor_id: u64, request: &DeployableDepl
         let collectible_id = collectibles.get(request.vault_index as usize).unwrap().id;
         if let Some(collectible_desc) = ctx.db.collectible_desc().id().find(&collectible_id) {
             if collectible_desc.collectible_type == CollectibleType::Deployable {
-                let deployable_description = ctx
-                    .db
-                    .deployable_desc_v4()
-                    .deploy_from_collectible_id()
-                    .find(&collectible_id)
-                    .unwrap();
+                let deployable_description = ctx.db.deployable_desc().deploy_from_collectible_id().find(&collectible_id).unwrap();
                 return Duration::from_secs_f32(deployable_description.deploy_time);
             }
         }

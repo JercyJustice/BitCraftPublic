@@ -19,9 +19,9 @@ pub fn cheat_quest_advance_to_handin(ctx: &ReducerContext, player_entity_id: u64
             player_entity_id: player_entity_id,
             quest_chain_desc_id: quest_desc_id,
             stage_id: 0,
-            is_active: false,
             completed: false,
             stage_rewards_awarded: Vec::new(),
+            tracked: false,
         })?;
     }
 

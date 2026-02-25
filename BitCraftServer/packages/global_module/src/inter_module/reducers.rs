@@ -6,8 +6,8 @@ use crate::{
     messages::{
         authentication::{Role, ServerIdentity},
         inter_module::{
-            inter_module_message_counter, inter_module_message_errors, inter_module_message_v3, InterModuleMessageCounter,
-            InterModuleMessageErrors, InterModuleMessageV3, MessageContentsV3,
+            inter_module_message, inter_module_message_counter, inter_module_message_errors, InterModuleMessage, InterModuleMessageCounter,
+            InterModuleMessageErrors, MessageContents,
         },
     },
 };
@@ -17,7 +17,7 @@ use super::*;
 //Called on destination module
 #[spacetimedb::reducer]
 #[shared_table_reducer]
-pub fn process_inter_module_message(ctx: &ReducerContext, sender: u8, message: InterModuleMessageV3) -> Result<(), String> {
+pub fn process_inter_module_message(ctx: &ReducerContext, sender: u8, message: InterModuleMessage) -> Result<(), String> {
     validate_relay_identity(ctx)?;
 
     if let Some(mut counter) = ctx.db.inter_module_message_counter().module_id().find(&sender) {
@@ -39,46 +39,52 @@ pub fn process_inter_module_message(ctx: &ReducerContext, sender: u8, message: I
     }
 
     let r = match message.contents {
-        MessageContentsV3::TableUpdate(u) => {
+        MessageContents::TableUpdate(u) => {
             u.apply_updates(ctx);
             Ok(())
         }
 
-        MessageContentsV3::TransferPlayerRequest(_) => panic!("Global module should never receive TransferPlayerRequest message"),
-        MessageContentsV3::TransferPlayerHousingRequest(_) => {
+        MessageContents::TransferPlayerRequest(_) => panic!("Global module should never receive TransferPlayerRequest message"),
+        MessageContents::TransferPlayerHousingRequest(_) => {
             panic!("Global module should never receive TransferPlayerHousingRequest message")
         }
-        MessageContentsV3::PlayerCreateRequest(_) => panic!("Global module should never receive PlayerCreateRequest message"),
-        MessageContentsV3::OnPlayerNameSetRequest(_) => panic!("Global module should never receive OnPlayerNameSetRequest message"),
-        MessageContentsV3::OnEmpireBuildingDeleted(_) => panic!("Global module should never receive OnEmpireBuildingDeleted message"),
-        MessageContentsV3::OnPlayerJoinedEmpire(_) => panic!("Global module should never receive OnPlayerJoinedEmpire message"),
-        MessageContentsV3::OnPlayerLeftEmpire(_) => panic!("Global module should never receive OnPlayerLeftEmpire message"),
-        MessageContentsV3::RegionDestroySiegeEngine(_) => panic!("Global module should never receive RegionDestroySiegeEngine message"),
-        MessageContentsV3::EmpireUpdateEmperorCrown(_) => panic!("Global module should never receive EmpireUpdateEmperorCrown message"),
-        MessageContentsV3::EmpireRemoveCrown(_) => panic!("Global module should never receive EmpireRemoveCrown message"),
-        MessageContentsV3::SignPlayerOut(_) => panic!("Global module should never receive SignPlayerOut message"),
-        MessageContentsV3::AdminBroadcastMessage(_) => panic!("Global module should never receive AdminBroadcastMessage message"),
-        MessageContentsV3::PlayerSkipQueue(_) => panic!("Global module should never receive PlayerSkipQueue message"),
-        MessageContentsV3::GrantHubItem(_) => panic!("Global module should never receive GrantHubItem message"),
-        MessageContentsV3::RecoverDeployable(_) => panic!("Global module should never receive RecoverDeployable message"),
-        MessageContentsV3::OnDeployableRecovered(_) => panic!("Global module should never receive OnDeployableRecovered message"),
-        MessageContentsV3::ReplaceIdentity(_) => panic!("Global module should never receive ReplaceIdentity message"),
+        MessageContents::PlayerCreateRequest(_) => panic!("Global module should never receive PlayerCreateRequest message"),
+        MessageContents::OnPlayerNameSetRequest(_) => panic!("Global module should never receive OnPlayerNameSetRequest message"),
+        MessageContents::OnEmpireBuildingDeleted(_) => panic!("Global module should never receive OnEmpireBuildingDeleted message"),
+        MessageContents::OnPlayerJoinedEmpire(_) => panic!("Global module should never receive OnPlayerJoinedEmpire message"),
+        MessageContents::OnPlayerLeftEmpire(_) => panic!("Global module should never receive OnPlayerLeftEmpire message"),
+        MessageContents::RegionDestroySiegeEngine(_) => panic!("Global module should never receive RegionDestroySiegeEngine message"),
+        MessageContents::EmpireUpdateEmperorCrown(_) => panic!("Global module should never receive EmpireUpdateEmperorCrown message"),
+        MessageContents::EmpireRemoveCrown(_) => panic!("Global module should never receive EmpireRemoveCrown message"),
+        MessageContents::SignPlayerOut(_) => panic!("Global module should never receive SignPlayerOut message"),
+        MessageContents::AdminBroadcastMessage(_) => panic!("Global module should never receive AdminBroadcastMessage message"),
+        MessageContents::PlayerSkipQueue(_) => panic!("Global module should never receive PlayerSkipQueue message"),
+        MessageContents::GrantHubItem(_) => panic!("Global module should never receive GrantHubItem message"),
+        MessageContents::RecoverDeployable(_) => panic!("Global module should never receive RecoverDeployable message"),
+        MessageContents::OnDeployableRecovered(_) => panic!("Global module should never receive OnDeployableRecovered message"),
+        MessageContents::ReplaceIdentity(_) => panic!("Global module should never receive ReplaceIdentity message"),
+        MessageContents::RestoreSkills(_) => panic!("Global module should never receive RestoreSkills message"),
 
-        MessageContentsV3::UserUpdateRegionRequest(r) => user_update_region::process_message_on_destination(ctx, r),
-        MessageContentsV3::ClaimCreateEmpireSettlementState(r) => {
+        MessageContents::UserUpdateRegionRequest(r) => user_update_region::process_message_on_destination(ctx, r),
+        MessageContents::ClaimCreateEmpireSettlementState(r) => {
             claim_create_empire_settlement_state::process_message_on_destination(ctx, r)
         }
-        MessageContentsV3::OnClaimMembersChanged(r) => on_claim_members_changed::process_message_on_destination(ctx, r),
-        MessageContentsV3::EmpireCreateBuilding(r) => empire_create_building::process_message_on_destination(ctx, r),
-        MessageContentsV3::GlobalDeleteEmpireBuilding(r) => global_delete_empire_building::process_message_on_destination(ctx, r),
-        MessageContentsV3::DeleteEmpire(r) => delete_empire::process_message_on_destination(ctx, r),
-        MessageContentsV3::EmpireClaimJoin(r) => empire_claim_join::process_message_on_destination(ctx, r),
-        MessageContentsV3::EmpireResupplyNode(r) => empire_resupply_node::process_message_on_destination(ctx, r),
-        MessageContentsV3::EmpireCollectHexiteCapsule(r) => empire_collect_hexite_capsule::process_message_on_destination(ctx, r),
-        MessageContentsV3::EmpireStartSiege(r) => empire_start_siege::process_message_on_destination(ctx, r),
-        MessageContentsV3::EmpireSiegeAddSupplies(r) => empire_siege_add_supplies::process_message_on_destination(ctx, r),
-        MessageContentsV3::OnRegionPlayerCreated(r) => on_region_player_created::process_message_on_destination(ctx, r),
-        MessageContentsV3::EmpireQueueSupplies(r) => empire_queue_supplies::process_message_on_destination(ctx, r),
+        MessageContents::OnClaimMembersChanged(r) => on_claim_members_changed::process_message_on_destination(ctx, r),
+        MessageContents::EmpireCreateBuilding(r) => empire_create_building::process_message_on_destination(ctx, r),
+        MessageContents::GlobalDeleteEmpireBuilding(r) => global_delete_empire_building::process_message_on_destination(ctx, r),
+        MessageContents::DeleteEmpire(r) => delete_empire::process_message_on_destination(ctx, r),
+        MessageContents::EmpireClaimJoin(r) => empire_claim_join::process_message_on_destination(ctx, r),
+        MessageContents::EmpireResupplyNode(r) => empire_resupply_node::process_message_on_destination(ctx, r),
+        MessageContents::EmpireDonateItem(r) => empire_donate_item::process_message_on_destination(ctx, r),
+        MessageContents::EmpireCreate(r) => empire_create::process_message_on_destination(ctx, r),
+        MessageContents::EmpireCollectHexiteCapsule(r) => empire_collect_hexite_capsule::process_message_on_destination(ctx, r),
+        MessageContents::EmpireStartSiege(r) => empire_start_siege::process_message_on_destination(ctx, r),
+        MessageContents::EmpireSiegeAddSupplies(r) => empire_siege_add_supplies::process_message_on_destination(ctx, r),
+        MessageContents::EmpireAddCurrency(r) => empire_add_currency::process_message_on_destination(ctx, r),
+        MessageContents::OnRegionPlayerCreated(r) => on_region_player_created::process_message_on_destination(ctx, r),
+        MessageContents::EmpireQueueSupplies(r) => empire_queue_supplies::process_message_on_destination(ctx, r),
+        MessageContents::ClaimSetName(r) => claim_set_name::process_message_on_destination(ctx, r),
+        MessageContents::NpcPlaceWatchtowers(r) => npc_place_watchtowers::process_message_on_destination(ctx, r),
     };
 
     if let Err(error) = r.clone() {
@@ -109,14 +115,14 @@ pub fn on_inter_module_message_processed(ctx: &ReducerContext, id: u64, error: O
         spacetimedb::log::error!("Inter-module reducer {id} returned error: {err}");
     }
 
-    let message = ctx.db.inter_module_message_v3().id().find(id).unwrap();
+    let message = ctx.db.inter_module_message().id().find(id).unwrap();
     match message.contents {
-        MessageContentsV3::PlayerCreateRequest(r) => player_create::handle_destination_result_on_sender(ctx, r, error),
-        MessageContentsV3::GrantHubItem(r) => grant_hub_item::handle_destination_result_on_sender(ctx, r, error),
+        MessageContents::PlayerCreateRequest(r) => player_create::handle_destination_result_on_sender(ctx, r, error),
+        MessageContents::GrantHubItem(r) => grant_hub_item::handle_destination_result_on_sender(ctx, r, error),
         _ => {}
     }
 
-    ctx.db.inter_module_message_v3().id().delete(id);
+    ctx.db.inter_module_message().id().delete(id);
     return Ok(());
 }
 

@@ -7,7 +7,7 @@ use crate::messages::authentication::ServerIdentity;
 use crate::messages::components::*;
 use crate::messages::game_util::ItemStack;
 use crate::messages::util::SmallHexTileMessage;
-use crate::{parameters_desc_v2, ItemListDesc};
+use crate::{parameters_desc, ItemListDesc};
 
 #[spacetimedb::table(name = dropped_inventory_ownership_timer, public, scheduled(dropped_inventory_lose_ownership, at = scheduled_at), 
     index(name = entity_id, btree(columns = [entity_id])))]
@@ -129,7 +129,7 @@ impl DroppedInventoryState {
         let duration_sec = ownership_duration.unwrap_or(
             ctx
             .db
-            .parameters_desc_v2()
+            .parameters_desc()
             .version()
             .find(0)
             .unwrap()
@@ -150,7 +150,7 @@ impl DroppedInventoryState {
     pub fn insert_despawn_timer(&mut self, ctx: &ReducerContext) {
         let duration_sec = ctx
             .db
-            .parameters_desc_v2()
+            .parameters_desc()
             .version()
             .find(0)
             .unwrap()

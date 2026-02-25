@@ -69,9 +69,9 @@ fn complete_chain(ctx: &ReducerContext, player_id: u64, chain_id: i32) -> Result
         player_entity_id: player_id,
         quest_chain_desc_id: chain_id,
         stage_id: -1,
-        is_active: false,
         completed: true,
         stage_rewards_awarded: Vec::new(),
+        tracked: false
     })?;
     Ok(())
 }

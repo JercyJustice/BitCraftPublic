@@ -47,6 +47,7 @@ pub enum CheatType {
     CheatRestartQuest,
     CheatAdvanceQuestToHandIn,
     CheatSkipQuestStage,
+    CheatClearQuest,
 }
 
 pub fn can_run_cheat(ctx: &ReducerContext, identity: &Identity, cheat_type: CheatType) -> bool {
@@ -108,5 +109,6 @@ pub fn can_run_cheat(ctx: &ReducerContext, identity: &Identity, cheat_type: Chea
         CheatType::CheatRestartQuest => role as i32 >= Role::Gm as i32,
         CheatType::CheatAdvanceQuestToHandIn => role as i32 >= Role::Gm as i32,
         CheatType::CheatSkipQuestStage => role as i32 >= Role::Gm as i32,
+        CheatType::CheatClearQuest => role as i32 >= Role::Gm as i32,
     }
 }

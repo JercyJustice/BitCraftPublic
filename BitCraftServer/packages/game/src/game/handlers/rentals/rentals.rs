@@ -6,7 +6,7 @@ use crate::messages::action_request::*;
 use crate::messages::authentication::ServerIdentity;
 use crate::messages::components::*;
 use crate::messages::static_data::AlertType;
-use crate::{parameters_desc_v2, unwrap_or_err};
+use crate::{parameters_desc, unwrap_or_err};
 use spacetimedb::{ReducerContext, Table};
 
 fn validate_co_owner_permissions(ctx: &ReducerContext, actor_id: u64, rent_entity_id: u64) -> Result<(), String> {
@@ -178,7 +178,7 @@ pub fn rent_purchase(ctx: &ReducerContext, request: RentPurchaseRequest) -> Resu
         return Err("This rental is not listed yet".into());
     }
 
-    let amount = ctx.db.parameters_desc_v2().version().find(&0).unwrap().rent_deposit_days as u32 * rent.daily_rent;
+    let amount = ctx.db.parameters_desc().version().find(&0).unwrap().rent_deposit_days as u32 * rent.daily_rent;
     rent.pay_rent(ctx, actor_id, amount)?;
     rent.white_list.push(actor_id);
     rent.active = true;
@@ -221,7 +221,7 @@ pub fn rent_evict(ctx: &ReducerContext, request: RentEvictRequest) -> Result<(),
         rent.clear();
     } else {
         let compensatory_fee =
-            (rent.daily_rent as f32 * ctx.db.parameters_desc_v2().version().find(&0).unwrap().rent_eviction_compensation) as u32;
+            (rent.daily_rent as f32 * ctx.db.parameters_desc().version().find(&0).unwrap().rent_eviction_compensation) as u32;
         let mut remaining_compensatory_fee = compensatory_fee;
         let mut claim_local = owning_claim.local_state(ctx);
 

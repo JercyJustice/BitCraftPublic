@@ -143,7 +143,7 @@ impl CraftingRecipeDesc {
     }
 }
 
-impl ConstructionRecipeDescV2 {
+impl ConstructionRecipeDesc {
     pub fn get_skill_type(&self) -> Option<SkillType> {
         let skill_id = match self.experience_per_progress.first() {
             Some(exp) => exp.skill_id,
@@ -169,7 +169,7 @@ impl DeconstructionRecipeDesc {
     }
 }
 
-impl ResourcePlacementRecipeDescV2 {
+impl ResourcePlacementRecipeDesc {
     pub fn get_skill_type(&self) -> Option<SkillType> {
         let skill_id = match self.experience_per_progress.first() {
             Some(exp) => exp.skill_id,

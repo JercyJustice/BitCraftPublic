@@ -1,6 +1,6 @@
-use crate::game::claim_helper;
 use crate::game::reducer_helpers::player_action_helpers;
 use crate::game::terrain_chunk::TerrainChunkCache;
+use crate::game::{claim_helper, dimensions};
 use crate::messages::components::PlayerActionState;
 use crate::messages::game_util::ItemStack;
 use crate::{
@@ -75,6 +75,10 @@ fn reduce(
     // Verify distance to paving target
     let player_mobile = unwrap_or_err!(ctx.db.mobile_entity_state().entity_id().find(&actor_id), "Invalid player");
     let player_coord = player_mobile.coordinates();
+    if player_coord.dimension != dimensions::OVERWORLD {
+        return Err("Cannot pave in interiors".into());
+    }
+
     let target_coord = request.coordinates.into();
 
     if player_coord.distance_to(target_coord) > 3 {

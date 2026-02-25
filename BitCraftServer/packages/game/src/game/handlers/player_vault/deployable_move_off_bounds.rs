@@ -4,7 +4,7 @@ use crate::{
     game::{game_state, reducer_helpers::deployable_helpers::expel_passengers, terrain_chunk::TerrainChunkCache},
     messages::{
         components::*,
-        static_data::{deployable_desc_v4, DeployableType, FootprintType},
+        static_data::{deployable_desc, DeployableType, FootprintType},
     },
     unwrap_or_err, OffsetCoordinatesFloat, SmallHexTile,
 };
@@ -35,7 +35,7 @@ pub fn deployable_move_off_bounds(ctx: &ReducerContext, deployable_entity_id: u6
 
     // Ignore siege engines requirements for now (there's no harm if anyone does that, really) - client check is enough for that.
 
-    let deployable_desc = ctx.db.deployable_desc_v4().id().find(deployable.deployable_description_id).unwrap();
+    let deployable_desc = ctx.db.deployable_desc().id().find(deployable.deployable_description_id).unwrap();
     if deployable_desc.deployable_type != DeployableType::SiegeEngine && deployable.owner_id != actor_id {
         return Err("Only the deployable owner can move it out of bounds".into());
     }
@@ -86,13 +86,13 @@ pub fn deployable_move_off_bounds(ctx: &ReducerContext, deployable_entity_id: u6
     // update icon on map
     let mut deployable_collectible = ctx
         .db
-        .deployable_collectible_state_v2()
+        .deployable_collectible_state()
         .deployable_entity_id()
         .find(&deployable.entity_id)
         .unwrap();
     deployable_collectible.location = Some(offset);
     ctx.db
-        .deployable_collectible_state_v2()
+        .deployable_collectible_state()
         .deployable_entity_id()
         .update(deployable_collectible);
 

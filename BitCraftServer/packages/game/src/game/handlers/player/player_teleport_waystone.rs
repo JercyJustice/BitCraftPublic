@@ -8,7 +8,7 @@ use crate::{
         reducer_helpers::player_action_helpers,
     },
     messages::{action_request::*, components::*},
-    parameters_desc_v2, params, unwrap_or_err,
+    parameters_desc, params, unwrap_or_err,
 };
 
 use super::sleep;
@@ -44,10 +44,7 @@ pub fn player_teleport_waystone(ctx: &ReducerContext, request: PlayerTeleportWay
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
 
     //get building location
-    let location_state_to = unwrap_or_err!(
-        ctx.db.location_state().entity_id().find(&entity_id_to),
-        "Waystone does not exist."
-    );
+    let location_state_to = unwrap_or_err!(ctx.db.location_state().entity_id().find(&entity_id_to), "Waystone does not exist.");
     let coords = location_state_to.coordinates();
     let teleport_location_tile = coords;
 

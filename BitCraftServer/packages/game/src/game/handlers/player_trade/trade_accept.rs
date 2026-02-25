@@ -108,7 +108,11 @@ pub fn finalize(ctx: &ReducerContext, trade_session: &mut TradeSessionState) -> 
 
         let inventory_pocket_index = inventory_pocket_index as usize;
 
-        if initiator_inventory.is_pocket_empty(inventory_pocket_index) {
+        if let Some(content) = initiator_inventory.get_pocket_contents(inventory_pocket_index) {
+            if content != trade_pocket.contents {
+                return Err("Initiator missing required items.".into());
+            }
+        } else {
             return Err("Initiator missing required items.".into());
         }
 
@@ -145,7 +149,11 @@ pub fn finalize(ctx: &ReducerContext, trade_session: &mut TradeSessionState) -> 
 
         let inventory_pocket_index = inventory_pocket_index as usize;
 
-        if acceptor_inventory.is_pocket_empty(inventory_pocket_index) {
+        if let Some(content) = acceptor_inventory.get_pocket_contents(inventory_pocket_index) {
+            if content != trade_pocket.contents {
+                return Err("Acceptor missing required items.".into());
+            }
+        } else {
             return Err("Acceptor missing required items.".into());
         }
 

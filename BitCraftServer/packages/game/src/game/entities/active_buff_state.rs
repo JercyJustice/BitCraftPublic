@@ -73,7 +73,9 @@ impl ActiveBuffState {
 
         let buff_state = self.active_buffs.get_mut(index).unwrap();
 
-        buff_state.buff_start_timestamp = OnlineTimestamp { value: unix(ctx.timestamp) };
+        buff_state.buff_start_timestamp = OnlineTimestamp {
+            value: unix(ctx.timestamp),
+        };
 
         buff_state.buff_duration = new_duration;
         buff_state.values = new_values;
@@ -124,13 +126,13 @@ impl ActiveBuffState {
     // Returns the number of seconds left for the buff, or -1 if it's persistent.
     pub fn buff_remaining_time(&self, buff_id: i32, now: Timestamp) -> i32 {
         if let Some(index) = self.buff_index(buff_id) {
-            if index < self.active_buffs.iter().count() {
+            if index < self.active_buffs.len() {
                 let buff_state = self.active_buffs.get(index).unwrap();
                 if buff_state.buff_duration < 0 {
                     return -1;
                 }
-                let start_time_stamp = buff_state.buff_start_timestamp.clone();
-                let buff_end_time = start_time_stamp.value + buff_state.buff_duration;
+                let start_time_stamp = buff_state.buff_start_timestamp.value;
+                let buff_end_time = start_time_stamp + buff_state.buff_duration;
                 let now = unix(now) as i32;
                 if now < buff_end_time {
                     return buff_end_time - now;
@@ -222,7 +224,10 @@ impl ActiveBuffState {
     }
 
     pub fn has_innerlight_buff(&self, ctx: &ReducerContext) -> bool {
-        self.has_active_buff(BuffDesc::find_by_buff_category_single(ctx, BuffCategory::InnerLight).unwrap().id, ctx.timestamp)
+        self.has_active_buff(
+            BuffDesc::find_by_buff_category_single(ctx, BuffCategory::InnerLight).unwrap().id,
+            ctx.timestamp,
+        )
     }
 
     pub fn set_innerlight_buff(&mut self, ctx: &ReducerContext, duration: i32) -> bool {

@@ -122,7 +122,7 @@ impl WorldDefinition {
                 spawns_on_land: resource_details.spawns_on_land,
                 land_elevation_range: resource_details.land_elevation_range,
                 spawns_in_water: resource_details.spawns_in_water,
-                spawns_on_uneven_terrain: resource_details.spawns_on_uneven_terrain,
+                max_elevation_delta: resource_details.max_elevation_delta,
                 water_depth_range: resource_details.water_depth_range,
             };
             let mut bv: Vec<ResourceBiome> = Vec::new();

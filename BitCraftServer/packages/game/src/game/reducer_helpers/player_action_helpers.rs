@@ -40,18 +40,18 @@ pub fn roll_crit_outcome(player_skill_level: i32, action_skill_requirement: i32)
     }
 
     fn calculate_yield(skill_delta: f32) -> f32 {
-        let log_f = f32::ln(ctx.db.parameters_desc_v2().version().find(&0).unwrap().skill_yield_log_base);
+        let log_f = f32::ln(ctx.db.parameters_desc().version().find(&0).unwrap().skill_yield_log_base);
         let modified_skill_delta = 1.0 + (skill_delta / 100.0);
         let yield_rate = if skill_delta < 0.0 {
             f32::powf(
                 modified_skill_delta,
-                ctx.db.parameters_desc_v2().version().find(&0).unwrap().skill_yield_power_exponent,
+                ctx.db.parameters_desc().version().find(&0).unwrap().skill_yield_power_exponent,
             )
         } else {
             f32::ln(modified_skill_delta) / log_f + 1.0
         };
 
-        if yield_rate >= ctx.db.parameters_desc_v2().version().find(&0).unwrap().skill_yield_cutoff_percent {
+        if yield_rate >= ctx.db.parameters_desc().version().find(&0).unwrap().skill_yield_cutoff_percent {
             yield_rate
         } else {
             0.0

@@ -1,6 +1,6 @@
-use crate::CombatActionDescV3;
+use crate::CombatActionDesc;
 
-impl CombatActionDescV3 {
+impl CombatActionDesc {
     /*
     pub can_use(&self, actor_id: u64) -> bool {
 

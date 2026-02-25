@@ -12,9 +12,7 @@ use crate::{
 
 impl TravelerTaskState {
     pub fn delete_all_for_player(ctx: &ReducerContext, player_entity_id: u64) {
-        for trade_order in ctx.db.traveler_task_state().player_entity_id().filter(player_entity_id) {
-            ctx.db.traveler_task_state().entity_id().delete(trade_order.entity_id);
-        }
+        ctx.db.traveler_task_state().player_entity_id().delete(player_entity_id);
     }
 
     pub fn create_and_commit(ctx: &ReducerContext, player_entity_id: u64, traveler_id: i32, task_id: i32) {
@@ -74,7 +72,7 @@ impl TravelerTaskState {
 
             for _i in 0..iterations {
                 let rnd = ctx.rng().gen_range(0..skill_appropriate_task_pool.len());
-                let task_id = skill_appropriate_task_pool.remove(rnd);
+                let task_id = skill_appropriate_task_pool.swap_remove(rnd);
                 Self::create_and_commit(ctx, player_entity_id, *traveler_id, task_id);
             }
         }

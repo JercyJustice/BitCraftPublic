@@ -144,8 +144,6 @@ impl Discovery {
             return;
         }
 
-        self.on_knowledge_acquired(ctx);
-
         let knowledges = self.knowledges.as_mut().unwrap();
 
         let player_entity_id = self.player_entity_id;
@@ -1808,6 +1806,7 @@ impl Discovery {
             if let Some(entry) = knowledges.knowledge_secondary.iter_mut().find(|e| e.id == secondary_id) {
                 entry.state = KnowledgeState::Acquired;
             }
+            self.on_secondary_acquired(ctx, secondary_id);
         }
     }
 

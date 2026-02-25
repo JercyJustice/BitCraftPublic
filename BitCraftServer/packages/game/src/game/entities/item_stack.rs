@@ -61,6 +61,15 @@ impl ItemStack {
         }
     }
 
+    pub fn empire_currency(ctx: &ReducerContext, quantity: i32) -> ItemStack {
+        ItemStack {
+            item_id: ctx.db.item_desc().tag().filter("Empire Currency").next().unwrap().id,
+            item_type: ItemType::Item,
+            quantity,
+            durability: None,
+        }
+    }
+
     pub fn single_cargo(item_id: i32) -> ItemStack {
         ItemStack {
             item_id,

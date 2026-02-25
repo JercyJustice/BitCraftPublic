@@ -1,8 +1,8 @@
 use spacetimedb::{ReducerContext, Table};
 
-use crate::game::game_state;
+use crate::game::game_state::{self, game_state_filters};
 use crate::game::reducer_helpers::timer_helpers::now_plus_secs;
-use crate::{claim_tech_desc_v2, parameters_desc_v2, params, InventoryState};
+use crate::{claim_tech_desc, parameters_desc, params, InventoryState};
 use crate::{
     messages::{action_request::PlayerClaimTechLearnRequest, components::*},
     unwrap_or_err,
@@ -19,13 +19,22 @@ pub fn claim_tech_learn(ctx: &ReducerContext, request: PlayerClaimTechLearnReque
     let tech_id = request.tech_id;
 
     let claim = unwrap_or_err!(ctx.db.claim_state().entity_id().find(claim_entity_id), "No such claim.");
+    let claim_building = unwrap_or_err!(
+        ctx.db.building_state().entity_id().find(claim.owner_building_entity_id),
+        "Could not find settlement"
+    );
+
+    let player_coord = game_state_filters::coordinates_any(ctx, actor_id);
+    if claim_building.distance_to(ctx, &player_coord) > 2 {
+        return Err("Too far".into());
+    }
 
     if !claim.has_co_owner_permissions(ctx, actor_id) {
         return Err("Only the owner and co-owners can research claim technologies.".into());
     }
 
     // Make sure requisite is known
-    let tech_desc = unwrap_or_err!(ctx.db.claim_tech_desc_v2().id().find(tech_id), "Tech does not exist");
+    let tech_desc = unwrap_or_err!(ctx.db.claim_tech_desc().id().find(tech_id), "Tech does not exist");
     let mut claim_tech = unwrap_or_err!(
         ctx.db.claim_tech_state().entity_id().find(&claim_entity_id),
         "Claim has no tech, this should not happen"

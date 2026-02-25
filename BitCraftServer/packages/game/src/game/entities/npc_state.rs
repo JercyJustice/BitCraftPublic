@@ -13,7 +13,7 @@ use crate::{
     },
 };
 use crate::{
-    location_state, mobile_entity_state, npc_desc, npc_state, parameters_desc_v2, trade_order_state, traveler_trade_order_desc, NpcType,
+    location_state, mobile_entity_state, npc_desc, npc_state, parameters_desc, trade_order_state, traveler_trade_order_desc, NpcType,
 };
 
 use super::{building_state::BuildingState, location::MobileEntityState, resource_clump::OffsetCoordinatesSmall};
@@ -89,7 +89,7 @@ impl NpcState {
         let mut rng = ctx.rng();
         let sampled_ids = ids.iter().choose_multiple(
             &mut rng,
-            ctx.db.parameters_desc_v2().version().find(&0).unwrap().selected_traveler_order_count as usize,
+            ctx.db.parameters_desc().version().find(&0).unwrap().selected_traveler_order_count as usize,
         );
         for id in sampled_ids {
             let traveler_trade_order = ctx.db.traveler_trade_order_desc().id().find(id).unwrap();

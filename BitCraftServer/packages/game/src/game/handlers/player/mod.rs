@@ -4,6 +4,7 @@ pub mod ability_custom_activate;
 pub mod ability_remove;
 pub mod ability_set;
 pub mod achievement_claim;
+pub mod activate_building_buff;
 pub mod chat_post_message;
 pub mod closed_listing_collect;
 pub mod deployable_dismount;

@@ -25,13 +25,15 @@ pub fn admin_mark_premium_purchase_processed(ctx: &ReducerContext, entity_id: u6
         return Err("Premium Purchase has already been processed".into());
     }
 
-    if let Some(collectible_desc_id) = premium_purchase_state.collectible_desc_id {
-        increment_collectible_balance(
-            ctx,
-            premium_purchase_state.identity,
-            collectible_desc_id,
-            premium_purchase_state.quantity,
-        );
+    if let Some(collectible_desc_ids) = &premium_purchase_state.collectible_desc_ids {
+        for collectible_desc_id in collectible_desc_ids {
+            increment_collectible_balance(
+                ctx,
+                premium_purchase_state.identity,
+                *collectible_desc_id,
+                premium_purchase_state.quantity,
+            );
+        }
     }
 
     decrement_shard_balance(ctx, premium_purchase_state.identity, premium_purchase_state.price);

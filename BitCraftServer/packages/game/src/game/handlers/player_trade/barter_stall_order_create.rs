@@ -1,7 +1,7 @@
 use spacetimedb::ReducerContext;
 
 use crate::{
-    building_desc, deployable_desc_v4,
+    building_desc, deployable_desc,
     game::{
         discovery::Discovery,
         game_state::{self, game_state_filters},
@@ -81,7 +81,7 @@ pub fn reduce(
         }
         let deployable_desc = ctx
             .db
-            .deployable_desc_v4()
+            .deployable_desc()
             .id()
             .find(&deployable.deployable_description_id)
             .unwrap();

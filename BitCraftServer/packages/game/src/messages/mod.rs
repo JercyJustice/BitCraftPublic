@@ -7,6 +7,7 @@ pub mod force_generation;
 pub mod game_util;
 pub mod generic;
 pub mod inter_module;
+pub mod moderation_config;
 pub mod queue;
 pub mod region;
 pub mod static_data;

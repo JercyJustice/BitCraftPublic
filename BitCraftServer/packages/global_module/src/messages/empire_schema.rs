@@ -158,6 +158,12 @@ pub struct EmpireDonateShardsRequest {
 }
 
 #[derive(SpacetimeType)]
+pub struct EmpireDonateCurrencyRequest {
+    pub amount: u32,
+    pub on_behalf_username: Option<String>,
+}
+
+#[derive(SpacetimeType)]
 pub struct EmpireChangeEmblemRequest {
     pub empire_entity_id: u64,
     pub icon_id: i32,

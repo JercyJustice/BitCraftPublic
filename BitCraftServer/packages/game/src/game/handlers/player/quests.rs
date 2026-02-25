@@ -38,7 +38,7 @@ pub fn complete_quest_chain(ctx: &ReducerContext, id: i32) -> Result<(), String>
         return Err("Cannot complete quest. Not on hand-in stage.".into());
     }
 
-    quest_chain_state.is_active = false;
+    quest_chain_state.tracked = false;
     quest_chain_state.completed = true;
     ctx.db.quest_chain_state().entity_id().update(quest_chain_state);
 
@@ -61,12 +61,17 @@ pub fn start_quest_chain(ctx: &ReducerContext, id: i32) -> Result<(), String> {
         "Failed to find quest chain description."
     );
 
+    untrack_all_quests(ctx, actor_id)?;
     start_quest_chain_internal(ctx, actor_id, &quest_chain_desc)
 }
 
 fn start_quest_chain_internal(ctx: &ReducerContext, actor_id : u64, desc : &QuestChainDesc) -> Result<(), String> {
     if !desc.is_hint {
         desc.check_requirements(ctx, actor_id)?;
+        
+        if desc.unstartable {
+            return Err("Cannot start this quest.".into());
+        }
     }
 
     let quest_chain_state_option = 
@@ -81,17 +86,11 @@ fn start_quest_chain_internal(ctx: &ReducerContext, actor_id : u64, desc : &Ques
             player_entity_id: actor_id,
             quest_chain_desc_id: desc.id,
             stage_id: desc.stages.first().copied().unwrap_or(0),
-            is_active: false,
             completed: false,
             stage_rewards_awarded: Vec::new(),
+            tracked: !desc.is_hint
         })?;
     }
-
-    if !desc.is_hint {
-        // Starting a new quest makes it active immediately.
-        set_quest_chain_active_internal(ctx, actor_id, desc.id)?;
-    }
-
 
     Ok(())
 }
@@ -141,28 +140,44 @@ pub fn advance_quest_stage(ctx: &ReducerContext, chain_id: i32) -> Result<(), St
     }
 
     quest_chain_state.stage_id = new_stage_id;
+    // quest_chain_state.tracked = true; // An advancing quest should immediately be tracked again.  <-- COMMENTED OUT FOR NOW, ONLY TRACK ONE AT A TIME.
     ctx.db.quest_chain_state().entity_id().update(quest_chain_state);
 
     Ok(())
 }
 
 #[spacetimedb::reducer]
-pub fn set_quest_chain_active(ctx: &ReducerContext, id : i32) -> Result<(), String> {
+pub fn set_quest_tracked(ctx: &ReducerContext, id : i32, tracked : bool) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
 
-    set_quest_chain_active_internal(ctx, actor_id, id)
+    let mut quest_chain_state = unwrap_or_err!(
+        ctx.db.quest_chain_state()
+        .player_entity_id()
+        .filter(&actor_id)
+        .find(|qcs : &QuestChainState| qcs.quest_chain_desc_id == id),
+        "Cannot track quest. Quest not started."
+    );
+
+    if !quest_chain_state.completed {
+        untrack_all_quests(ctx, actor_id)?;
+        quest_chain_state.tracked = tracked;
+        ctx.db.quest_chain_state().entity_id().update(quest_chain_state);
+    }
+
+    Ok(())
 }
 
-fn set_quest_chain_active_internal(ctx: &ReducerContext, actor_id : u64, id : i32) -> Result<(), String> {
-    for mut chain_state in ctx.db.quest_chain_state().player_entity_id().filter(&actor_id) {
-        let activate = id == chain_state.quest_chain_desc_id;
-        if activate != chain_state.is_active {
-            chain_state.is_active = activate;
+fn untrack_all_quests(ctx: &ReducerContext, player_entity_id : u64) -> Result<(), String> {
+    let quest_chain_states = ctx.db.quest_chain_state().player_entity_id().filter(player_entity_id);
+
+    for mut chain_state in quest_chain_states {
+        if chain_state.tracked {
+            chain_state.tracked = false;
             ctx.db.quest_chain_state().entity_id().update(chain_state);
         }
     }
-    
+
     Ok(())
 }
 
@@ -224,7 +239,7 @@ pub fn skip_onboarding(ctx: &ReducerContext) -> Result<(), String> {
         return Err("Cannot complete quest. Onboarding already complete".into());
     }
 
-    quest_chain_state.is_active = false;
+    quest_chain_state.tracked = false;
     quest_chain_state.completed = true;
     ctx.db.quest_chain_state().entity_id().update(quest_chain_state);
 

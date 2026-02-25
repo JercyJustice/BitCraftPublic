@@ -63,7 +63,7 @@ pub struct SpawnInfo {
     pub spawns_in_water: bool,
     pub water_depth_min: i16,
     pub water_depth_max: i16,
-    pub spawns_on_uneven_terrain: bool,
+    pub max_elevation_delta: i32,
 }
 
 impl ResourcesLog {
@@ -141,7 +141,7 @@ impl ResourcesLog {
                     spawns_in_water: resource_definition.resource_details.spawns_in_water,
                     water_depth_min: resource_definition.resource_details.water_depth_range.x as i16,
                     water_depth_max: resource_definition.resource_details.water_depth_range.y as i16,
-                    spawns_on_uneven_terrain: resource_definition.resource_details.spawns_on_uneven_terrain,
+                    max_elevation_delta: resource_definition.resource_details.max_elevation_delta,
                 })
             }
 

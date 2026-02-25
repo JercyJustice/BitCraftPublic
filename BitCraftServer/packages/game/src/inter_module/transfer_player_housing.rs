@@ -5,7 +5,7 @@ use crate::{
     messages::{
         action_request::ServerTeleportReason,
         components::*,
-        inter_module::{MessageContentsV4, TransferPlayerHousingMsg},
+        inter_module::{MessageContents, TransferPlayerHousingMsg},
         static_data::{collectible_desc, CollectibleType},
     },
     unwrap_or_err,
@@ -18,7 +18,7 @@ pub fn send_message(ctx: &ReducerContext, player_housing_entity_id: u64, new_ent
     if let Some(player_housing) = ctx.db.player_housing_state().entity_id().find(player_housing_entity_id) {
         send_inter_module_message(
             ctx,
-            MessageContentsV4::TransferPlayerHousingRequest(TransferPlayerHousingMsg {
+            MessageContents::TransferPlayerHousingRequest(TransferPlayerHousingMsg {
                 player_entity_id: player_housing_entity_id,
                 new_entrance_building_entity_id,
                 network_entity_id: player_housing.network_entity_id,
@@ -81,25 +81,6 @@ pub fn handle_destination_result_on_sender(ctx: &ReducerContext, request: Transf
         moving_time_cost_minutes: 0,
     });
 
-    let vault = ctx.db.vault_state().entity_id().find(request.player_entity_id).unwrap();
-    let wall_collectible_id = vault
-        .collectibles
-        .iter()
-        .find(|c| ctx.db.collectible_desc().id().find(c.id).unwrap().collectible_type == CollectibleType::HousingWalls)
-        .unwrap()
-        .id;
-    let floor_collectible_id = vault
-        .collectibles
-        .iter()
-        .find(|c| ctx.db.collectible_desc().id().find(c.id).unwrap().collectible_type == CollectibleType::HousingFloor)
-        .unwrap()
-        .id;
-    ctx.db.player_housing_customization_state().insert(PlayerHousingCustomizationState {
-        entity_id: actor_id,
-        wall_collectible_id,
-        floor_collectible_id,
-    });
-
     // transfer housing here.
     match PlayerHousingState::get_and_validate_entrance_building(ctx, actor_id, request.new_entrance_building_entity_id) {
         Ok(building) => {
@@ -114,7 +95,30 @@ pub fn handle_destination_result_on_sender(ctx: &ReducerContext, request: Transf
             let (highest_rank, template_building_id) = PlayerHousingState::get_rank_and_template_building(ctx, actor_id);
             match PlayerHousingState::create_housing(ctx, actor_id, highest_rank, template_building_id, &building, outside_dimension) {
                 Err(error_msg) => PlayerNotificationEvent::new_event(ctx, actor_id, error_msg, NotificationSeverity::ActionDenied),
-                Ok(()) => {}
+                Ok(()) => {
+                    let vault = ctx.db.vault_state().entity_id().find(request.player_entity_id).unwrap();
+                    let wall_collectible_id = match vault.collectibles.iter().find(|c| {
+                        c.activated && ctx.db.collectible_desc().id().find(c.id).unwrap().collectible_type == CollectibleType::HousingWalls
+                    }) {
+                        Some(c) => c.id,
+                        None => 0,
+                    };
+                    let floor_collectible_id = match vault.collectibles.iter().find(|c| {
+                        c.activated && ctx.db.collectible_desc().id().find(c.id).unwrap().collectible_type == CollectibleType::HousingFloor
+                    }) {
+                        Some(c) => c.id,
+                        None => 0,
+                    };
+                    // Re-apply customization
+                    ctx.db
+                        .player_housing_customization_state()
+                        .entity_id()
+                        .update(PlayerHousingCustomizationState {
+                            entity_id: actor_id,
+                            wall_collectible_id,
+                            floor_collectible_id,
+                        });
+                }
             };
             return;
         }

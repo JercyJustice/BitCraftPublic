@@ -79,7 +79,7 @@ impl EntityNode {
         return elevations[0];
     }
 
-    pub fn is_uneven_terrain(&self, terrain_graph: &HexGraph<TerrainNode>) -> bool {
+    pub fn min_max_elevation(&self, terrain_graph: &HexGraph<TerrainNode>) -> Vec<i16> {
         let terrain_coordinates = self.coordinates.get_terrain_coordinates();
         let terrain_indices = [
             terrain_graph.get_index_from_hex_coordinates(terrain_coordinates[0]),
@@ -113,7 +113,9 @@ impl EntityNode {
             },
         ];
 
-        return elevations[0] != elevations[1] || elevations[1] != elevations[2];
+        let min = *elevations.iter().min().unwrap();
+        let max = *elevations.iter().max().unwrap();
+        vec![min, max]
     }
 
     pub fn get_biome_value(&self, biome_index: usize, terrain_graph: &HexGraph<TerrainNode>) -> f32 {
@@ -203,14 +205,6 @@ impl EntityNode {
     }
 
     pub fn is_valid_elevation(&self, terrain_graph: &HexGraph<TerrainNode>, resource_details: &ResourceDetails) -> bool {
-        if !resource_details.spawns_on_uneven_terrain && self.is_uneven_terrain(terrain_graph) {
-            return false;
-        }
-
-        if self.get_elevation(terrain_graph) == -1 {
-            return false;
-        }
-
         let is_underwater = self.is_underwater(terrain_graph);
         if resource_details.spawns_on_land && !is_underwater {
             let elevation = self.get_elevation(terrain_graph);

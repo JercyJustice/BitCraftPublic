@@ -77,7 +77,7 @@ pub fn player_region_crossover(ctx: &ReducerContext) -> Result<(), String> {
     };
 
     let teleport_location = FloatHexTile::from(LargeHexTile::from(HexCoordinates::from(target_coord)).center_small_tile());
-    crate::inter_module::transfer_player::send_message(ctx, actor_id, teleport_location.into(), true, 0.0);
+    crate::inter_module::transfer_player::send_message(ctx, actor_id, teleport_location.into(), true, 0.0)?;
 
     Ok(())
 }

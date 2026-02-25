@@ -82,7 +82,7 @@ pub fn attack_start(ctx: &ReducerContext, request: EntityAttackRequest) -> Resul
                 "Deployable doesn't exist"
             );
             let deployable_desc = unwrap_or_err!(
-                ctx.db.deployable_desc_v4().id().find(deployable_state.deployable_description_id),
+                ctx.db.deployable_desc().id().find(deployable_state.deployable_description_id),
                 "DeployableDesc doesn't exist"
             );
             let enemy_state = unwrap_or_err!(
@@ -264,7 +264,7 @@ pub fn attack(ctx: &ReducerContext, request: EntityAttackRequest) -> Result<(), 
     }
 
     let combat_action = unwrap_or_err!(
-        ctx.db.combat_action_desc_v3().id().find(&request.combat_action_id),
+        ctx.db.combat_action_desc().id().find(&request.combat_action_id),
         "Combat action doesn't exist"
     );
 
@@ -421,7 +421,7 @@ pub fn attack_impact_migrated(ctx: &ReducerContext, timer: AttackImpactTimerMigr
 }
 
 fn event_delay(ctx: &ReducerContext, combat_action_id: i32) -> f32 {
-    match ctx.db.combat_action_desc_v3().id().find(&combat_action_id) {
+    match ctx.db.combat_action_desc().id().find(&combat_action_id) {
         Some(action) => action.lead_in_time,
         None => 0.0,
     }
@@ -454,7 +454,7 @@ fn attack_reduce(
         return Err("Attacker is dead.".into());
     }
     let combat_action = unwrap_or_err!(
-        ctx.db.combat_action_desc_v3().id().find(&combat_action_id),
+        ctx.db.combat_action_desc().id().find(&combat_action_id),
         "Combat action doesn't exist"
     );
 
@@ -535,6 +535,8 @@ fn attack_reduce(
             let inner_light = BuffDesc::find_by_buff_category_single(ctx, BuffCategory::InnerLight).unwrap().id;
             buff::deactivate(ctx, attacker_entity_id, inner_light).unwrap();
         }
+
+        PlayerActionState::mark_as_consumed(ctx, attacker_entity_id)?;
     }
 
     // produce attack buffs and debuffs
@@ -562,7 +564,7 @@ fn attack_impact_reduce(
     main_attack: bool,
 ) -> Result<(), String> {
     let combat_action = unwrap_or_err!(
-        ctx.db.combat_action_desc_v3().id().find(&combat_action_id),
+        ctx.db.combat_action_desc().id().find(&combat_action_id),
         "Combat action doesn't exist"
     );
     let mut defender_health = unwrap_or_err!(
@@ -706,7 +708,7 @@ fn interpolated_position(ctx: &ReducerContext, entity_id: u64) -> FloatHexTile {
 
 fn range_check(
     ctx: &ReducerContext,
-    combat_action: &CombatActionDescV3,
+    combat_action: &CombatActionDesc,
     attacker_location: FloatHexTile,
     attacker_entity_id: u64,
     attacker_type: EntityType,
@@ -741,7 +743,7 @@ fn base_checks(
     }
 
     let combat_action = unwrap_or_err!(
-        ctx.db.combat_action_desc_v3().id().find(&combat_action_id),
+        ctx.db.combat_action_desc().id().find(&combat_action_id),
         "Combat action doesn't exist"
     );
 
@@ -812,7 +814,7 @@ fn base_checks(
     };
 
     // Range check:
-    let action_desc = ctx.db.combat_action_desc_v3().id().find(&combat_action.id).unwrap();
+    let action_desc = ctx.db.combat_action_desc().id().find(&combat_action.id).unwrap();
     if !range_check(
         ctx,
         &action_desc,
@@ -1033,7 +1035,7 @@ fn calculate_hit_outcome(
         }
     }
 
-    let combat_action = ctx.db.combat_action_desc_v3().id().find(combat_action_id).unwrap();
+    let combat_action = ctx.db.combat_action_desc().id().find(combat_action_id).unwrap();
 
     // don't evade self-actions
     if attacker_entity_id == defender_entity_id {

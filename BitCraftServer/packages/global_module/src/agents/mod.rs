@@ -1,7 +1,7 @@
 use crate::game::handlers::authentication::has_role;
 use crate::messages::authentication::Role;
 use crate::messages::generic::config;
-use crate::parameters_desc_v2;
+use crate::parameters_desc;
 use spacetimedb::{log, ReducerContext};
 
 pub mod empire_decay_agent;
@@ -16,7 +16,7 @@ pub fn should_run(ctx: &ReducerContext) -> bool {
 }
 
 pub fn init(ctx: &ReducerContext) {
-    if ctx.db.parameters_desc_v2().version().find(&0).is_some() {
+    if ctx.db.parameters_desc().version().find(&0).is_some() {
         empire_decay_agent::init(ctx);
         empire_siege_agent::init(ctx);
 

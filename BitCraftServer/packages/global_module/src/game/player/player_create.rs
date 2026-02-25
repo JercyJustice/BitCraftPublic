@@ -1,7 +1,7 @@
 use crate::{
     inter_module::player_create::send_message,
     messages::{
-        generic::{region_population_info, region_sign_in_parameters, world_region_state},
+        generic::{region_control_info, region_population_info, region_sign_in_parameters, world_region_state},
         global::{user_creation_timestamp_state, user_region_state, UserCreationTimestampState, UserRegionState},
     },
     unwrap_or_err,
@@ -32,12 +32,14 @@ pub fn player_create(ctx: &ReducerContext) -> Result<(), String> {
     Ok(())
 }
 
-const MAX_POPULATION_INCREMENT: u32 = 500;
+const MAX_POPULATION_INCREMENT: u32 = 200;
 
 fn get_best_region_for_new_player(ctx: &ReducerContext) -> Result<u8, String> {
-    let region_count = unwrap_or_err!(ctx.db.world_region_state().id().find(0), "Failed to get WorldRegionState").region_count;
+    let wrs = unwrap_or_err!(ctx.db.world_region_state().id().find(0), "Failed to get WorldRegionState");
+    let region_count = wrs.region_count;
+    let region_count_sqrt = wrs.region_count_sqrt;
 
-    let center = (region_count / 2, region_count / 2);
+    let center = (region_count_sqrt / 2, region_count_sqrt / 2);
     let mut candidates: Vec<RegionInfo> = vec![];
 
     for id in 1..=region_count {
@@ -50,14 +52,24 @@ fn get_best_region_for_new_player(ctx: &ReducerContext) -> Result<u8, String> {
             continue;
         }
 
-        let region_population_info = unwrap_or_err!(
-            ctx.db.region_population_info().region_id().find(id),
-            "Failed to get RegionPopulationInfo"
-        );
+        //Make sure region has a world uploaded and is ready to receive players
+        match ctx.db.region_control_info().region_id().find(id) {
+            Some(rc) => {
+                if !rc.initialized || !rc.allow_player_spawns {
+                    continue;
+                }
+            }
+            None => continue,
+        }
+
+        let region_population_info = match ctx.db.region_population_info().region_id().find(id) {
+            Some(v) => v,
+            None => continue,
+        };
 
         let index = id - 1;
-        let x = index % region_count;
-        let y = index / region_count;
+        let x = index % region_count_sqrt;
+        let y = index / region_count_sqrt;
         let distance_from_center = ((x as i32 - center.0 as i32).abs() + (y as i32 - center.1 as i32).abs()) as u8;
 
         candidates.push(RegionInfo {
@@ -67,6 +79,10 @@ fn get_best_region_for_new_player(ctx: &ReducerContext) -> Result<u8, String> {
             signed_in_players: region_population_info.signed_in_players,
             total_accounts: ctx.db.user_region_state().region_id().filter(id).count() as u32,
         });
+    }
+
+    if candidates.len() == 0 {
+        return Err("No regions ready to accept new players".into());
     }
 
     candidates.sort_by(|a, b| {

@@ -1,4 +1,4 @@
-use crate::messages::static_data::parameters_desc_v2;
+use crate::messages::static_data::parameters_desc;
 use crate::{
     game::game_state,
     messages::{action_request::PlayerClaimTakeOwnershipRequest, components::*},

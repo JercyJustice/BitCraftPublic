@@ -463,6 +463,8 @@ pub fn reduce(
             if recipe.tool_durability_lost > 0 {
                 InventoryState::reduce_tool_durability(ctx, actor_id, recipe.tool_requirements[0].tool_type, recipe.tool_durability_lost);
             }
+
+            PlayerActionState::mark_as_consumed(ctx, actor_id)?;
         }
     } else {
         PlayerActionState::clear_by_entity_id(ctx, actor_id)?;

@@ -7,7 +7,7 @@ use crate::{
         authentication::ServerIdentity,
         components::{signed_in_player_state, TravelerTaskState},
     },
-    parameters_desc_v2,
+    parameters_desc,
 };
 
 const SECONDS_IN_A_DAY: i32 = 24 * 60 * 60;
@@ -26,7 +26,7 @@ pub fn next_tick(ctx: &ReducerContext) -> i32 {
 
     let mut next_tick = None;
 
-    for tick_time_of_day in &ctx.db.parameters_desc_v2().version().find(&0).unwrap().traveler_tasks_times_of_day {
+    for tick_time_of_day in &ctx.db.parameters_desc().version().find(&0).unwrap().traveler_tasks_times_of_day {
         let daily_timestamp_tick = *tick_time_of_day * 60 * 60;
         let next_tick_attempt = start_of_current_day_timestamp + daily_timestamp_tick;
         if next_tick_attempt >= seconds_elapsed {
@@ -79,7 +79,7 @@ fn traveler_task_agent_loop(ctx: &ReducerContext, _timer: TravelerTaskLoopTimer)
         return;
     }
 
-    let tasks_per_npc = ctx.db.parameters_desc_v2().version().find(0).unwrap().traveler_tasks_per_npc;
+    let tasks_per_npc = ctx.db.parameters_desc().version().find(0).unwrap().traveler_tasks_per_npc;
     let next_task_refresh = next_tick(ctx);
 
     let requests = TravelerTaskState::generate_npc_requests_hashmap(ctx);

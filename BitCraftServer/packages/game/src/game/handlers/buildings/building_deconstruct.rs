@@ -11,16 +11,13 @@ use crate::{
         permission_helper,
         reducer_helpers::{building_helpers::delete_building, player_action_helpers},
     },
-    inter_module::send_inter_module_message,
     messages::{
         action_request::PlayerBuildingDeconstructRequest,
         components::*,
-        empire_shared::{empire_node_siege_state, EmpirePermission, EmpirePlayerDataState},
         game_util::{DimensionType, ItemType},
-        inter_module::{GlobalDeleteEmpireBuildingMsg, MessageContentsV4},
         static_data::{DeconstructionRecipeDesc, ToolDesc},
     },
-    parameters_desc_v2, unwrap_or_err, unwrap_or_return, BuildingCategory, ItemListDesc,
+    parameters_desc, unwrap_or_err, unwrap_or_return, BuildingCategory, ItemListDesc,
 };
 use bitcraft_macro::shared_table_reducer;
 use spacetimedb::ReducerContext;
@@ -50,7 +47,7 @@ pub fn event_delay_recipe_id(
             }
             return (Duration::from_secs_f32(delay / skill_speed), Some(recipe.id));
         } else {
-            let default_delay = ctx.db.parameters_desc_v2().version().find(&0).unwrap().deconstruct_default_time;
+            let default_delay = ctx.db.parameters_desc().version().find(&0).unwrap().deconstruct_default_time;
             return (Duration::from_secs_f32(default_delay), None);
         }
     }
@@ -181,30 +178,7 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, request: &PlayerBuildingDecon
 
     if !dry_run {
         if building_desc.has_category(ctx, BuildingCategory::Watchtower) {
-            if ctx
-                .db
-                .empire_node_siege_state()
-                .building_entity_id()
-                .filter(building_entity_id)
-                .filter(|node| node.active)
-                .count()
-                > 0
-            {
-                return Err("Cannot deconstruct a watchtower under siege".into());
-            }
-
-            // Make sure player has MarkForExpansion permission
-            if !EmpirePlayerDataState::has_permission(ctx, actor_id, EmpirePermission::MarkAreaForExpansion) {
-                return Err("You don't have the permission to deconstruct a watchtower".into());
-            }
-            send_inter_module_message(
-                ctx,
-                MessageContentsV4::GlobalDeleteEmpireBuilding(GlobalDeleteEmpireBuildingMsg {
-                    player_entity_id: actor_id,
-                    building_entity_id,
-                }),
-                crate::inter_module::InterModuleDestination::Global,
-            );
+            return Err("Cannot deconstruct a watchtower".into());
         }
 
         if let Some(recipe) = recipe {
@@ -234,10 +208,6 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, request: &PlayerBuildingDecon
 
         player_action_helpers::post_reducer_update_cargo(ctx, actor_id);
     }
-
-    ctx.db.waystone_state().building_entity_id().delete(building_entity_id);
-    ctx.db.bank_state().building_entity_id().delete(building_entity_id);
-    ctx.db.marketplace_state().building_entity_id().delete(building_entity_id);
 
     Ok(())
 }

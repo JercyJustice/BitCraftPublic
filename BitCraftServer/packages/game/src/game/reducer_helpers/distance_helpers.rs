@@ -1,7 +1,7 @@
 use crate::{
-    building_portal_desc_v2, building_state,
+    building_portal_desc, building_state,
     game::{coordinates::SmallHexTile, game_state::game_state_filters, unity_helpers::vector2::Vector2},
-    BuildingPortalDescV2,
+    BuildingPortalDesc,
 };
 use spacetimedb::ReducerContext;
 
@@ -19,9 +19,9 @@ pub fn distance_to_segment(point: Vector2, seg1: Vector2, seg2: Vector2) -> f32 
 pub fn distance_to_portal(ctx: &ReducerContext, building_id: u64, coord: SmallHexTile, mounting_deployable: bool) -> Result<i32, String> {
     let building = ctx.db.building_state().entity_id().find(&building_id).unwrap();
     let building_coord = game_state_filters::coordinates(ctx, building_id);
-    let building_portals: Vec<BuildingPortalDescV2> = ctx
+    let building_portals: Vec<BuildingPortalDesc> = ctx
         .db
-        .building_portal_desc_v2()
+        .building_portal_desc()
         .building_id()
         .filter(building.building_description_id)
         .collect();

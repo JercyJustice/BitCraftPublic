@@ -3,7 +3,7 @@ use std::i32;
 use spacetimedb::ReducerContext;
 
 use crate::messages::static_data::AchievementDesc;
-use crate::{achievement_desc, building_desc, deployable_desc_v4, skill_desc, traveler_trade_order_desc, SmallHexTile};
+use crate::{achievement_desc, building_desc, deployable_desc, skill_desc, traveler_trade_order_desc, SmallHexTile};
 use crate::{
     game::{
         entities::building_state::{BuildingState, InventoryState},
@@ -80,12 +80,7 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
 
         deployable_location = Some(location);
 
-        let description = ctx
-            .db
-            .deployable_desc_v4()
-            .id()
-            .find(&deployable.deployable_description_id)
-            .unwrap();
+        let description = ctx.db.deployable_desc().id().find(&deployable.deployable_description_id).unwrap();
         if description.storage > 0 {
             item_index = Some(0);
         }

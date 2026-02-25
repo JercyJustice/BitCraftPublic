@@ -24,7 +24,11 @@ pub fn passive_craft_collect(ctx: &ReducerContext, passive_craft_entity_id: u64)
     );
 
     if passive_craft.owner_entity_id != actor_id {
-        return Err("This is not your yours to collect.".into());
+        return Err("This is not yours to collect.".into());
+    }
+
+    if passive_craft.status != PassiveCraftStatus::Complete {
+        return Err("This project is not ready to be collected".into());
     }
 
     let building_state = unwrap_or_err!(

@@ -35,7 +35,7 @@ pub fn event_delay_recipe_id(
     let mut time_requirement = 0.0;
     let mut skill_speed = 1.0;
     let recipe_id: Option<i32>;
-    let construction_recipe = ctx.db.construction_recipe_desc_v2().id().find(&project_site.construction_recipe_id);
+    let construction_recipe = ctx.db.construction_recipe_desc().id().find(&project_site.construction_recipe_id);
     if let Some(recipe) = construction_recipe {
         time_requirement = recipe.time_requirement;
         recipe_id = Some(project_site.construction_recipe_id);
@@ -45,7 +45,7 @@ pub fn event_delay_recipe_id(
     } else {
         let resource_placement_recipe = ctx
             .db
-            .resource_placement_recipe_desc_v2()
+            .resource_placement_recipe_desc()
             .id()
             .find(&project_site.resource_placement_recipe_id);
         recipe_id = Some(project_site.resource_placement_recipe_id);
@@ -140,7 +140,7 @@ pub fn reduce(
     let mut resource = None;
     let mut skill = None;
 
-    if let Some(recipe) = ctx.db.construction_recipe_desc_v2().id().find(&project_site.construction_recipe_id) {
+    if let Some(recipe) = ctx.db.construction_recipe_desc().id().find(&project_site.construction_recipe_id) {
         skill = recipe.get_skill_type();
         stamina_requirement = recipe.stamina_requirement as f32;
         tool_requirements = recipe.tool_requirements;
@@ -166,7 +166,7 @@ pub fn reduce(
     }
     if let Some(recipe) = ctx
         .db
-        .resource_placement_recipe_desc_v2()
+        .resource_placement_recipe_desc()
         .id()
         .find(&project_site.resource_placement_recipe_id)
     {
@@ -242,6 +242,27 @@ pub fn reduce(
     let actor_coords: crate::messages::util::FloatHexTileMessage = game_state_filters::coordinates_float(ctx, actor_id);
     if project_site.distance_to(ctx, actor_coords.parent_small_tile()) > 2 {
         return Err("Too far".into());
+    }
+
+    if let Some(ref building_desc) = building {
+        let claim_entity_id = project_site.owner_id;
+        if building_desc.has_category(ctx, BuildingCategory::Bank) {
+            if ctx.db.bank_state().claim_entity_id().filter(claim_entity_id).next().is_some() {
+                return Err("Claims can only have one bank".into());
+            }
+        }
+        if building_desc.has_category(ctx, BuildingCategory::TownMarket) {
+            if ctx
+                .db
+                .marketplace_state()
+                .claim_entity_id()
+                .filter(claim_entity_id)
+                .next()
+                .is_some()
+            {
+                return Err("Claims can only have one market".into());
+            }
+        }
     }
 
     let mut terrain_cache = TerrainChunkCache::empty();
@@ -362,8 +383,8 @@ pub fn reduce(
                     Some(project_site.construction_recipe_id),
                 );
                 BuildingState::create_waystone(ctx, entity_id, owner_id, &building, coordinates);
-                BuildingState::create_bank(ctx, entity_id, owner_id, &building, coordinates);
-                BuildingState::create_marketplace(ctx, entity_id, owner_id, &building, coordinates);
+                BuildingState::create_bank(ctx, entity_id, owner_id, &building, coordinates)?;
+                BuildingState::create_marketplace(ctx, entity_id, owner_id, &building, coordinates)?;
                 create_distant_visibile_building(ctx, &building, entity_id, coordinates);
                 create_building_spawns(ctx, entity_id);
             } else if let Some(r) = resource {
@@ -382,6 +403,8 @@ pub fn reduce(
         } else {
             ctx.db.project_site_state().entity_id().update(project_site);
         }
+        
+        PlayerActionState::mark_as_consumed(ctx, actor_id)?;
     }
 
     Ok(())

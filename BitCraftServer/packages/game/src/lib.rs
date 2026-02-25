@@ -31,7 +31,8 @@ use game::world_gen::world_generator::{self, GeneratedWorld};
 use game::world_gen::{dev_island, flat_world};
 use messages::authentication::{blocked_identity, identity_role};
 use messages::generic::{
-    admin_broadcast, config, globals, resource_count, world_region_name_state, world_region_state, WorldRegionNameState, WorldRegionState,
+    admin_broadcast, config, globals, region_control_info, resource_count, world_region_name_state, world_region_state, RegionControlInfo,
+    WorldRegionNameState, WorldRegionState,
 };
 use messages::world_gen::{WorldGenGeneratedBuilding, WorldGenGeneratedResourceDeposit};
 use region_coordinates::RegionCoordinates;
@@ -166,7 +167,7 @@ pub fn identity_disconnected(ctx: &ReducerContext) {
 }
 
 #[spacetimedb::reducer]
-pub fn start_generating_world(
+pub fn init_region_info(
     ctx: &ReducerContext,
     world_width: i32,
     world_height: i32,
@@ -185,23 +186,7 @@ pub fn start_generating_world(
         return Err("region_count must be a square number".into());
     }
 
-    let region_count_sqrt = (region_count as f32).sqrt() as u8;
     let region_coord = RegionCoordinates::from_region_index(region_index, region_count_sqrt);
-    if let Err(error) = ctx.db.dimension_description_state().try_insert(DimensionDescriptionState {
-        entity_id: 1,
-        dimension_id: 1,
-        dimension_type: messages::game_util::DimensionType::Overworld,
-        interior_instance_id: 0,
-        dimension_position_large_x: (region_coord.x as i32 * world_width) as u32,
-        dimension_position_large_z: (region_coord.z as i32 * world_height) as u32,
-        dimension_size_large_x: world_width as u32,
-        dimension_size_large_z: world_height as u32,
-        dimension_network_entity_id: 0,
-        collapse_timestamp: 0,
-    }) {
-        log::error!("Failed to insert dimension description: {}", error);
-        return Err(format!("Failed to insert dimension description: {}", error));
-    }
     if let Err(error) = ctx.db.world_region_state().try_insert(WorldRegionState {
         id: 0,
         region_width_chunks: world_width as u16,
@@ -227,6 +212,46 @@ pub fn start_generating_world(
     let mut globals = ctx.db.globals().version().find(&0).unwrap();
     globals.region_index = region_index;
     ctx.db.globals().version().update(globals);
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn start_generating_world(
+    ctx: &ReducerContext,
+    world_width: i32,
+    world_height: i32,
+    region_index: u8,
+    region_count: u8,
+) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+
+    let region_state = ctx.db.world_region_state().id().find(0).expect("world_region_state not found");
+    if region_index != region_state.region_index
+        || region_count != region_state.region_count
+        || world_width != region_state.region_width_chunks as i32
+        || world_height != region_state.region_height_chunks as i32
+    {
+        return Err("Arguments don't match world_region_state".into());
+    }
+
+    if let Err(error) = ctx.db.dimension_description_state().try_insert(DimensionDescriptionState {
+        entity_id: 1,
+        dimension_id: 1,
+        dimension_type: messages::game_util::DimensionType::Overworld,
+        interior_instance_id: 0,
+        dimension_position_large_x: region_state.region_min_chunk_x as u32,
+        dimension_position_large_z: region_state.region_min_chunk_z as u32,
+        dimension_size_large_x: world_width as u32,
+        dimension_size_large_z: world_height as u32,
+        dimension_network_entity_id: 0,
+        collapse_timestamp: 0,
+    }) {
+        log::error!("Failed to insert dimension description: {}", error);
+        return Err(format!("Failed to insert dimension description: {}", error));
+    }
 
     log::info!("Receiving world upload ({world_width}x{world_height} chunks)");
 
@@ -395,6 +420,7 @@ fn insert_resources(ctx: &ReducerContext, resources: Vec<WorldGenGeneratedResour
     }
 }
 
+#[shared_table_reducer]
 #[spacetimedb::reducer]
 pub fn insert_resources_log(ctx: &ReducerContext, resources_log: ResourcesLog) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
@@ -438,6 +464,21 @@ pub fn insert_resources_log(ctx: &ReducerContext, resources_log: ResourcesLog) -
     let mut config = ctx.db.config().version().find(&0).unwrap();
     config.agents_enabled = true;
     ctx.db.config().version().update(config);
+
+    let cur_region = ctx.db.globals().version().find(0).expect("Missing globals").region_index;
+    let is_dev = ctx.db.config().version().find(0).expect("Missing config").env == "dev";
+    if ctx.db.region_control_info().region_id().find(cur_region).is_none() {
+        RegionControlInfo::insert_shared(
+            ctx,
+            RegionControlInfo {
+                region_id: cur_region,
+                initialized: true,
+                allow_players: is_dev,
+                allow_player_spawns: is_dev,
+            },
+            inter_module::InterModuleDestination::GlobalAndAllOtherRegions,
+        );
+    }
 
     agents::init(ctx);
 

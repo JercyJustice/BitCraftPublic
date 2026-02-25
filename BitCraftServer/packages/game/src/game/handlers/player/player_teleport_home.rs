@@ -7,7 +7,7 @@ use crate::{
         game_state::{self, game_state_filters},
         reducer_helpers::player_action_helpers,
     },
-    messages::{action_request::*, components::*, static_data::parameters_desc_v2},
+    messages::{action_request::*, components::*, static_data::parameters_desc},
     params, player_state, unwrap_or_err, SmallHexTile,
 };
 

@@ -17,876 +17,8 @@ use super::game_util::DimensionType;
 #[macro_export]
 macro_rules! params {
     ($ctx:expr) => {
-        $ctx.db.parameters_desc_v2().version().find(0).unwrap()
+        $ctx.db.parameters_desc().version().find(0).unwrap()
     };
-}
-
-#[spacetimedb::table(name = staged_static_data)]
-pub struct StagedStaticData {
-    #[primary_key]
-    pub version: u32,
-    pub static_data: StaticDataUpload,
-}
-
-#[derive(SpacetimeType, Default)]
-pub struct StaticDataUpload {
-    pub parameters: Vec<ParametersDesc>,
-    pub private_parameters: Vec<PrivateParametersDesc>,
-    pub secondary_knowledges: Vec<SecondaryKnowledgeDesc>,
-    pub weapon_types: Vec<WeaponTypeDesc>,
-    pub skills: Vec<SkillDesc>,
-    pub targeting_matrices: Vec<TargetingMatrixDesc>,
-    pub npcs: Vec<NpcDesc>,
-    pub loot_rarities: Vec<LootRarityDesc>,
-    pub knowledge_scroll_types: Vec<KnowledgeScrollTypeDesc>,
-    pub items: Vec<ItemDesc>,
-    pub enemy_ai_params: Vec<EnemyAiParamsDesc>,
-    pub empire_ranks: Vec<EmpireRankDesc>,
-    pub emotes: Vec<EmoteDesc>,
-    pub climb_requirements: Vec<ClimbRequirementDesc>,
-    pub claim_tile_costs: Vec<ClaimTileCost>,
-    pub claim_tech: Vec<ClaimTechDesc>,
-    pub character_stats: Vec<CharacterStatDesc>,
-    pub cargos: Vec<CargoDesc>,
-    pub building_types: Vec<BuildingTypeDesc>,
-    pub buildings: Vec<BuildingDesc>,
-    pub biomes: Vec<BiomeDesc>,
-    pub interior_shapes: Vec<InteriorShapeDesc>,
-    pub buff_types: Vec<BuffTypeDesc>,
-    pub buffs: Vec<BuffDesc>,
-    pub alerts: Vec<AlertDesc>,
-    pub tool_types: Vec<ToolTypeDesc>,
-    pub item_lists: Vec<ItemListDesc>,
-    pub foods: Vec<FoodDesc>,
-    pub achievements: Vec<AchievementDesc>,
-    pub knowledge_stat_modifiers: Vec<KnowledgeStatModifierDesc>,
-    pub interior_instances: Vec<InteriorInstanceDesc>,
-    pub interior_environments: Vec<InteriorEnvironmentDesc>,
-    pub interior_spawns: Vec<InteriorSpawnDesc>,
-    pub building_portals: Vec<BuildingPortalDesc>,
-    pub portal_connections: Vec<InteriorPortalConnectionsDesc>,
-    pub building_interior_networks: Vec<InteriorNetworkDesc>,
-    pub building_claims: Vec<BuildingClaimDesc>,
-    pub building_repairs: Vec<BuildingRepairsDesc>,
-    pub building_spawns: Vec<BuildingSpawnDesc>,
-    pub chest_rarities: Vec<ChestRarityDesc>,
-    pub clothing: Vec<ClothingDesc>,
-    pub collectibles: Vec<CollectibleDesc>,
-    pub combat_actions: Vec<CombatActionDesc>,
-    pub construction: Vec<ConstructionRecipeDesc>,
-    pub crafting: Vec<CraftingRecipeDesc>,
-    pub desconstructions: Vec<DeconstructionRecipeDesc>,
-    pub empire_supplies: Vec<EmpireSuppliesDesc>,
-    pub enemies: Vec<EnemyDesc>,
-    pub environment_debuffs: Vec<EnvironmentDebuffDesc>,
-    pub equipment: Vec<EquipmentDesc>,
-    pub extraction: Vec<ExtractionRecipeDesc>,
-    pub item_conversion_recipes: Vec<ItemConversionRecipeDesc>,
-    pub knowledge_scrolls: Vec<KnowledgeScrollDesc>,
-    pub loot_chests: Vec<LootChestDesc>,
-    pub loot_tables: Vec<LootTableDesc>,
-    pub paving: Vec<PavingTileDesc>,
-    pub pathfinding: Vec<PathfindingDesc>,
-    pub pillar_shaping: Vec<PillarShapingDesc>,
-    pub resources: Vec<ResourceDesc>,
-    pub resource_clumps: Vec<ResourceClumpDesc>,
-    pub resource_growths: Vec<ResourceGrowthRecipeDesc>,
-    pub resource_placements: Vec<ResourcePlacementRecipeDesc>,
-    pub teleport_items: Vec<TeleportItemDesc>,
-    pub tools: Vec<ToolDesc>,
-    pub traveler_tasks: Vec<TravelerTaskDesc>,
-    pub traveler_trade_orders: Vec<TravelerTradeOrderDesc>,
-    pub deployables: Vec<DeployableDesc>,
-    pub weapons: Vec<WeaponDesc>,
-    pub onboarding_rewards: Vec<OnboardingRewardDesc>,
-    pub terraform_recipes: Vec<TerraformRecipeDesc>,
-    pub empire_notifications: Vec<EmpireNotificationDesc>,
-    pub empire_territories: Vec<EmpireTerritoryDesc>,
-    pub empire_colors: Vec<EmpireColorDesc>,
-    pub empire_icons: Vec<EmpireIconDesc>,
-    pub walls: Vec<WallDesc>,
-    pub gates: Vec<GateDesc>,
-    pub elevators: Vec<ElevatorDesc>,
-    pub player_actions: Vec<PlayerActionDesc>,
-    pub distant_visibile_entities: Vec<DistantVisibleEntityDesc>,
-    pub player_housing: Vec<PlayerHousingDesc>,
-    pub hexite_exchange_entries: Vec<HexiteExchangeEntryDesc>,
-    pub reserved_name: Vec<ReservedNameDesc>,
-}
-
-#[spacetimedb::table(name = staged_static_data_v2)]
-pub struct StagedStaticDataV2 {
-    #[primary_key]
-    pub version: u32,
-    pub static_data: StaticDataUploadV2,
-}
-
-#[derive(SpacetimeType, Default)]
-pub struct StaticDataUploadV2 {
-    pub parameters: Vec<ParametersDesc>,
-    pub private_parameters: Vec<PrivateParametersDesc>,
-    pub secondary_knowledges: Vec<SecondaryKnowledgeDesc>,
-    pub weapon_types: Vec<WeaponTypeDesc>,
-    pub skills: Vec<SkillDesc>,
-    pub targeting_matrices: Vec<TargetingMatrixDesc>,
-    pub npcs: Vec<NpcDesc>,
-    pub loot_rarities: Vec<LootRarityDesc>,
-    pub knowledge_scroll_types: Vec<KnowledgeScrollTypeDesc>,
-    pub items: Vec<ItemDesc>,
-    pub enemy_ai_params: Vec<EnemyAiParamsDesc>,
-    pub empire_ranks: Vec<EmpireRankDesc>,
-    pub emotes: Vec<EmoteDesc>,
-    pub climb_requirements: Vec<ClimbRequirementDesc>,
-    pub claim_tile_costs: Vec<ClaimTileCost>,
-    pub claim_tech: Vec<ClaimTechDesc>,
-    pub character_stats: Vec<CharacterStatDesc>,
-    pub cargos: Vec<CargoDesc>,
-    pub building_types: Vec<BuildingTypeDesc>,
-    pub buildings: Vec<BuildingDesc>,
-    pub biomes: Vec<BiomeDesc>,
-    pub interior_shapes: Vec<InteriorShapeDesc>,
-    pub buff_types: Vec<BuffTypeDesc>,
-    pub buffs: Vec<BuffDesc>,
-    pub alerts: Vec<AlertDesc>,
-    pub tool_types: Vec<ToolTypeDesc>,
-    pub item_lists: Vec<ItemListDesc>,
-    pub foods: Vec<FoodDesc>,
-    pub achievements: Vec<AchievementDesc>,
-    pub knowledge_stat_modifiers: Vec<KnowledgeStatModifierDesc>,
-    pub interior_instances: Vec<InteriorInstanceDesc>,
-    pub interior_environments: Vec<InteriorEnvironmentDesc>,
-    pub interior_spawns: Vec<InteriorSpawnDesc>,
-    pub building_portals: Vec<BuildingPortalDesc>,
-    pub portal_connections: Vec<InteriorPortalConnectionsDesc>,
-    pub building_interior_networks: Vec<InteriorNetworkDesc>,
-    pub building_claims: Vec<BuildingClaimDesc>,
-    pub building_repairs: Vec<BuildingRepairsDesc>,
-    pub building_spawns: Vec<BuildingSpawnDesc>,
-    pub chest_rarities: Vec<ChestRarityDesc>,
-    pub clothing: Vec<ClothingDesc>,
-    pub collectibles: Vec<CollectibleDesc>,
-    pub combat_actions: Vec<CombatActionDescV2>,
-    pub combat_actions_multi_hit: Vec<CombatActionMultiHitDesc>,
-    pub construction: Vec<ConstructionRecipeDesc>,
-    pub crafting: Vec<CraftingRecipeDesc>,
-    pub desconstructions: Vec<DeconstructionRecipeDesc>,
-    pub empire_supplies: Vec<EmpireSuppliesDesc>,
-    pub enemies: Vec<EnemyDesc>,
-    pub environment_debuffs: Vec<EnvironmentDebuffDesc>,
-    pub equipment: Vec<EquipmentDesc>,
-    pub extraction: Vec<ExtractionRecipeDesc>,
-    pub item_conversion_recipes: Vec<ItemConversionRecipeDesc>,
-    pub knowledge_scrolls: Vec<KnowledgeScrollDesc>,
-    pub loot_chests: Vec<LootChestDesc>,
-    pub loot_tables: Vec<LootTableDesc>,
-    pub paving: Vec<PavingTileDesc>,
-    pub pathfinding: Vec<PathfindingDesc>,
-    pub pillar_shaping: Vec<PillarShapingDesc>,
-    pub resources: Vec<ResourceDesc>,
-    pub resource_clumps: Vec<ResourceClumpDesc>,
-    pub resource_growths: Vec<ResourceGrowthRecipeDesc>,
-    pub resource_placements: Vec<ResourcePlacementRecipeDesc>,
-    pub teleport_items: Vec<TeleportItemDesc>,
-    pub tools: Vec<ToolDesc>,
-    pub traveler_tasks: Vec<TravelerTaskDesc>,
-    pub traveler_trade_orders: Vec<TravelerTradeOrderDesc>,
-    pub deployables: Vec<DeployableDesc>,
-    pub weapons: Vec<WeaponDesc>,
-    pub onboarding_rewards: Vec<OnboardingRewardDesc>,
-    pub terraform_recipes: Vec<TerraformRecipeDesc>,
-    pub empire_notifications: Vec<EmpireNotificationDesc>,
-    pub empire_territories: Vec<EmpireTerritoryDesc>,
-    pub empire_colors: Vec<EmpireColorDesc>,
-    pub empire_icons: Vec<EmpireIconDesc>,
-    pub walls: Vec<WallDesc>,
-    pub gates: Vec<GateDesc>,
-    pub elevators: Vec<ElevatorDesc>,
-    pub player_actions: Vec<PlayerActionDesc>,
-    pub distant_visibile_entities: Vec<DistantVisibleEntityDesc>,
-    pub player_housing: Vec<PlayerHousingDesc>,
-    pub hexite_exchange_entries: Vec<HexiteExchangeEntryDesc>,
-    pub reserved_name: Vec<ReservedNameDesc>,
-    pub contribution_loot: Vec<ContributionLootDesc>,
-}
-
-
-#[spacetimedb::table(name = staged_static_data_v3)]
-pub struct StagedStaticDataV3 {
-    #[primary_key]
-    pub version: u32,
-    pub static_data: StaticDataUploadV3,
-}
-
-
-#[derive(SpacetimeType, Default)]
-pub struct StaticDataUploadV3 {
-    pub parameters: Vec<ParametersDesc>,
-    pub private_parameters: Vec<PrivateParametersDesc>,
-    pub secondary_knowledges: Vec<SecondaryKnowledgeDesc>,
-    pub weapon_types: Vec<WeaponTypeDesc>,
-    pub skills: Vec<SkillDesc>,
-    pub targeting_matrices: Vec<TargetingMatrixDesc>,
-    pub npcs: Vec<NpcDesc>,
-    pub loot_rarities: Vec<LootRarityDesc>,
-    pub knowledge_scroll_types: Vec<KnowledgeScrollTypeDesc>,
-    pub items: Vec<ItemDesc>,
-    pub enemy_ai_params: Vec<EnemyAiParamsDesc>,
-    pub empire_ranks: Vec<EmpireRankDesc>,
-    pub emotes: Vec<EmoteDesc>,
-    pub climb_requirements: Vec<ClimbRequirementDesc>,
-    pub claim_tile_costs: Vec<ClaimTileCost>,
-    pub claim_tech: Vec<ClaimTechDesc>,
-    pub character_stats: Vec<CharacterStatDesc>,
-    pub cargos: Vec<CargoDesc>,
-    pub building_types: Vec<BuildingTypeDesc>,
-    pub buildings: Vec<BuildingDesc>,
-    pub biomes: Vec<BiomeDesc>,
-    pub interior_shapes: Vec<InteriorShapeDesc>,
-    pub buff_types: Vec<BuffTypeDesc>,
-    pub buffs: Vec<BuffDesc>,
-    pub alerts: Vec<AlertDesc>,
-    pub tool_types: Vec<ToolTypeDesc>,
-    pub item_lists: Vec<ItemListDesc>,
-    pub foods: Vec<FoodDesc>,
-    pub achievements: Vec<AchievementDesc>,
-    pub knowledge_stat_modifiers: Vec<KnowledgeStatModifierDesc>,
-    pub interior_instances: Vec<InteriorInstanceDesc>,
-    pub interior_environments: Vec<InteriorEnvironmentDesc>,
-    pub interior_spawns: Vec<InteriorSpawnDesc>,
-    pub building_portals: Vec<BuildingPortalDesc>,
-    pub portal_connections: Vec<InteriorPortalConnectionsDesc>,
-    pub building_interior_networks: Vec<InteriorNetworkDesc>,
-    pub building_claims: Vec<BuildingClaimDesc>,
-    pub building_repairs: Vec<BuildingRepairsDesc>,
-    pub building_spawns: Vec<BuildingSpawnDesc>,
-    pub chest_rarities: Vec<ChestRarityDesc>,
-    pub clothing: Vec<ClothingDesc>,
-    pub collectibles: Vec<CollectibleDesc>,
-    pub combat_actions: Vec<CombatActionDescV2>,
-    pub combat_actions_multi_hit: Vec<CombatActionMultiHitDesc>,
-    pub construction: Vec<ConstructionRecipeDesc>,
-    pub crafting: Vec<CraftingRecipeDesc>,
-    pub desconstructions: Vec<DeconstructionRecipeDesc>,
-    pub empire_supplies: Vec<EmpireSuppliesDesc>,
-    pub enemies: Vec<EnemyDesc>,
-    pub environment_debuffs: Vec<EnvironmentDebuffDesc>,
-    pub equipment: Vec<EquipmentDesc>,
-    pub extraction: Vec<ExtractionRecipeDesc>,
-    pub item_conversion_recipes: Vec<ItemConversionRecipeDesc>,
-    pub knowledge_scrolls: Vec<KnowledgeScrollDesc>,
-    pub loot_chests: Vec<LootChestDesc>,
-    pub loot_tables: Vec<LootTableDesc>,
-    pub paving: Vec<PavingTileDesc>,
-    pub pathfinding: Vec<PathfindingDesc>,
-    pub pillar_shaping: Vec<PillarShapingDesc>,
-    pub resources: Vec<ResourceDesc>,
-    pub resource_clumps: Vec<ResourceClumpDesc>,
-    pub resource_growths: Vec<ResourceGrowthRecipeDesc>,
-    pub resource_placements: Vec<ResourcePlacementRecipeDesc>,
-    pub teleport_items: Vec<TeleportItemDesc>,
-    pub tools: Vec<ToolDesc>,
-    pub traveler_tasks: Vec<TravelerTaskDesc>,
-    pub traveler_trade_orders: Vec<TravelerTradeOrderDesc>,
-    pub deployables: Vec<DeployableDesc>,
-    pub weapons: Vec<WeaponDesc>,
-    pub onboarding_rewards: Vec<OnboardingRewardDesc>,
-    pub terraform_recipes: Vec<TerraformRecipeDesc>,
-    pub empire_notifications: Vec<EmpireNotificationDesc>,
-    pub empire_territories: Vec<EmpireTerritoryDesc>,
-    pub empire_colors: Vec<EmpireColorDesc>,
-    pub empire_icons: Vec<EmpireIconDesc>,
-    pub walls: Vec<WallDesc>,
-    pub gates: Vec<GateDesc>,
-    pub elevators: Vec<ElevatorDesc>,
-    pub player_actions: Vec<PlayerActionDesc>,
-    pub distant_visibile_entities: Vec<DistantVisibleEntityDesc>,
-    pub player_housing: Vec<PlayerHousingDesc>,
-    pub hexite_exchange_entries: Vec<HexiteExchangeEntryDesc>,
-    pub reserved_name: Vec<ReservedNameDesc>,
-    pub contribution_loot: Vec<ContributionLootDescV2>,
-}
-
-#[spacetimedb::table(name = staged_static_data_v4)]
-pub struct StagedStaticDataV4 {
-    #[primary_key]
-    pub version: u32,
-    pub static_data: StaticDataUploadV4,
-}
-
-
-#[derive(SpacetimeType, Default)]
-pub struct StaticDataUploadV4 {
-    pub parameters: Vec<ParametersDesc>,
-    pub private_parameters: Vec<PrivateParametersDesc>,
-    pub secondary_knowledges: Vec<SecondaryKnowledgeDesc>,
-    pub weapon_types: Vec<WeaponTypeDesc>,
-    pub skills: Vec<SkillDesc>,
-    pub targeting_matrices: Vec<TargetingMatrixDesc>,
-    pub npcs: Vec<NpcDesc>,
-    pub loot_rarities: Vec<LootRarityDesc>,
-    pub knowledge_scroll_types: Vec<KnowledgeScrollTypeDesc>,
-    pub items: Vec<ItemDesc>,
-    pub enemy_ai_params: Vec<EnemyAiParamsDesc>,
-    pub empire_ranks: Vec<EmpireRankDesc>,
-    pub emotes: Vec<EmoteDesc>,
-    pub climb_requirements: Vec<ClimbRequirementDesc>,
-    pub claim_tile_costs: Vec<ClaimTileCost>,
-    pub claim_tech: Vec<ClaimTechDesc>,
-    pub character_stats: Vec<CharacterStatDesc>,
-    pub cargos: Vec<CargoDesc>,
-    pub building_types: Vec<BuildingTypeDesc>,
-    pub buildings: Vec<BuildingDesc>,
-    pub biomes: Vec<BiomeDesc>,
-    pub interior_shapes: Vec<InteriorShapeDesc>,
-    pub buff_types: Vec<BuffTypeDesc>,
-    pub buffs: Vec<BuffDesc>,
-    pub alerts: Vec<AlertDesc>,
-    pub tool_types: Vec<ToolTypeDesc>,
-    pub item_lists: Vec<ItemListDesc>,
-    pub foods: Vec<FoodDesc>,
-    pub achievements: Vec<AchievementDesc>,
-    pub knowledge_stat_modifiers: Vec<KnowledgeStatModifierDesc>,
-    pub interior_instances: Vec<InteriorInstanceDesc>,
-    pub interior_environments: Vec<InteriorEnvironmentDesc>,
-    pub interior_spawns: Vec<InteriorSpawnDesc>,
-    pub building_portals: Vec<BuildingPortalDescV2>,
-    pub portal_connections: Vec<InteriorPortalConnectionsDesc>,
-    pub building_interior_networks: Vec<InteriorNetworkDesc>,
-    pub building_claims: Vec<BuildingClaimDesc>,
-    pub building_repairs: Vec<BuildingRepairsDesc>,
-    pub building_spawns: Vec<BuildingSpawnDesc>,
-    pub chest_rarities: Vec<ChestRarityDesc>,
-    pub clothing: Vec<ClothingDesc>,
-    pub collectibles: Vec<CollectibleDesc>,
-    pub combat_actions: Vec<CombatActionDescV3>,
-    pub combat_actions_multi_hit: Vec<CombatActionMultiHitDesc>,
-    pub construction: Vec<ConstructionRecipeDesc>,
-    pub crafting: Vec<CraftingRecipeDesc>,
-    pub desconstructions: Vec<DeconstructionRecipeDesc>,
-    pub empire_supplies: Vec<EmpireSuppliesDesc>,
-    pub enemies: Vec<EnemyDesc>,
-    pub environment_debuffs: Vec<EnvironmentDebuffDesc>,
-    pub equipment: Vec<EquipmentDesc>,
-    pub extraction: Vec<ExtractionRecipeDesc>,
-    pub item_conversion_recipes: Vec<ItemConversionRecipeDesc>,
-    pub knowledge_scrolls: Vec<KnowledgeScrollDesc>,
-    pub loot_chests: Vec<LootChestDesc>,
-    pub loot_tables: Vec<LootTableDesc>,
-    pub paving: Vec<PavingTileDesc>,
-    pub pathfinding: Vec<PathfindingDesc>,
-    pub pillar_shaping: Vec<PillarShapingDesc>,
-    pub resources: Vec<ResourceDesc>,
-    pub resource_clumps: Vec<ResourceClumpDesc>,
-    pub resource_growths: Vec<ResourceGrowthRecipeDesc>,
-    pub resource_placements: Vec<ResourcePlacementRecipeDesc>,
-    pub teleport_items: Vec<TeleportItemDesc>,
-    pub tools: Vec<ToolDesc>,
-    pub traveler_tasks: Vec<TravelerTaskDesc>,
-    pub traveler_trade_orders: Vec<TravelerTradeOrderDesc>,
-    pub deployables: Vec<DeployableDesc>,
-    pub weapons: Vec<WeaponDesc>,
-    pub onboarding_rewards: Vec<OnboardingRewardDesc>,
-    pub terraform_recipes: Vec<TerraformRecipeDesc>,
-    pub empire_notifications: Vec<EmpireNotificationDesc>,
-    pub empire_territories: Vec<EmpireTerritoryDesc>,
-    pub empire_colors: Vec<EmpireColorDesc>,
-    pub empire_icons: Vec<EmpireIconDesc>,
-    pub walls: Vec<WallDesc>,
-    pub gates: Vec<GateDesc>,
-    pub elevators: Vec<ElevatorDesc>,
-    pub player_actions: Vec<PlayerActionDesc>,
-    pub distant_visibile_entities: Vec<DistantVisibleEntityDesc>,
-    pub player_housing: Vec<PlayerHousingDesc>,
-    pub hexite_exchange_entries: Vec<HexiteExchangeEntryDesc>,
-    pub reserved_name: Vec<ReservedNameDesc>,
-    pub contribution_loot: Vec<ContributionLootDescV2>,
-    pub enemy_scaling: Vec<EnemyScalingDesc>,
-}
-
-
-#[spacetimedb::table(name = staged_static_data_v5)]
-pub struct StagedStaticDataV5 {
-    #[primary_key]
-    pub version: u32,
-    pub static_data: StaticDataUploadV5,
-}
-
-
-#[derive(SpacetimeType, Default)]
-pub struct StaticDataUploadV5 {
-    pub parameters: Vec<ParametersDesc>,
-    pub private_parameters: Vec<PrivateParametersDesc>,
-    pub secondary_knowledges: Vec<SecondaryKnowledgeDesc>,
-    pub weapon_types: Vec<WeaponTypeDesc>,
-    pub skills: Vec<SkillDesc>,
-    pub targeting_matrices: Vec<TargetingMatrixDesc>,
-    pub npcs: Vec<NpcDesc>,
-    pub loot_rarities: Vec<LootRarityDesc>,
-    pub knowledge_scroll_types: Vec<KnowledgeScrollTypeDesc>,
-    pub items: Vec<ItemDesc>,
-    pub enemy_ai_params: Vec<EnemyAiParamsDesc>,
-    pub empire_ranks: Vec<EmpireRankDesc>,
-    pub emotes: Vec<EmoteDesc>,
-    pub climb_requirements: Vec<ClimbRequirementDesc>,
-    pub claim_tile_costs: Vec<ClaimTileCost>,
-    pub claim_tech: Vec<ClaimTechDesc>,
-    pub character_stats: Vec<CharacterStatDesc>,
-    pub cargos: Vec<CargoDesc>,
-    pub building_types: Vec<BuildingTypeDesc>,
-    pub buildings: Vec<BuildingDesc>,
-    pub biomes: Vec<BiomeDesc>,
-    pub interior_shapes: Vec<InteriorShapeDesc>,
-    pub buff_types: Vec<BuffTypeDesc>,
-    pub buffs: Vec<BuffDesc>,
-    pub alerts: Vec<AlertDesc>,
-    pub tool_types: Vec<ToolTypeDesc>,
-    pub item_lists: Vec<ItemListDesc>,
-    pub foods: Vec<FoodDesc>,
-    pub achievements: Vec<AchievementDesc>,
-    pub knowledge_stat_modifiers: Vec<KnowledgeStatModifierDesc>,
-    pub interior_instances: Vec<InteriorInstanceDesc>,
-    pub interior_environments: Vec<InteriorEnvironmentDesc>,
-    pub interior_spawns: Vec<InteriorSpawnDesc>,
-    pub building_portals: Vec<BuildingPortalDescV2>,
-    pub portal_connections: Vec<InteriorPortalConnectionsDesc>,
-    pub building_interior_networks: Vec<InteriorNetworkDesc>,
-    pub building_claims: Vec<BuildingClaimDesc>,
-    pub building_repairs: Vec<BuildingRepairsDesc>,
-    pub building_spawns: Vec<BuildingSpawnDesc>,
-    pub chest_rarities: Vec<ChestRarityDesc>,
-    pub clothing: Vec<ClothingDesc>,
-    pub collectibles: Vec<CollectibleDesc>,
-    pub combat_actions: Vec<CombatActionDescV3>,
-    pub combat_actions_multi_hit: Vec<CombatActionMultiHitDesc>,
-    pub construction: Vec<ConstructionRecipeDesc>,
-    pub crafting: Vec<CraftingRecipeDesc>,
-    pub desconstructions: Vec<DeconstructionRecipeDesc>,
-    pub empire_supplies: Vec<EmpireSuppliesDesc>,
-    pub enemies: Vec<EnemyDesc>,
-    pub environment_debuffs: Vec<EnvironmentDebuffDesc>,
-    pub equipment: Vec<EquipmentDesc>,
-    pub extraction: Vec<ExtractionRecipeDesc>,
-    pub item_conversion_recipes: Vec<ItemConversionRecipeDesc>,
-    pub knowledge_scrolls: Vec<KnowledgeScrollDesc>,
-    pub loot_chests: Vec<LootChestDesc>,
-    pub loot_tables: Vec<LootTableDesc>,
-    pub paving: Vec<PavingTileDesc>,
-    pub pathfinding: Vec<PathfindingDesc>,
-    pub pillar_shaping: Vec<PillarShapingDesc>,
-    pub resources: Vec<ResourceDesc>,
-    pub resource_clumps: Vec<ResourceClumpDesc>,
-    pub resource_growths: Vec<ResourceGrowthRecipeDesc>,
-    pub resource_placements: Vec<ResourcePlacementRecipeDesc>,
-    pub teleport_items: Vec<TeleportItemDesc>,
-    pub tools: Vec<ToolDesc>,
-    pub traveler_tasks: Vec<TravelerTaskDesc>,
-    pub traveler_trade_orders: Vec<TravelerTradeOrderDesc>,
-    pub deployables: Vec<DeployableDescV2>,
-    pub weapons: Vec<WeaponDesc>,
-    pub onboarding_rewards: Vec<OnboardingRewardDesc>,
-    pub terraform_recipes: Vec<TerraformRecipeDesc>,
-    pub empire_notifications: Vec<EmpireNotificationDesc>,
-    pub empire_territories: Vec<EmpireTerritoryDesc>,
-    pub empire_colors: Vec<EmpireColorDesc>,
-    pub empire_icons: Vec<EmpireIconDesc>,
-    pub walls: Vec<WallDesc>,
-    pub gates: Vec<GateDesc>,
-    pub elevators: Vec<ElevatorDesc>,
-    pub player_actions: Vec<PlayerActionDesc>,
-    pub distant_visibile_entities: Vec<DistantVisibleEntityDesc>,
-    pub player_housing: Vec<PlayerHousingDesc>,
-    pub hexite_exchange_entries: Vec<HexiteExchangeEntryDesc>,
-    pub reserved_name: Vec<ReservedNameDesc>,
-    pub contribution_loot: Vec<ContributionLootDescV2>,
-    pub wind_params: Vec<WindParamsDesc>,
-    pub enemy_scaling: Vec<EnemyScalingDesc>,
-}
-
-#[spacetimedb::table(name = staged_static_data_v6)]
-pub struct StagedStaticDataV6 {
-    #[primary_key]
-    pub version: u32,
-    pub static_data: StaticDataUploadV6,
-}
-
-
-#[derive(SpacetimeType, Default)]
-pub struct StaticDataUploadV6 {
-    pub parameters: Vec<ParametersDesc>,
-    pub private_parameters: Vec<PrivateParametersDesc>,
-    pub secondary_knowledges: Vec<SecondaryKnowledgeDesc>,
-    pub weapon_types: Vec<WeaponTypeDesc>,
-    pub skills: Vec<SkillDesc>,
-    pub targeting_matrices: Vec<TargetingMatrixDesc>,
-    pub npcs: Vec<NpcDesc>,
-    pub loot_rarities: Vec<LootRarityDesc>,
-    pub knowledge_scroll_types: Vec<KnowledgeScrollTypeDesc>,
-    pub items: Vec<ItemDesc>,
-    pub enemy_ai_params: Vec<EnemyAiParamsDesc>,
-    pub empire_ranks: Vec<EmpireRankDesc>,
-    pub emotes: Vec<EmoteDesc>,
-    pub climb_requirements: Vec<ClimbRequirementDesc>,
-    pub claim_tile_costs: Vec<ClaimTileCost>,
-    pub claim_tech: Vec<ClaimTechDesc>,
-    pub character_stats: Vec<CharacterStatDesc>,
-    pub cargos: Vec<CargoDesc>,
-    pub building_types: Vec<BuildingTypeDesc>,
-    pub buildings: Vec<BuildingDesc>,
-    pub biomes: Vec<BiomeDesc>,
-    pub interior_shapes: Vec<InteriorShapeDesc>,
-    pub buff_types: Vec<BuffTypeDesc>,
-    pub buffs: Vec<BuffDesc>,
-    pub alerts: Vec<AlertDesc>,
-    pub tool_types: Vec<ToolTypeDesc>,
-    pub item_lists: Vec<ItemListDesc>,
-    pub foods: Vec<FoodDesc>,
-    pub achievements: Vec<AchievementDesc>,
-    pub knowledge_stat_modifiers: Vec<KnowledgeStatModifierDesc>,
-    pub interior_instances: Vec<InteriorInstanceDesc>,
-    pub interior_environments: Vec<InteriorEnvironmentDesc>,
-    pub interior_spawns: Vec<InteriorSpawnDesc>,
-    pub building_portals: Vec<BuildingPortalDescV2>,
-    pub portal_connections: Vec<InteriorPortalConnectionsDesc>,
-    pub building_interior_networks: Vec<InteriorNetworkDesc>,
-    pub building_claims: Vec<BuildingClaimDesc>,
-    pub building_repairs: Vec<BuildingRepairsDesc>,
-    pub building_spawns: Vec<BuildingSpawnDesc>,
-    pub chest_rarities: Vec<ChestRarityDesc>,
-    pub clothing: Vec<ClothingDesc>,
-    pub collectibles: Vec<CollectibleDesc>,
-    pub combat_actions: Vec<CombatActionDescV3>,
-    pub combat_actions_multi_hit: Vec<CombatActionMultiHitDesc>,
-    pub construction: Vec<ConstructionRecipeDesc>,
-    pub crafting: Vec<CraftingRecipeDesc>,
-    pub desconstructions: Vec<DeconstructionRecipeDesc>,
-    pub empire_supplies: Vec<EmpireSuppliesDesc>,
-    pub enemies: Vec<EnemyDesc>,
-    pub environment_debuffs: Vec<EnvironmentDebuffDesc>,
-    pub equipment: Vec<EquipmentDesc>,
-    pub extraction: Vec<ExtractionRecipeDesc>,
-    pub item_conversion_recipes: Vec<ItemConversionRecipeDesc>,
-    pub knowledge_scrolls: Vec<KnowledgeScrollDesc>,
-    pub loot_chests: Vec<LootChestDesc>,
-    pub loot_tables: Vec<LootTableDesc>,
-    pub paving: Vec<PavingTileDesc>,
-    pub pathfinding: Vec<PathfindingDesc>,
-    pub pillar_shaping: Vec<PillarShapingDesc>,
-    pub resources: Vec<ResourceDesc>,
-    pub resource_clumps: Vec<ResourceClumpDesc>,
-    pub resource_growths: Vec<ResourceGrowthRecipeDesc>,
-    pub resource_placements: Vec<ResourcePlacementRecipeDesc>,
-    pub teleport_items: Vec<TeleportItemDesc>,
-    pub tools: Vec<ToolDesc>,
-    pub traveler_tasks: Vec<TravelerTaskDesc>,
-    pub traveler_trade_orders: Vec<TravelerTradeOrderDesc>,
-    pub deployables: Vec<DeployableDescV2>,
-    pub weapons: Vec<WeaponDesc>,
-    pub onboarding_rewards: Vec<OnboardingRewardDesc>,
-    pub terraform_recipes: Vec<TerraformRecipeDesc>,
-    pub empire_notifications: Vec<EmpireNotificationDesc>,
-    pub empire_territories: Vec<EmpireTerritoryDesc>,
-    pub empire_colors: Vec<EmpireColorDesc>,
-    pub empire_icons: Vec<EmpireIconDesc>,
-    pub walls: Vec<WallDesc>,
-    pub gates: Vec<GateDesc>,
-    pub elevators: Vec<ElevatorDesc>,
-    pub player_actions: Vec<PlayerActionDesc>,
-    pub distant_visibile_entities: Vec<DistantVisibleEntityDesc>,
-    pub player_housing: Vec<PlayerHousingDesc>,
-    pub hexite_exchange_entries: Vec<HexiteExchangeEntryDesc>,
-    pub reserved_name: Vec<ReservedNameDesc>,
-    pub contribution_loot: Vec<ContributionLootDescV2>,
-    pub wind_params: Vec<WindParamsDesc>,
-    pub enemy_scaling: Vec<EnemyScalingDesc>,
-}
-
-#[spacetimedb::table(name = staged_static_data_v7)]
-pub struct StagedStaticDataV7 {
-    #[primary_key]
-    pub version: u32,
-    pub static_data: StaticDataUploadV7,
-}
-
-
-#[derive(SpacetimeType, Default)]
-pub struct StaticDataUploadV7 {
-    pub parameters: Vec<ParametersDescV2>,
-    pub private_parameters: Vec<PrivateParametersDesc>,
-    pub secondary_knowledges: Vec<SecondaryKnowledgeDesc>,
-    pub weapon_types: Vec<WeaponTypeDesc>,
-    pub skills: Vec<SkillDesc>,
-    pub targeting_matrices: Vec<TargetingMatrixDesc>,
-    pub npcs: Vec<NpcDesc>,
-    pub loot_rarities: Vec<LootRarityDesc>,
-    pub knowledge_scroll_types: Vec<KnowledgeScrollTypeDesc>,
-    pub items: Vec<ItemDesc>,
-    pub enemy_ai_params: Vec<EnemyAiParamsDesc>,
-    pub empire_ranks: Vec<EmpireRankDesc>,
-    pub emotes: Vec<EmoteDesc>,
-    pub climb_requirements: Vec<ClimbRequirementDesc>,
-    pub claim_tile_costs: Vec<ClaimTileCost>,
-    pub claim_tech: Vec<ClaimTechDesc>,
-    pub character_stats: Vec<CharacterStatDesc>,
-    pub cargos: Vec<CargoDesc>,
-    pub building_types: Vec<BuildingTypeDesc>,
-    pub buildings: Vec<BuildingDesc>,
-    pub biomes: Vec<BiomeDesc>,
-    pub interior_shapes: Vec<InteriorShapeDesc>,
-    pub buff_types: Vec<BuffTypeDesc>,
-    pub buffs: Vec<BuffDesc>,
-    pub alerts: Vec<AlertDesc>,
-    pub tool_types: Vec<ToolTypeDesc>,
-    pub item_lists: Vec<ItemListDesc>,
-    pub foods: Vec<FoodDesc>,
-    pub achievements: Vec<AchievementDesc>,
-    pub knowledge_stat_modifiers: Vec<KnowledgeStatModifierDesc>,
-    pub interior_instances: Vec<InteriorInstanceDesc>,
-    pub interior_environments: Vec<InteriorEnvironmentDesc>,
-    pub interior_spawns: Vec<InteriorSpawnDesc>,
-    pub building_portals: Vec<BuildingPortalDescV2>,
-    pub portal_connections: Vec<InteriorPortalConnectionsDesc>,
-    pub building_interior_networks: Vec<InteriorNetworkDesc>,
-    pub building_claims: Vec<BuildingClaimDesc>,
-    pub building_repairs: Vec<BuildingRepairsDesc>,
-    pub building_spawns: Vec<BuildingSpawnDesc>,
-    pub chest_rarities: Vec<ChestRarityDesc>,
-    pub clothing: Vec<ClothingDesc>,
-    pub collectibles: Vec<CollectibleDesc>,
-    pub combat_actions: Vec<CombatActionDescV3>,
-    pub combat_actions_multi_hit: Vec<CombatActionMultiHitDesc>,
-    pub construction: Vec<ConstructionRecipeDesc>,
-    pub crafting: Vec<CraftingRecipeDesc>,
-    pub desconstructions: Vec<DeconstructionRecipeDesc>,
-    pub empire_supplies: Vec<EmpireSuppliesDesc>,
-    pub enemies: Vec<EnemyDesc>,
-    pub environment_debuffs: Vec<EnvironmentDebuffDesc>,
-    pub equipment: Vec<EquipmentDesc>,
-    pub extraction: Vec<ExtractionRecipeDesc>,
-    pub item_conversion_recipes: Vec<ItemConversionRecipeDesc>,
-    pub knowledge_scrolls: Vec<KnowledgeScrollDesc>,
-    pub loot_chests: Vec<LootChestDesc>,
-    pub loot_tables: Vec<LootTableDesc>,
-    pub paving: Vec<PavingTileDesc>,
-    pub pathfinding: Vec<PathfindingDesc>,
-    pub pillar_shaping: Vec<PillarShapingDesc>,
-    pub resources: Vec<ResourceDesc>,
-    pub resource_clumps: Vec<ResourceClumpDesc>,
-    pub resource_growths: Vec<ResourceGrowthRecipeDesc>,
-    pub resource_placements: Vec<ResourcePlacementRecipeDesc>,
-    pub teleport_items: Vec<TeleportItemDesc>,
-    pub tools: Vec<ToolDesc>,
-    pub traveler_tasks: Vec<TravelerTaskDesc>,
-    pub traveler_trade_orders: Vec<TravelerTradeOrderDesc>,
-    pub deployables: Vec<DeployableDescV2>,
-    pub weapons: Vec<WeaponDesc>,
-    pub onboarding_rewards: Vec<OnboardingRewardDesc>,
-    pub terraform_recipes: Vec<TerraformRecipeDesc>,
-    pub empire_notifications: Vec<EmpireNotificationDesc>,
-    pub empire_territories: Vec<EmpireTerritoryDesc>,
-    pub empire_colors: Vec<EmpireColorDesc>,
-    pub empire_icons: Vec<EmpireIconDesc>,
-    pub walls: Vec<WallDesc>,
-    pub gates: Vec<GateDesc>,
-    pub elevators: Vec<ElevatorDesc>,
-    pub player_actions: Vec<PlayerActionDesc>,
-    pub distant_visibile_entities: Vec<DistantVisibleEntityDesc>,
-    pub player_housing: Vec<PlayerHousingDesc>,
-    pub hexite_exchange_entries: Vec<HexiteExchangeEntryDesc>,
-    pub reserved_name: Vec<ReservedNameDesc>,
-    pub contribution_loot: Vec<ContributionLootDescV2>,
-    pub wind_params: Vec<WindParamsDesc>,
-    pub enemy_scaling: Vec<EnemyScalingDesc>,
-}
-
-#[spacetimedb::table(name = staged_static_data_v8)]
-pub struct StagedStaticDataV8 {
-    #[primary_key]
-    pub version: u32,
-    pub static_data: StaticDataUploadV8,
-}
-
-
-#[derive(SpacetimeType, Default)]
-pub struct StaticDataUploadV8 {
-    pub parameters: Vec<ParametersDescV2>,
-    pub private_parameters: Vec<PrivateParametersDesc>,
-    pub secondary_knowledges: Vec<SecondaryKnowledgeDesc>,
-    pub weapon_types: Vec<WeaponTypeDesc>,
-    pub skills: Vec<SkillDesc>,
-    pub targeting_matrices: Vec<TargetingMatrixDesc>,
-    pub npcs: Vec<NpcDesc>,
-    pub loot_rarities: Vec<LootRarityDesc>,
-    pub knowledge_scroll_types: Vec<KnowledgeScrollTypeDesc>,
-    pub items: Vec<ItemDesc>,
-    pub enemy_ai_params: Vec<EnemyAiParamsDesc>,
-    pub empire_ranks: Vec<EmpireRankDesc>,
-    pub emotes: Vec<EmoteDesc>,
-    pub climb_requirements: Vec<ClimbRequirementDesc>,
-    pub claim_tile_costs: Vec<ClaimTileCost>,
-    pub claim_tech: Vec<ClaimTechDesc>,
-    pub character_stats: Vec<CharacterStatDesc>,
-    pub cargos: Vec<CargoDesc>,
-    pub building_types: Vec<BuildingTypeDesc>,
-    pub buildings: Vec<BuildingDesc>,
-    pub biomes: Vec<BiomeDesc>,
-    pub interior_shapes: Vec<InteriorShapeDesc>,
-    pub buff_types: Vec<BuffTypeDesc>,
-    pub buffs: Vec<BuffDesc>,
-    pub alerts: Vec<AlertDesc>,
-    pub tool_types: Vec<ToolTypeDesc>,
-    pub item_lists: Vec<ItemListDesc>,
-    pub foods: Vec<FoodDesc>,
-    pub achievements: Vec<AchievementDesc>,
-    pub knowledge_stat_modifiers: Vec<KnowledgeStatModifierDesc>,
-    pub interior_instances: Vec<InteriorInstanceDesc>,
-    pub interior_environments: Vec<InteriorEnvironmentDesc>,
-    pub interior_spawns: Vec<InteriorSpawnDesc>,
-    pub building_portals: Vec<BuildingPortalDescV2>,
-    pub portal_connections: Vec<InteriorPortalConnectionsDesc>,
-    pub building_interior_networks: Vec<InteriorNetworkDesc>,
-    pub building_claims: Vec<BuildingClaimDesc>,
-    pub building_repairs: Vec<BuildingRepairsDesc>,
-    pub building_spawns: Vec<BuildingSpawnDesc>,
-    pub chest_rarities: Vec<ChestRarityDesc>,
-    pub clothing: Vec<ClothingDesc>,
-    pub collectibles: Vec<CollectibleDesc>,
-    pub combat_actions: Vec<CombatActionDescV3>,
-    pub combat_actions_multi_hit: Vec<CombatActionMultiHitDesc>,
-    pub construction: Vec<ConstructionRecipeDesc>,
-    pub crafting: Vec<CraftingRecipeDesc>,
-    pub desconstructions: Vec<DeconstructionRecipeDesc>,
-    pub empire_supplies: Vec<EmpireSuppliesDesc>,
-    pub enemies: Vec<EnemyDesc>,
-    pub environment_debuffs: Vec<EnvironmentDebuffDesc>,
-    pub equipment: Vec<EquipmentDesc>,
-    pub extraction: Vec<ExtractionRecipeDesc>,
-    pub item_conversion_recipes: Vec<ItemConversionRecipeDesc>,
-    pub knowledge_scrolls: Vec<KnowledgeScrollDesc>,
-    pub loot_chests: Vec<LootChestDesc>,
-    pub loot_tables: Vec<LootTableDesc>,
-    pub paving: Vec<PavingTileDesc>,
-    pub pathfinding: Vec<PathfindingDesc>,
-    pub pillar_shaping: Vec<PillarShapingDesc>,
-    pub resources: Vec<ResourceDesc>,
-    pub resource_clumps: Vec<ResourceClumpDesc>,
-    pub resource_growths: Vec<ResourceGrowthRecipeDesc>,
-    pub resource_placements: Vec<ResourcePlacementRecipeDesc>,
-    pub teleport_items: Vec<TeleportItemDesc>,
-    pub tools: Vec<ToolDesc>,
-    pub traveler_tasks: Vec<TravelerTaskDesc>,
-    pub traveler_trade_orders: Vec<TravelerTradeOrderDesc>,
-    pub deployables: Vec<DeployableDescV3>,
-    pub weapons: Vec<WeaponDesc>,
-    pub onboarding_rewards: Vec<OnboardingRewardDesc>,
-    pub terraform_recipes: Vec<TerraformRecipeDesc>,
-    pub empire_notifications: Vec<EmpireNotificationDesc>,
-    pub empire_territories: Vec<EmpireTerritoryDesc>,
-    pub empire_colors: Vec<EmpireColorDesc>,
-    pub empire_icons: Vec<EmpireIconDesc>,
-    pub walls: Vec<WallDesc>,
-    pub gates: Vec<GateDesc>,
-    pub elevators: Vec<ElevatorDesc>,
-    pub player_actions: Vec<PlayerActionDesc>,
-    pub distant_visibile_entities: Vec<DistantVisibleEntityDesc>,
-    pub player_housing: Vec<PlayerHousingDesc>,
-    pub hexite_exchange_entries: Vec<HexiteExchangeEntryDesc>,
-    pub reserved_name: Vec<ReservedNameDesc>,
-    pub contribution_loot: Vec<ContributionLootDescV2>,
-    pub wind_params: Vec<WindParamsDesc>,
-    pub enemy_scaling: Vec<EnemyScalingDesc>,
-}
-
-impl StaticDataUploadV8 {
-    pub fn new() -> StaticDataUploadV8 {
-        StaticDataUploadV8 {
-            parameters: Vec::new(),
-            private_parameters: Vec::new(),
-            secondary_knowledges: Vec::new(),
-            weapon_types: Vec::new(),
-            skills: Vec::new(),
-            targeting_matrices: Vec::new(),
-            npcs: Vec::new(),
-            loot_rarities: Vec::new(),
-            knowledge_scroll_types: Vec::new(),
-            items: Vec::new(),
-            enemy_ai_params: Vec::new(),
-            empire_ranks: Vec::new(),
-            emotes: Vec::new(),
-            climb_requirements: Vec::new(),
-            claim_tile_costs: Vec::new(),
-            claim_tech: Vec::new(),
-            character_stats: Vec::new(),
-            cargos: Vec::new(),
-            building_types: Vec::new(),
-            buildings: Vec::new(),
-            biomes: Vec::new(),
-            interior_shapes: Vec::new(),
-            buff_types: Vec::new(),
-            buffs: Vec::new(),
-            alerts: Vec::new(),
-            tool_types: Vec::new(),
-            item_lists: Vec::new(),
-            foods: Vec::new(),
-            achievements: Vec::new(),
-            knowledge_stat_modifiers: Vec::new(),
-            interior_instances: Vec::new(),
-            interior_environments: Vec::new(),
-            interior_spawns: Vec::new(),
-            building_portals: Vec::new(),
-            portal_connections: Vec::new(),
-            building_interior_networks: Vec::new(),
-            building_claims: Vec::new(),
-            building_repairs: Vec::new(),
-            building_spawns: Vec::new(),
-            chest_rarities: Vec::new(),
-            clothing: Vec::new(),
-            collectibles: Vec::new(),
-            combat_actions: Vec::new(),
-            combat_actions_multi_hit: Vec::new(),
-            construction: Vec::new(),
-            crafting: Vec::new(),
-            desconstructions: Vec::new(),
-            empire_supplies: Vec::new(),
-            enemies: Vec::new(),
-            environment_debuffs: Vec::new(),
-            equipment: Vec::new(),
-            extraction: Vec::new(),
-            item_conversion_recipes: Vec::new(),
-            knowledge_scrolls: Vec::new(),
-            loot_chests: Vec::new(),
-            loot_tables: Vec::new(),
-            pathfinding: Vec::new(),
-            paving: Vec::new(),
-            pillar_shaping: Vec::new(),
-            resources: Vec::new(),
-            resource_clumps: Vec::new(),
-            resource_growths: Vec::new(),
-            resource_placements: Vec::new(),
-            teleport_items: Vec::new(),
-            tools: Vec::new(),
-            traveler_tasks: Vec::new(),
-            traveler_trade_orders: Vec::new(),
-            deployables: Vec::new(),
-            weapons: Vec::new(),
-            onboarding_rewards: Vec::new(),
-            terraform_recipes: Vec::new(),
-            empire_notifications: Vec::new(),
-            empire_territories: Vec::new(),
-            empire_colors: Vec::new(),
-            empire_icons: Vec::new(),
-            walls: Vec::new(),
-            gates: Vec::new(),
-            elevators: Vec::new(),
-            player_actions: Vec::new(),
-            distant_visibile_entities: Vec::new(),
-            player_housing: Vec::new(),
-            hexite_exchange_entries: Vec::new(),
-            reserved_name: Vec::new(),
-            contribution_loot: Vec::new(),
-            wind_params: Vec::new(),
-            enemy_scaling: Vec::new(),
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, spacetimedb::SpacetimeType)]
@@ -1317,6 +449,7 @@ pub enum SkillType {
     Trading,
     LoreKeeper,
     Sailing,
+    HexiteGathering,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, spacetimedb::SpacetimeType)]
@@ -1369,6 +502,8 @@ pub struct ResourceDesc {
     pub enemy_params_id: Vec<i32>,
     pub scheduled_respawn_time: f32,
     pub not_respawning: bool,
+    #[default(false)]
+    pub show_time_left: bool,
 }
 
 #[static_data_staging_table(cargo_desc)]
@@ -1482,6 +617,7 @@ pub struct BuildingDesc {
     pub show_in_compendium: bool,
     pub is_ruins: bool,
     pub not_deconstructible: bool,
+    pub destroy_on_unclaim: bool,
 }
 
 // A table that gets auto-built when static data is uploaded. Maps building function IDs to buildings that have that function.
@@ -1495,7 +631,7 @@ pub struct BuildingFunctionTypeMappingDesc {
 }
 
 #[static_data_staging_table(item_desc)]
-#[spacetimedb::table(name = item_desc, public)]
+#[spacetimedb::table(name = item_desc, public, index(name = tag, btree(columns = [tag])))]
 #[derive(Clone, PartialEq, Debug)]
 pub struct ItemDesc {
     #[primary_key]
@@ -1544,7 +680,7 @@ pub struct CollectibleDesc {
 }
 
 #[static_data_staging_table(tool_type_desc)]
-#[spacetimedb::table(name = tool_type_desc, public)]
+#[spacetimedb::table(name = tool_type_desc, public, index(name = skill_id, btree(columns = [skill_id])))]
 #[derive(Clone, PartialEq, Debug)]
 pub struct ToolTypeDesc {
     #[primary_key]
@@ -1567,120 +703,10 @@ pub struct ToolDesc {
     pub power: i32,
 }
 
+#[static_data_staging_table(deployable_desc)]
 #[spacetimedb::table(name = deployable_desc, public)]
 #[derive(Clone, PartialEq, Debug)]
 pub struct DeployableDesc {
-    #[primary_key]
-    pub id: i32,
-    pub name: String,
-    #[unique]
-    pub deploy_from_collectible_id: i32,
-    pub deploy_time: f32,
-    pub deployable_type: DeployableType,
-    pub pathfinding_id: i32,
-    pub movement_type: MovementType,
-    pub can_enter_portals: bool,
-    pub speed: Vec<MovementSpeed>,
-    pub use_player_speed_modifier: bool,
-    pub placeable_on_land: bool,
-    pub placeable_in_water: bool,
-    pub capacity: i32,
-    pub storage: i32,
-    pub stockpile: i32,
-    pub barter: i32, // max orders
-    pub item_slot_size: i32,
-    pub cargo_slot_size: i32,
-    pub model_address: String,
-    pub stats: Vec<CsvStatEntry>,
-    pub player_animations_in_deployable_slots: Vec<i32>, // Converted to enum PlayerInDeployableState on the client
-    pub allow_driver_extract: bool,
-    pub allow_passenger_extract: bool,
-    pub show_for_secs_after_owner_logout: i32, // -1 means we never hide the deployable
-    pub allow_emote_while_driver: bool,
-    pub allow_emote_while_passenger: bool,
-    pub experience_per_progress: Vec<ExperienceStackF32>,
-    pub mounting_radius: f32,
-}
-
-#[spacetimedb::table(name = deployable_desc_v2, public)]
-#[derive(Clone, PartialEq, Debug)]
-pub struct DeployableDescV2 {
-    #[primary_key]
-    pub id: i32,
-    pub name: String,
-    #[unique]
-    pub deploy_from_collectible_id: i32,
-    pub deploy_time: f32,
-    pub deployable_type: DeployableType,
-    pub pathfinding_id: i32,
-    pub movement_type: MovementType,
-    pub can_enter_portals: bool,
-    pub can_auto_follow: bool,
-    pub affected_by_wind: f32,
-    pub speed: Vec<MovementSpeed>,
-    pub use_player_speed_modifier: bool,
-    pub placeable_on_land: bool,
-    pub placeable_in_water: bool, // obsolete, using max water depth instead
-    pub capacity: i32,
-    pub storage: i32,
-    pub stockpile: i32,
-    pub barter: i32, // max orders
-    pub item_slot_size: i32,
-    pub cargo_slot_size: i32,
-    pub model_address: String,
-    pub stats: Vec<CsvStatEntry>,
-    pub player_animations_in_deployable_slots: Vec<i32>, // Converted to enum PlayerInDeployableState on the client
-    pub allow_driver_extract: bool,
-    pub allow_passenger_extract: bool,
-    pub show_for_secs_after_owner_logout: i32, // -1 means we never hide the deployable
-    pub allow_emote_while_driver: bool,
-    pub allow_emote_while_passenger: bool,
-    pub experience_per_progress: Vec<ExperienceStackF32>,
-    pub mounting_radius: f32,
-}
-
-#[spacetimedb::table(name = deployable_desc_v3, public)]
-#[derive(Clone, PartialEq, Debug)]
-pub struct DeployableDescV3 {
-    #[primary_key]
-    pub id: i32,
-    pub name: String,
-    #[unique]
-    pub deploy_from_collectible_id: i32,
-    pub deploy_time: f32,
-    pub deployable_type: DeployableType,
-    pub pathfinding_id: i32,
-    pub movement_type: MovementType,
-    pub can_enter_portals: bool,
-    pub can_auto_follow: bool,
-    pub affected_by_wind: f32,
-    pub speed: Vec<MovementSpeed>,
-    pub use_player_speed_modifier: bool,
-    pub placeable_on_land: bool,
-    pub placeable_in_water: bool,
-    pub capacity: i32,
-    pub storage: i32,
-    pub stockpile: i32,
-    pub barter: i32, // max orders
-    pub item_slot_size: i32,
-    pub cargo_slot_size: i32,
-    pub model_address: String,
-    pub stats: Vec<CsvStatEntry>,
-    pub player_animations_in_deployable_slots: Vec<i32>, // Converted to enum PlayerInDeployableState on the client
-    pub allow_driver_extract: bool,
-    pub allow_passenger_extract: bool,
-    pub show_for_secs_after_owner_logout: i32, // -1 means we never hide the deployable
-    pub allow_emote_while_driver: bool,
-    pub allow_emote_while_passenger: bool,
-    pub experience_per_progress: Vec<ExperienceStackF32>,
-    pub mounting_radius: f32,
-    pub radius: f32, // for now, range (in tiles) to halt pathfinding when extracting from a deployable. Using a f32 in case it's used later for some kind of pathfinding radius.
-}
-
-#[static_data_staging_table(deployable_desc)]
-#[spacetimedb::table(name = deployable_desc_v4, public)]
-#[derive(Clone, PartialEq, Debug)]
-pub struct DeployableDescV4 {
     #[primary_key]
     pub id: i32,
     pub name: String,
@@ -1718,8 +744,29 @@ pub struct DeployableDescV4 {
     pub allow_hunting: bool,
 }
 
+#[spacetimedb::table(name = crafting_recipe_discovery_item_desc, index(name = item_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = crafting_recipe_discovery_cargo_desc, index(name = cargo_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = crafting_recipe_discovery_knowledge_desc, index(name = knowledge_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = construction_recipe_discovery_item_desc, index(name = item_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = construction_recipe_discovery_cargo_desc, index(name = cargo_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = construction_recipe_discovery_knowledge_desc, index(name = knowledge_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = paving_recipe_discovery_item_desc, index(name = item_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = paving_recipe_discovery_cargo_desc, index(name = cargo_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = paving_recipe_discovery_knowledge_desc, index(name = knowledge_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = resource_placement_recipe_discovery_item_desc, index(name = item_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = resource_placement_recipe_discovery_cargo_desc, index(name = cargo_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = resource_placement_recipe_discovery_knowledge_desc, index(name = knowledge_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = pillar_shaping_recipe_discovery_item_desc, index(name = item_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = pillar_shaping_recipe_discovery_cargo_desc, index(name = cargo_id, btree(columns = [requirement_id])))]
+#[spacetimedb::table(name = pillar_shaping_recipe_discovery_knowledge_desc, index(name = knowledge_id, btree(columns = [requirement_id])))]
+#[derive(Clone, PartialEq, Debug)]
+pub struct DiscoveryTriggerDesc {
+    pub requirement_id: i32,
+    pub recipe_id: i32,
+}
+
 #[static_data_staging_table(crafting_recipe_desc)]
-#[spacetimedb::table(name = crafting_recipe_desc, public)]
+#[spacetimedb::table(name = crafting_recipe_desc, public, index(name = show_in_progression, btree(columns = [show_in_progression])))]
 #[derive(Clone, PartialEq, Debug)]
 pub struct CraftingRecipeDesc {
     #[primary_key]
@@ -1746,41 +793,13 @@ pub struct CraftingRecipeDesc {
     pub hide_with_blocking_knowledges: bool,
     pub allow_use_hands: bool,
     pub is_passive: bool,
+    pub show_in_progression: bool,
 }
 
-#[spacetimedb::table(name = staged_construction_recipe_desc)]
+#[static_data_staging_table(construction_recipe_desc)]
 #[spacetimedb::table(name = construction_recipe_desc, public, index(name = building_description_id, btree(columns = [building_description_id])))]
 #[derive(Clone, PartialEq, Debug)]
 pub struct ConstructionRecipeDesc {
-    #[primary_key]
-    pub id: i32,
-    pub name: String,
-    pub time_requirement: f32,
-    pub stamina_requirement: f32,
-    pub consumed_building: i32,
-    pub required_interior_tier: i32,
-    pub level_requirements: Vec<LevelRequirement>,
-    pub tool_requirements: Vec<ToolRequirement>,
-    pub consumed_item_stacks: Vec<InputItemStack>,
-    pub consumed_cargo_stacks: Vec<InputItemStack>,
-    pub consumed_shards: i32,
-    pub experience_per_progress: Vec<ExperienceStackF32>,
-    pub discovery_triggers: Vec<i32>,
-    pub required_knowledges: Vec<i32>,
-    pub required_claim_tech_id: i32,
-    pub full_discovery_score: i32,
-    pub tool_mesh_index: i32,
-    pub building_description_id: i32,
-    pub required_paving_tier: i32,
-    pub actions_required: i32,
-    pub instantly_built: bool,
-    pub recipe_performance_id: i32,
-}
-
-#[static_data_staging_table(construction_recipe_desc_v2)]
-#[spacetimedb::table(name = construction_recipe_desc_v2, public, index(name = building_description_id, btree(columns = [building_description_id])))]
-#[derive(Clone, PartialEq, Debug)]
-pub struct ConstructionRecipeDescV2 {
     #[primary_key]
     pub id: i32,
     pub name: String,
@@ -1806,38 +825,10 @@ pub struct ConstructionRecipeDescV2 {
     pub recipe_performance_id: i32,
 }
 
-#[spacetimedb::table(name = staged_resource_placement_recipe_desc)]
+#[static_data_staging_table(resource_placement_recipe_desc)]
 #[spacetimedb::table(name = resource_placement_recipe_desc, public)]
 #[derive(Clone, PartialEq, Debug)]
 pub struct ResourcePlacementRecipeDesc {
-    #[primary_key]
-    pub id: i32,
-    pub name: String,
-    pub time_requirement: f32,
-    pub stamina_requirement: f32,
-    pub consumed_resource: i32,
-    pub required_interior_tier: i32,
-    pub level_requirements: Vec<LevelRequirement>,
-    pub tool_requirements: Vec<ToolRequirement>,
-    pub consumed_item_stacks: Vec<InputItemStack>,
-    pub consumed_cargo_stacks: Vec<InputItemStack>,
-    pub experience_per_progress: Vec<ExperienceStackF32>,
-    pub discovery_triggers: Vec<i32>,
-    pub required_knowledges: Vec<i32>,
-    pub required_claim_tech_id: i32,
-    pub required_biomes: Vec<Biome>,
-    pub full_discovery_score: i32,
-    pub tool_mesh_index: i32,
-    pub resource_description_id: i32,
-    pub required_paving_tier: i32,
-    pub actions_required: i32,
-    pub recipe_performance_id: i32,
-}
-
-#[static_data_staging_table(resource_placement_recipe_desc_v2)]
-#[spacetimedb::table(name = resource_placement_recipe_desc_v2, public)]
-#[derive(Clone, PartialEq, Debug)]
-pub struct ResourcePlacementRecipeDescV2 {
     #[primary_key]
     pub id: i32,
     pub name: String,
@@ -1874,7 +865,7 @@ pub struct ResourceGrowthRecipeDesc {
 }
 
 #[static_data_staging_table(extraction_recipe_desc)]
-#[spacetimedb::table(name = extraction_recipe_desc, public, index(name = resource_id, btree(columns = [resource_id])))]
+#[spacetimedb::table(name = extraction_recipe_desc, public, index(name = resource_id, btree(columns = [resource_id])), index(name = show_in_progression, btree(columns = [show_in_progression])))]
 #[derive(Clone, PartialEq, Debug)]
 pub struct ExtractionRecipeDesc {
     #[primary_key]
@@ -1883,6 +874,7 @@ pub struct ExtractionRecipeDesc {
     pub cargo_id: i32,
     pub discovery_triggers: Vec<i32>,
     pub required_knowledges: Vec<i32>,
+    pub blocking_knowledges: Vec<i32>,
     pub time_requirement: f32,
     pub stamina_requirement: f32,
     pub tool_durability_lost: i32,
@@ -1896,6 +888,8 @@ pub struct ExtractionRecipeDesc {
     pub verb_phrase: String,
     pub tool_mesh_index: i32,
     pub recipe_performance_id: i32,
+    pub empire_rank_requirement: Option<i32>,
+    pub show_in_progression: bool,
 }
 
 #[static_data_staging_table(deconstruction_recipe_desc)]
@@ -1939,7 +933,7 @@ pub struct WeaponDesc {
     pub stamina_use_multiplier: f32,
 }
 
-
+#[static_data_staging_table(parameters_desc)]
 #[spacetimedb::table(name = parameters_desc, public)]
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct ParametersDesc {
@@ -1948,9 +942,6 @@ pub struct ParametersDesc {
 
     pub default_speed: Vec<MovementSpeed>,
     pub default_num_inventory_pockets: i32,
-    pub skill_yield_power_exponent: f32,
-    pub skill_yield_log_base: f32,
-    pub skill_yield_cutoff_percent: f32,
     pub tech_time_power_exponent: f32,
     pub tech_time_log_base: f32,
     pub min_seconds_to_passive_regen_health: i32,
@@ -1959,18 +950,12 @@ pub struct ParametersDesc {
     pub repair_building_max_repair_percent: f32,
     pub repair_building_show_damage_percent: f32,
     pub environment_debuff_tick_millis: i32,
-    pub enemy_spawn_agent_wait_time: i32,
     pub discovery_range: i32,
     pub max_build_range: i32,
     pub deconstruct_default_time: f32,
     pub respawn_seconds: i32,
-    pub player_climb_height: f32,
-    pub player_jump_height: f32,
-    pub player_swim_height: f32,
     pub daytime: i32,
     pub nighttime: i32,
-    pub aggro_range: i32,
-    pub max_cargo_per_hex: i32,
     pub resources_regen_loops: i32,
     pub selected_traveler_order_count: i32,
     pub resources_regen_tick_millis: i32,
@@ -1978,10 +963,6 @@ pub struct ParametersDesc {
     pub max_traded_items: i32,
     pub max_trade_distance_large_tiles: i32,
     pub min_distance_between_claims: i32,
-    pub combat_manager_tick_millis: i32,
-    pub disengage_range: i32,
-    pub disengage_time_millis: i32,
-    pub action_slots: i32,
     pub starting_supplies: i32,
     pub show_shield_bar_percent: f32,
     pub swim_sprint_speed_multiplier: f32,
@@ -2009,7 +990,6 @@ pub struct ParametersDesc {
     pub hexite_capsule_shard_cost: i32,
     pub hexite_capsule_craft_time_seconds: i32,
     pub crafting_lock_duration_secs: i32,
-    pub num_toolbars: i32,
     pub starving_tick_millis: i32,
     pub starving_damage: f32,
     pub claim_stability_param_m: f32,
@@ -2029,7 +1009,6 @@ pub struct ParametersDesc {
     pub terraform_experience_per_progress: f32,
     pub dropped_inventory_ownership_seconds: i32,
     pub dropped_inventory_despawn_seconds: i32,
-    pub enemy_loot_ownership_seconds: i32,
     pub traveler_tasks_per_npc: i32,
     pub traveler_tasks_times_of_day: Vec<i32>, // 0h-23h format, UTC
     pub teleport_channel_time_home: f32,
@@ -2043,121 +1022,15 @@ pub struct ParametersDesc {
     pub quick_board_range: f32,
     pub duel_range: f32,
     pub duel_out_of_range_grace_period_millis: i32,
-    pub player_housing_same_region_move_time_minutes: i32,  // [MIGRATION] DEPRECATED
-    pub player_housing_eviction_time_minutes: i32,
-    pub player_housing_income_time_of_day: f32,
-}
-
-#[static_data_staging_table(parameters_desc)]
-#[spacetimedb::table(name = parameters_desc_v2, public)]
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct ParametersDescV2 {
-    #[primary_key]
-    pub version: i32,
-
-    pub default_speed: Vec<MovementSpeed>,
-    pub default_num_inventory_pockets: i32,
-    pub skill_yield_power_exponent: f32,
-    pub skill_yield_log_base: f32,
-    pub skill_yield_cutoff_percent: f32,
-    pub tech_time_power_exponent: f32,
-    pub tech_time_log_base: f32,
-    pub min_seconds_to_passive_regen_health: i32,
-    pub min_seconds_to_passive_regen_stamina: i32,
-    pub repair_building_duration: i32,
-    pub repair_building_max_repair_percent: f32,
-    pub repair_building_show_damage_percent: f32,
-    pub environment_debuff_tick_millis: i32,
-    pub enemy_spawn_agent_wait_time: i32,
-    pub discovery_range: i32,
-    pub max_build_range: i32,
-    pub deconstruct_default_time: f32,
-    pub respawn_seconds: i32,
-    pub player_climb_height: f32,
-    pub player_jump_height: f32,
-    pub player_swim_height: f32,
-    pub daytime: i32,
-    pub nighttime: i32,
-    pub aggro_range: i32,
-    pub max_cargo_per_hex: i32,
-    pub resources_regen_loops: i32,
-    pub selected_traveler_order_count: i32,
-    pub resources_regen_tick_millis: i32,
-    pub building_decay_tick_millis: i32,
-    pub max_traded_items: i32,
-    pub max_trade_distance_large_tiles: i32,
-    pub min_distance_between_claims: i32,
-    pub combat_manager_tick_millis: i32,
-    pub disengage_range: i32,
-    pub disengage_time_millis: i32,
-    pub action_slots: i32,
-    pub starting_supplies: i32,
-    pub show_shield_bar_percent: f32,
-    pub swim_sprint_speed_multiplier: f32,
-    pub loot_chest_despawn_time_seconds: f32,
-    pub deployable_disembark_max_elevation: i32,
-    pub default_num_toolbelt_pockets: i32,
-    pub resource_growth_tick_rate_milliseconds: i32,
-    pub rent_deposit_days: i32,
-    pub rent_collection_time_of_day: f32,
-    pub rent_eviction_compensation: f32,
-    pub max_rental_deposit_days: i32,
-    pub recommended_achievements: i32,
-    pub empire_decay_tick_millis: i32,
-    pub empire_siege_tick_millis: i32,
-    pub empire_siege_raise_pct: f32,
-    pub empire_default_nobility_threshold: i32,
-    pub empire_shard_cost: i32,
-    pub empire_starting_shards: i32,
-    pub empire_node_max_energy: i32,
-    pub empire_node_starting_energy: i32,
-    pub empire_min_siege_distance: i32,
-    pub empire_max_siege_distance: i32,
-    pub daily_shards: i32,
-    pub hexite_capsule_supply_cost: i32,
-    pub hexite_capsule_shard_cost: i32,
-    pub hexite_capsule_craft_time_seconds: i32,
-    pub crafting_lock_duration_secs: i32,
-    pub num_toolbars: i32,
-    pub starving_tick_millis: i32,
-    pub starving_damage: f32,
-    pub claim_stability_param_m: f32,
-    pub claim_stability_param_b: f32,
-    pub player_regen_tick_millis: i32,
-    pub enemy_regen_tick_millis: i32,
-    pub teleportation_energy_regen_tick_millis: i32,
-    pub auto_respawn_attempts: i32,
-    pub player_pathfinding_id: i32,
-    pub nearby_flame_buff_id: i32,
-    pub floating_origin_distance_threshold: i32,
-    pub withdraw_from_deployables_range: i32,
-    pub deposit_to_deployables_range: i32,
-    pub sign_in_aggro_immunity: i32,
-    pub respawn_aggro_immunity: i32,
-    pub new_user_aggro_immunity: i32,
-    pub terraform_experience_per_progress: f32,
-    pub dropped_inventory_ownership_seconds: i32,
-    pub dropped_inventory_despawn_seconds: i32,
-    pub enemy_loot_ownership_seconds: i32,
-    pub traveler_tasks_per_npc: i32,
-    pub traveler_tasks_times_of_day: Vec<i32>, // 0h-23h format, UTC
-    pub teleport_channel_time_home: f32,
-    pub teleport_channel_time_waystone: f32,
-    pub teleportation_home_energy_cost: f32,
-    pub teleportation_base_energy_cost: f32,
-    pub teleportation_cost_per_large_tile: f32,
-    pub teleportation_full_inventory_multiplier: f32,
-    pub region_crossover_distance_large_tiles: i32,
-    pub item_recovery_range: i32,
-    pub quick_board_range: f32,
-    pub duel_range: f32,
-    pub duel_out_of_range_grace_period_millis: i32,
-    pub player_housing_same_region_move_time_minutes: i32,  // [MIGRATION] DEPRECATED
     pub player_housing_eviction_time_minutes: i32,
     pub player_housing_income_time_of_day: f32,
     pub co_owner_take_ownership_supply_time: i32,
     pub officer_take_ownership_supply_time: i32,
     pub member_take_ownership_supply_time: i32,
+    pub empire_starting_currency: u32,
+    pub empire_rename_currency_cost: u32,
+    pub empire_move_capital_currency_cost: u32,
+    pub hexite_capsule_currency_cost: u32,
 }
 
 #[spacetimedb::table(name = parameters_player_move_desc)]
@@ -2218,7 +1091,7 @@ pub struct KnowledgeScrollTypeDesc {
 }
 
 #[static_data_staging_table(equipment_desc)]
-#[spacetimedb::table(name = equipment_desc, public)]
+#[spacetimedb::table(name = equipment_desc, public, index(name = show_in_progression, btree(columns = [show_in_progression])))]
 #[derive(Clone, PartialEq, Debug)]
 pub struct EquipmentDesc {
     #[primary_key]
@@ -2231,6 +1104,7 @@ pub struct EquipmentDesc {
     pub stats: Vec<CsvStatEntry>,
     pub required_achievements: Vec<i32>, // Maps to AchievementDesc.id
     pub required_knowledges: Vec<i32>, // Maps to Secondary Knowledge Ids
+    pub show_in_progression: bool
 }
 
 #[static_data_staging_table(buff_type_desc)]
@@ -2377,21 +1251,11 @@ pub struct EnemyScalingDesc {
     pub max_damage_bonus: i32,
 }
 
+
+#[static_data_staging_table(contribution_loot_desc)]
 #[spacetimedb::table(name = contribution_loot_desc, public, index(name = enemy_type_id, btree(columns = [enemy_type_id])))]
 #[derive(Clone, PartialEq, Debug)]
 pub struct ContributionLootDesc {
-    #[primary_key]
-    pub id: i32,
-    pub enemy_type_id: i32,
-    pub item_list_id: i32,
-    pub minimum_contribution: i32,
-}
-
-
-#[static_data_staging_table(contribution_loot_desc)]
-#[spacetimedb::table(name = contribution_loot_desc_v2, public, index(name = enemy_type_id, btree(columns = [enemy_type_id])))]
-#[derive(Clone, PartialEq, Debug)]
-pub struct ContributionLootDescV2 {
     #[primary_key]
     pub id: i32,
     pub enemy_type_id: i32,
@@ -2436,7 +1300,7 @@ pub struct EnemyAiParamsDesc {
 }
 
 
-// [MIGRATION WORK-AROUND] This is to go around the fact that we can't use migration yet. These should be additional fields to the CombatActionDescV3 rows.
+// [MIGRATION WORK-AROUND] This is to go around the fact that we can't use migration yet. These should be additional fields to the CombatActionDesc rows.
 #[static_data_staging_table(combat_action_multi_hit_desc)]
 #[spacetimedb::table(name = combat_action_multi_hit_desc, public)]
 #[derive(Clone, PartialEq, Debug)]
@@ -2449,84 +1313,10 @@ pub struct CombatActionMultiHitDesc {
 }
 
 
+#[static_data_staging_table(combat_action_desc)]
 #[spacetimedb::table(name = combat_action_desc, public, index(name = learned_by_player, btree(columns = [learned_by_player])))]
 #[derive(Clone, PartialEq, Debug)]
 pub struct CombatActionDesc {
-    pub name: String,
-    #[primary_key]
-    pub id: i32,
-    pub learned_by_player: bool,
-    pub range: u32,
-    pub max_range: u32,
-    pub auto_cast: bool,
-    pub weapon_type_requirements: Vec<i32>,
-    pub lead_in_time: f32,
-    pub can_move_during_lead_in: bool,
-    pub cooldown: f32,
-    pub global_cooldown: f32,
-    pub ignore_global_cooldown: bool,
-    pub strength_multiplier: f32,
-    pub accuracy_multiplier: f32,
-    pub stamina_use: f32,
-    pub weapon_durability_lost: i32,
-    pub self_buffs: Vec<BuffEffect>,
-    pub target_buffs: Vec<BuffEffect>,
-    pub level_requirement: Option<LevelRequirement>,
-    pub icon_asset_name: String,
-    pub player_animation_id: i32,
-    pub npc_animation_name: String,
-    pub hit_vfx: String,
-    pub projectile_speed: f32,
-    pub projectile_vfx: String,
-    pub description: String,
-    pub self_threat_against_buildings: f32,
-    pub self_threat_against_enemies: f32,
-    pub base_threat: f32,
-    pub threat_per_damage: f32,
-}
-
-#[spacetimedb::table(name = combat_action_desc_v2, public, index(name = learned_by_player, btree(columns = [learned_by_player])))]
-#[derive(Clone, PartialEq, Debug)]
-pub struct CombatActionDescV2 {
-    pub name: String,
-    #[primary_key]
-    pub id: i32,
-    pub learned_by_player: bool,
-    pub range: u32,
-    pub max_range: f32,
-    pub auto_cast: bool,
-    pub weapon_type_requirements: Vec<i32>,
-    pub lead_in_time: f32,
-    pub can_move_during_lead_in: bool,
-    pub cooldown: f32,
-    pub global_cooldown: f32,
-    pub ignore_global_cooldown: bool,
-    pub strength_multiplier: f32,
-    pub accuracy_multiplier: f32,
-    pub stamina_use: f32,
-    pub weapon_durability_lost: i32,
-    pub self_buffs: Vec<BuffEffect>,
-    pub target_buffs: Vec<BuffEffect>,
-    pub level_requirement: Option<LevelRequirement>,
-    pub icon_asset_name: String,
-    pub player_animation_id: i32,
-    pub npc_animation_name: String,
-    pub hit_vfx: String,
-    pub projectile_speed: f32,
-    pub projectile_vfx: String,
-    pub description: String,
-    pub self_threat_against_buildings: f32,
-    pub self_threat_against_enemies: f32,
-    pub base_threat: f32,
-    pub threat_per_damage: f32,
-    pub is_self_targeting: bool,
-    pub is_taunt_action: bool,
-}
-
-#[static_data_staging_table(combat_action_desc_v3)]
-#[spacetimedb::table(name = combat_action_desc_v3, public, index(name = learned_by_player, btree(columns = [learned_by_player])))]
-#[derive(Clone, PartialEq, Debug)]
-pub struct CombatActionDescV3 {
     pub name: String,
     #[primary_key]
     pub id: i32,
@@ -2657,25 +1447,11 @@ pub struct TerraformRecipeDesc {
     pub recipe_performance_id: i32,
 }
 
-#[spacetimedb::table(name = emote_desc, public)]
-#[derive(Clone, PartialEq, Debug)]
-pub struct EmoteDesc {
-    #[primary_key]
-    pub id: i32,
-    pub name: String,
-    pub animation: String,
-    pub duration: f32,
-    pub key_code: String,
-    pub command_line: String,
-    pub allow_while_mounted: bool,
-    pub allow_while_moving: bool,
-}
-
 #[static_data_staging_table(emote_desc)]
-#[spacetimedb::table(name = emote_desc_v2, public, 
+#[spacetimedb::table(name = emote_desc, public, 
     index(name = enabled_by_collectible_id, btree(columns = [enabled_by_collectible_id])))]
 #[derive(Clone, PartialEq, Debug)]
-pub struct EmoteDescV2 {
+pub struct EmoteDesc {
     #[primary_key]
     pub id: i32,
     pub name: String,
@@ -2798,7 +1574,7 @@ pub struct BuildingSpawnDesc {
 }
 
 #[static_data_staging_table(resource_clump_desc)]
-#[spacetimedb::table(name = resource_clump_desc)]
+#[spacetimedb::table(name = resource_clump_desc, public)]
 #[derive(Clone, PartialEq, Debug)]
 pub struct ResourceClumpDesc {
     #[primary_key]
@@ -2935,24 +1711,10 @@ pub struct InteriorNetworkDesc {
     pub child_interior_instances: Vec<i32>, //Cached during validation
 }
 
+#[static_data_staging_table(building_portal_desc)]
 #[spacetimedb::table(name = building_portal_desc, public, index(name = building_id, btree(columns = [building_id])))]
 #[derive(Clone, PartialEq, Debug)]
-pub struct BuildingPortalDesc { // DEPRECATED
-
-    #[primary_key]
-    pub id: i32,
-
-    pub name: String,
-    pub building_id: i32,
-    pub allow_deployables: bool,
-    pub pos_x: i32,
-    pub pos_z: i32,
-}
-
-#[static_data_staging_table(building_portal_desc_v2)]
-#[spacetimedb::table(name = building_portal_desc_v2, public, index(name = building_id, btree(columns = [building_id])))]
-#[derive(Clone, PartialEq, Debug)]
-pub struct BuildingPortalDescV2 {
+pub struct BuildingPortalDesc {
     #[primary_key]
     pub id: i32,
 
@@ -3109,7 +1871,6 @@ pub struct BuildingFunction {
     pub cargo_slot_size: i32,
     pub trade_orders: i32,
     pub allowed_item_id_per_slot: Vec<i32>,
-    pub buff_ids: Vec<i32>,
     pub concurrent_crafts_per_player: i32,
     pub terraform: bool,
     pub housing_slots: i32,
@@ -3165,28 +1926,10 @@ pub struct ChestLootRarity {
     pub probability: f32,
 }
 
-#[spacetimedb::table(name = staged_claim_tech_desc)]
+#[static_data_staging_table(claim_tech_desc)]
 #[spacetimedb::table(name = claim_tech_desc, public, index(name = tier, btree(columns = [tier])))]
 #[derive(Clone, PartialEq, Debug)]
 pub struct ClaimTechDesc {
-    #[primary_key]
-    pub id: i32,
-    pub description: String,
-    pub tier: i32,
-    pub supplies_cost: i32,
-    pub research_time: i32,
-    pub requirements: Vec<i32>,
-    pub input: Vec<ItemStack>,
-    pub members: i32,
-    pub area: i32,
-    pub supplies: i32,
-    pub xp_to_mint_hex_coin: u32,
-}
-
-#[static_data_staging_table(claim_tech_desc_v2)]
-#[spacetimedb::table(name = claim_tech_desc_v2, public, index(name = tier, btree(columns = [tier])))]
-#[derive(Clone, PartialEq, Debug)]
-pub struct ClaimTechDescV2 {
     #[primary_key]
     pub id: i32,
     pub name: String,
@@ -3423,8 +2166,7 @@ pub struct WindParamsDesc {
 }
 
 #[static_data_staging_table(premium_item_desc)]
-#[spacetimedb::table(name = premium_item_desc, public, 
-    index(name = collectible_desc_id, btree(columns = [collectible_desc_id])))]
+#[spacetimedb::table(name = premium_item_desc, public)]
 #[derive(Clone, PartialEq, Debug)]
 pub struct PremiumItemDesc {
     #[primary_key]
@@ -3432,15 +2174,12 @@ pub struct PremiumItemDesc {
     pub name: String,
     pub description: String,
     pub image_address: String,
-    pub collectible_desc_id: i32,
+    pub collectible_ids: Vec<i32>,
     pub price: u32,
     pub base_price: u32,
-    #[default(false)]
-    pub is_enabled: bool,
-    #[default(1)]
     pub quantity: u32,
-    #[default(0)]
     pub sorting_priority: u16,
+    pub is_enabled: bool,
 }
 
 #[static_data_staging_table(premium_service_desc)]
@@ -3468,7 +2207,7 @@ pub struct WindDbgDesc {
 }
 
 #[static_data_staging_table(ability_unlock_desc)]
-#[spacetimedb::table(name = ability_unlock_desc, public, index(name = ability_type_enum, btree(columns = [ability_type_enum_id])))]
+#[spacetimedb::table(name = ability_unlock_desc, public, index(name = ability_type_enum, btree(columns = [ability_type_enum_id])), index(name = show_in_progression, btree(columns = [show_in_progression])))]
 #[derive(Clone, PartialEq, Debug)]
 pub struct AbilityUnlockDesc {
     #[primary_key]
@@ -3479,6 +2218,7 @@ pub struct AbilityUnlockDesc {
     pub required_claim_tech_id: i32,
     pub required_knowledges: Vec<i32>,
     pub blocking_knowledges: Vec<i32>,
+    pub show_in_progression: bool,
 }
 
 #[static_data_staging_table(ability_custom_desc)]
@@ -3559,6 +2299,10 @@ pub struct QuestChainDesc {
     pub requirements: Vec<QuestRequirement>,
     pub rewards: Vec<QuestReward>,
     pub implicit_rewards: Vec<QuestReward>, // Doesn't get awarded, but you end up getting as a result of following the quest (e.g. getting a cart on the cart quest)
+    #[default(false)]
+    pub unstartable: bool,
+    #[default(false)]
+    pub is_secret: bool
 }
 
 #[derive(SpacetimeType, Clone, Debug, PartialEq)]
@@ -3603,6 +2347,18 @@ pub struct QuestStageDesc {
     pub chain_desc_id : i32,
     pub name: String,
     pub completion_conditions: Vec<CompletionCondition>,
+}
+
+#[static_data_staging_table(building_buff_desc)]
+#[spacetimedb::table(name = building_buff_desc, public, index(name = building_id, btree(columns = [building_id])))]
+#[derive(Clone, PartialEq, Debug)]
+pub struct BuildingBuffDesc {
+    #[primary_key]
+    pub id: i32,
+    pub building_id: i32,
+    pub empire_currency_cost: i32,
+    pub buffs: Vec<BuffEffect>,
+    
 }
 
 #[derive(SpacetimeType, Clone, Debug, PartialEq)]

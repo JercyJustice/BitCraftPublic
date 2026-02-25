@@ -178,6 +178,7 @@ pub enum UserModerationPolicy {
     PermanentBlockLogin,
     TemporaryBlockLogin,
     BlockChat,
+    PermanentBlockChat,
     BlockConstruct,
 }
 
@@ -263,7 +264,7 @@ pub struct MobileEntityState {
     pub destination_x: i32,
     pub destination_z: i32,
     pub dimension: u32,
-    pub is_running: bool,
+    pub is_walking: bool, //Actually is_running
     // Manual padding to make the struct exactly 48 bytes long.
     // SpacetimeDB can optimize row (de)serialization when:
     // 1. Table types are naturally aligned
@@ -309,22 +310,18 @@ pub struct ResourceHealthState {
     pub health: i32,
 }
 
-#[spacetimedb::table(name = user_moderation_state, public, index(name = target_entity_id, btree(columns = [target_entity_id])))]
+#[spacetimedb::table(name = user_moderation_state, index(name = target_identity, btree(columns = [target_identity])))]
 #[shared_table] //Owned by global module, replicated to regions
 #[derive(Clone, bitcraft_macro::Operations, Debug)]
 #[operations(delete)]
 pub struct UserModerationState {
     #[primary_key]
-    pub entity_id: u64, // Unique key for the table row
-
-    pub target_entity_id: u64,     // Which user is this for?
-    pub created_by_entity_id: u64, // Who placed this punichment?
-
-    pub user_moderation_policy: UserModerationPolicy, // For (user Id, isBlockedLogin).AnyIsValid) -> do not allow login
-
-    pub created_time: Timestamp, // Consider onlineTimestamp
+    pub entity_id: u64,
+    pub target_identity: Identity,
+    pub created_by_identity: Identity,
+    pub user_moderation_policy: UserModerationPolicy,
+    pub created_time: Timestamp,
     pub expiration_time: Timestamp,
-    pub duration_ms: u64, // While expiary_time_computed and duration_ms are redundant data in some sense, having them recorded in the table will function as a cache and improve the runtime performance
 }
 
 #[spacetimedb::table(name = stamina_state, public)]
@@ -535,7 +532,7 @@ pub struct KnowledgeClaimState {
 
 #[spacetimedb::table(name = knowledge_secondary_state, public)]
 #[derive(Clone, bitcraft_macro::Operations, Debug)]
-#[operations(delete, knowledge)]
+#[operations(delete, knowledge_on_acquire_callback)]
 pub struct KnowledgeSecondaryState {
     #[primary_key]
     pub entity_id: u64,
@@ -751,7 +748,7 @@ pub struct TerraformProgressState {
     pub progress: i32,            // the action progress towards the next_height_target
 }
 
-#[spacetimedb::table(name = project_site_state, public)]
+#[spacetimedb::table(name = project_site_state, public, index(name = owner_id, btree(columns = [owner_id])))]
 #[derive(bitcraft_macro::Operations, Clone)]
 #[operations(delete)]
 pub struct ProjectSiteState {
@@ -833,8 +830,11 @@ pub struct PlayerActionState {
     pub layer: PlayerActionLayer,
     pub last_action_result: PlayerActionResult,
     pub client_cancel: bool, // don't interrupt the actoin again on the client upon receiving this state change
+    pub was_consumed: bool, // set to true after the state has been used for validation to prevent re-use
     // Manual padding to make the struct exactly 72 bytes (see comment in MobileEntityState).
-    pub _pad: u32,
+    pub _pad1: u8,
+    pub _pad2: u8,
+    pub _pad3: u8,
 
 }
 // Ensure that we don't have hidden padding in the struct
@@ -867,9 +867,9 @@ pub struct EnemyScalingState {
 }
 
 // This is tied to the player's (id and location), but contains the information about the player's deployable
-#[spacetimedb::table(name = deployable_collectible_state_v2, public, index(name = owner_entity_id, btree(columns = [owner_entity_id])))]
+#[spacetimedb::table(name = deployable_collectible_state, public, index(name = owner_entity_id, btree(columns = [owner_entity_id])))]
 #[derive(Clone, Debug)]
-pub struct DeployableCollectibleStateV2 {
+pub struct DeployableCollectibleState {
     #[primary_key]
     pub deployable_entity_id: u64,
     pub owner_entity_id: u64,
@@ -877,18 +877,6 @@ pub struct DeployableCollectibleStateV2 {
     pub deployable_desc_id: i32,
     pub location: Option<OffsetCoordinatesSmallMessage>,
     pub auto_follow: bool,
-}
-
-// This is tied to the player's (id and location), but contains the information about the player's deployable
-#[spacetimedb::table(name = deployable_collectible_state, public, index(name = owner_entity_id, btree(columns = [owner_entity_id])))]
-#[derive(Clone, Debug)]
-pub struct DeployableCollectibleState { // DEPRECATED
-    #[primary_key]
-    pub deployable_entity_id: u64,
-    pub owner_entity_id: u64,
-    pub collectible_id: i32,
-    pub deployable_desc_id: i32,
-    pub location: Option<OffsetCoordinatesSmallMessage>,
 }
 
 
@@ -1112,7 +1100,6 @@ pub struct TargetableState {
 
 #[spacetimedb::table(name = claim_state, public, 
     index(name = owner_player_entity_id, btree(columns = [owner_player_entity_id])),
-    index(name = name, btree(columns = [name])), 
     index(name = neutral, btree(columns = [neutral])))]
 #[derive(bitcraft_macro::Operations, Clone, Debug)]
 #[shared_table] //Owned by region, replicated to global module
@@ -1123,8 +1110,20 @@ pub struct ClaimState {
     pub owner_player_entity_id: u64,
     #[unique]
     pub owner_building_entity_id: u64,
+    #[unique]
     pub name: String,
     pub neutral: bool,
+}
+
+#[spacetimedb::table(name = claim_lowercase_name_state, public)]
+#[derive(bitcraft_macro::Operations, Clone, Debug)]
+#[shared_table] //Owned by global, replicated to regions
+#[operations(delete)]
+pub struct ClaimLowercaseNameState {
+    #[primary_key]
+    pub entity_id: u64,
+    #[unique]
+    pub name_lowercase: String,
 }
 
 #[spacetimedb::table(name = claim_local_state, public)]
@@ -1936,15 +1935,7 @@ pub struct MarketplaceState {
 
 #[spacetimedb::table(name = player_settings_state, public)]
 #[derive(Clone, Debug)]
-pub struct PlayerSettingsState { // DEPRECATED
-    #[primary_key]
-    pub entity_id: u64,
-    pub fill_deployable_inventory_first: bool,
-}
-
-#[spacetimedb::table(name = player_settings_state_v2, public)]
-#[derive(Clone, Debug)]
-pub struct PlayerSettingsStateV2 {
+pub struct PlayerSettingsState {
     #[primary_key]
     pub entity_id: u64,
     pub fill_player_inventory: bool,
@@ -2067,7 +2058,41 @@ pub struct QuestChainState {
     pub player_entity_id: u64,
     pub quest_chain_desc_id: i32,
     pub stage_id: i32,
-    pub is_active: bool,
     pub completed: bool,
     pub stage_rewards_awarded: Vec<i32>,
+    #[default(false)]
+    pub tracked: bool,
+}
+
+#[spacetimedb::table(name = previous_player_username_state,
+    index(name = lower_case_name, btree(columns = [lower_case_name])))]
+#[derive(Clone, Debug)]
+pub struct PreviousPlayerUsernameState {
+    #[unique]
+    pub identity: Identity,
+    #[unique]
+    pub name: String,
+    #[unique]
+    pub lower_case_name: String,
+}
+
+
+#[spacetimedb::table(name = previous_player_skills_state)]
+#[derive(Debug)]
+pub struct PreviousPlayerSkillsState {
+    #[primary_key]
+    pub identity: Identity,
+    pub experience_stacks: Vec<ExperienceStack>,
+}
+
+#[spacetimedb::table(name = previous_empire_name_state,
+    index(name = empire_lower_case_name, btree(columns = [empire_lower_case_name])))]
+#[derive(Debug)]
+pub struct PreviousEmpireNameState {
+    #[primary_key]
+    pub emperor_identity: Identity,
+    #[unique]
+    pub empire_name: String,
+    #[unique]
+    pub empire_lower_case_name: String,
 }

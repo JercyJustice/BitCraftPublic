@@ -5,7 +5,7 @@ use std::{collections::HashMap, time::Duration};
 use crate::{
     agents,
     messages::{authentication::ServerIdentity, empire_shared::*},
-    parameters_desc_v2,
+    parameters_desc,
 };
 
 fn cost_for_next_tick(empire_siege_tick: i32, empire_siege_raise_pct: f32, start_time: Timestamp, now: Timestamp) -> i32 {
@@ -32,7 +32,7 @@ pub fn update_timer(ctx: &ReducerContext) {
 }
 
 pub fn init(ctx: &ReducerContext) {
-    let tick_length = ctx.db.parameters_desc_v2().version().find(&0).unwrap().empire_siege_tick_millis as u64;
+    let tick_length = ctx.db.parameters_desc().version().find(&0).unwrap().empire_siege_tick_millis as u64;
     let now = (ctx.timestamp.to_micros_since_unix_epoch() / 1000) as u64;
     let num_cycles = now / tick_length;
     let next_tick = (num_cycles + 1) * tick_length;
@@ -59,7 +59,7 @@ fn empire_siege_agent_loop(ctx: &ReducerContext, timer: EmpireSiegeLoopTimer) {
 
     if timer.first_tick {
         // schedule repeating after first tick
-        let tick_length = ctx.db.parameters_desc_v2().version().find(&0).unwrap().empire_siege_tick_millis as u64;
+        let tick_length = ctx.db.parameters_desc().version().find(&0).unwrap().empire_siege_tick_millis as u64;
 
         ctx.db
             .empire_siege_loop_timer()
@@ -76,7 +76,7 @@ fn empire_siege_agent_loop(ctx: &ReducerContext, timer: EmpireSiegeLoopTimer) {
         return;
     }
 
-    let parameters = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let parameters = ctx.db.parameters_desc().version().find(&0).unwrap();
     let empire_siege_tick = parameters.empire_siege_tick_millis / 1000;
     let empire_siege_raise_pct = parameters.empire_siege_raise_pct;
     let now = ctx.timestamp;

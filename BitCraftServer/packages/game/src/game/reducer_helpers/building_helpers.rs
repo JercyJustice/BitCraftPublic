@@ -7,7 +7,7 @@ use super::{
     interior_helpers::{create_building_interior, find_teleport_coordinates_for_interior_destruction},
 };
 use crate::{
-    building_claim_desc, building_desc, claim_tech_desc_v2,
+    building_claim_desc, building_desc, claim_tech_desc,
     game::{
         autogen::_delete_entity::delete_entity,
         claim_helper,
@@ -22,17 +22,20 @@ use crate::{
                 server_teleport_player::{teleport_player_timer, TeleportPlayerTimer},
             },
         },
+        npc_empire::NPC_EMPIRE_DEFAULT_NAME,
     },
-    inter_module::send_inter_module_message,
+    inter_module::{self, send_inter_module_message},
     interior_network_desc,
     messages::{
         action_request::ServerTeleportReason,
-        empire_shared::{empire_node_state, empire_player_data_state, empire_settlement_state, empire_state},
+        empire_shared::{
+            empire_chunk_state, empire_node_state, empire_player_data_state, empire_settlement_state, empire_state, EmpireOwnerType,
+        },
         game_util::ItemStack,
-        inter_module::{DeleteEmpireMsg, GlobalDeleteEmpireBuildingMsg},
+        inter_module::{DeleteEmpireMsg, GlobalDeleteEmpireBuildingMsg, MessageContents, NpcPlaceWatchtowersMsg, NpcWatchtowerPlacement},
         static_data::{distant_visible_entity_desc, EntityType},
     },
-    parameters_desc_v2, unwrap_or_err, BuildingCategory, BuildingDesc, BuildingInteractionLevel, BuildingSpawnDesc, ClaimState, ClaimType,
+    parameters_desc, unwrap_or_err, BuildingCategory, BuildingDesc, BuildingInteractionLevel, BuildingSpawnDesc, ClaimState, ClaimType,
     FootprintType, LightSourceState, TerraformProgressState,
 };
 
@@ -78,8 +81,8 @@ pub fn create_building_unsafe(
     BuildingState::create_empire_building(ctx, entity_id, &building_desc, actor_id, location, construction_recipe_id);
 
     BuildingState::create_waystone(ctx, entity_id, claim_entity_id, &building_desc, location);
-    BuildingState::create_bank(ctx, entity_id, claim_entity_id, &building_desc, location);
-    BuildingState::create_marketplace(ctx, entity_id, claim_entity_id, &building_desc, location);
+    BuildingState::create_bank(ctx, entity_id, claim_entity_id, &building_desc, location)?;
+    BuildingState::create_marketplace(ctx, entity_id, claim_entity_id, &building_desc, location)?;
 
     create_distant_visibile_building(ctx, &building_desc, entity_id, location);
 
@@ -256,15 +259,16 @@ pub fn create_building_claim(ctx: &ReducerContext, building_entity_id: u64, neut
             let supplies = if neutral_claim_type {
                 0
             } else {
-                ctx.db.parameters_desc_v2().version().find(&0).unwrap().starting_supplies
+                ctx.db.parameters_desc().version().find(&0).unwrap().starting_supplies
             };
 
             //set claim name
-            let mut name = String::from("Claimed area");
+            let coord_large = coordinates.parent_large_tile().to_offset_coordinates();
+            let mut name = format!("Claimed area (N: {{0}}, E: {{1}})|~{}|~{}", coord_large.z, coord_large.x);
             if neutral_claim_type {
                 let building_desc_option = ctx.db.building_desc().id().find(&building_state.building_description_id);
                 if let Some(building_desc) = building_desc_option {
-                    name = building_desc.name;
+                    name = format!("{{0}} (N: {{1}}, E: {{2}})|~{}|~{}|~{}", building_desc.name, coord_large.z, coord_large.x);
                 }
             }
 
@@ -288,7 +292,7 @@ pub fn create_building_claim(ctx: &ReducerContext, building_entity_id: u64, neut
                 entity_id: claim_desc_entity_id,
                 owner_player_entity_id: 0, // no owner by default until claimed
                 owner_building_entity_id: building_entity_id,
-                name: name.to_string(),
+                name,
                 neutral: neutral || neutral_claim_type,
             };
             let claim_local_state = ClaimLocalState {
@@ -308,7 +312,7 @@ pub fn create_building_claim(ctx: &ReducerContext, building_entity_id: u64, neut
             ctx.db.claim_local_state().insert(claim_local_state);
 
             // starts with tier 0 claim techs by default
-            let starting_techs: Vec<i32> = ctx.db.claim_tech_desc_v2().tier().filter(0).map(|ct| ct.id).collect();
+            let starting_techs: Vec<i32> = ctx.db.claim_tech_desc().tier().filter(0).map(|ct| ct.id).collect();
             let claim_tech = ClaimTechState {
                 entity_id: claim_desc_entity_id,
                 learned: starting_techs,
@@ -428,7 +432,7 @@ pub fn delete_building(
     if let Some(empire) = ctx.db.empire_state().capital_building_entity_id().find(&building.entity_id) {
         send_inter_module_message(
             ctx,
-            crate::messages::inter_module::MessageContentsV4::DeleteEmpire(DeleteEmpireMsg {
+            crate::messages::inter_module::MessageContents::DeleteEmpire(DeleteEmpireMsg {
                 empire_entity_id: empire.entity_id,
             }),
             crate::inter_module::InterModuleDestination::Global,
@@ -470,8 +474,17 @@ pub fn delete_building(
         }
 
         ClaimState::clear_notifications(ctx, claim.entity_id);
+        ClaimState::delete_shared(ctx, claim, crate::inter_module::InterModuleDestination::Global);
+        if let Some(lowercase) = ctx.db.claim_lowercase_name_state().entity_id().find(claim_entity_id) {
+            //Technically this is owned by global module, but this saves us an IMM and should be safe enough
+            ClaimLowercaseNameState::delete_shared(
+                ctx,
+                lowercase,
+                crate::inter_module::InterModuleDestination::GlobalAndAllOtherRegions,
+            );
+        }
 
-        delete_entity(ctx, claim.entity_id);
+        delete_entity(ctx, claim_entity_id);
     }
 
     if drop_inventory_items {
@@ -523,7 +536,7 @@ pub fn delete_building(
         ctx.db.light_source_state().entity_id().delete(&entity_id);
     }
 
-    BuildingState::unclaim(ctx, entity_id);
+    BuildingState::unclaim(ctx, entity_id, true);
 
     // Un-rent the matching interior
     if description.has_category(ctx, BuildingCategory::RentTerminal) {
@@ -554,7 +567,7 @@ pub fn delete_building(
     {
         send_inter_module_message(
             ctx,
-            crate::messages::inter_module::MessageContentsV4::GlobalDeleteEmpireBuilding(GlobalDeleteEmpireBuildingMsg {
+            crate::messages::inter_module::MessageContents::GlobalDeleteEmpireBuilding(GlobalDeleteEmpireBuildingMsg {
                 player_entity_id: actor_id,
                 building_entity_id: entity_id,
             }),
@@ -584,6 +597,10 @@ pub fn delete_building(
     ctx.db.barter_stall_state().entity_id().delete(&entity_id);
     ctx.db.player_note_state().entity_id().delete(&entity_id);
     ctx.db.distant_visible_entity().entity_id().delete(&entity_id);
+
+    ctx.db.waystone_state().building_entity_id().delete(entity_id);
+    ctx.db.bank_state().building_entity_id().delete(entity_id);
+    ctx.db.marketplace_state().building_entity_id().delete(entity_id);
 }
 
 pub fn clear_resources_under_building(ctx: &ReducerContext, coordinates: SmallHexTile, building: &BuildingDesc, facing_direction: i32) {
@@ -727,4 +744,99 @@ impl std::ops::Drop for DontCreateBuildingSpawnsSpan {
 
 thread_local! {
     static DONT_CREATE_BUILDING_SPAWNS_COUNTER: Cell<i32> = Cell::new(0);
+}
+
+/// 5x5 grid around the watchtower center chunk (radius=2 means -2..=2 in both axes)
+const WATCHTOWER_CHUNK_RADIUS: i32 = 2;
+
+/// If the placed building is a watchtower, sets up NPC empire state by computing a 5x5 chunk grid
+/// around the position, filtering out ocean and already-claimed chunks, and sending an inter-module
+/// message to global for EmpireNodeState + EmpireChunkState creation.
+pub fn setup_npc_watchtower_state(
+    ctx: &ReducerContext,
+    entity_id: u64,
+    building_desc: &BuildingDesc,
+    location: SmallHexTile,
+    energy: i32,
+    upkeep: i32,
+) {
+    if !building_desc.has_category(ctx, BuildingCategory::Watchtower) {
+        return;
+    }
+
+    let center_chunk = location.chunk_coordinates();
+
+    let mut chunk_indexes = Vec::new();
+    for dz in -WATCHTOWER_CHUNK_RADIUS..=WATCHTOWER_CHUNK_RADIUS {
+        for dx in -WATCHTOWER_CHUNK_RADIUS..=WATCHTOWER_CHUNK_RADIUS {
+            let cx = center_chunk.x + dx;
+            let cz = center_chunk.z + dz;
+
+            if cx < 0 || cz < 0 {
+                continue;
+            }
+
+            let chunk = ChunkCoordinates {
+                x: cx,
+                z: cz,
+                dimension: center_chunk.dimension,
+            };
+            let idx = chunk.chunk_index();
+
+            if ctx.db.terrain_chunk_state().chunk_index().find(&idx).is_none() {
+                continue;
+            }
+
+            if ctx.db.empire_chunk_state().chunk_index().find(&idx).is_some() {
+                continue;
+            }
+
+            chunk_indexes.push(idx);
+        }
+    }
+
+    if chunk_indexes.is_empty() {
+        log::warn!(
+            "setup_npc_watchtower_state: no unclaimed chunks available for watchtower {}",
+            entity_id
+        );
+        return;
+    }
+
+    let npc_empire_name = ctx
+        .db
+        .empire_state()
+        .iter()
+        .find(|e| e.owner_type == EmpireOwnerType::Npc)
+        .map(|e| e.name.clone())
+        .unwrap_or_else(|| NPC_EMPIRE_DEFAULT_NAME.to_string());
+
+    BuildingNicknameState::insert_shared(
+        ctx,
+        BuildingNicknameState {
+            entity_id,
+            nickname: format!("{}'s {}", npc_empire_name, building_desc.name),
+        },
+        inter_module::InterModuleDestination::Global,
+    );
+
+    log::info!(
+        "setup_npc_watchtower_state: watchtower {} claiming {} chunks",
+        entity_id,
+        chunk_indexes.len()
+    );
+
+    send_inter_module_message(
+        ctx,
+        MessageContents::NpcPlaceWatchtowers(NpcPlaceWatchtowersMsg {
+            watchtowers: vec![NpcWatchtowerPlacement {
+                building_entity_id: entity_id,
+                location: location.into(),
+                chunk_indexes,
+            }],
+            energy,
+            upkeep,
+        }),
+        inter_module::InterModuleDestination::Global,
+    );
 }

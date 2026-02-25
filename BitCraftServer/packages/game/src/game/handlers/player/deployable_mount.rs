@@ -5,7 +5,7 @@ use crate::game::terrain_chunk::TerrainChunkCache;
 use crate::game::PLAYER_MIN_SWIM_DEPTH;
 use crate::messages::action_request::PlayerDeployableMountRequest;
 use crate::messages::components::*;
-use crate::{deployable_desc_v4, unwrap_or_err, MovementType};
+use crate::{deployable_desc, unwrap_or_err, MovementType};
 
 #[spacetimedb::reducer]
 pub fn deployable_mount(ctx: &ReducerContext, request: PlayerDeployableMountRequest) -> Result<(), String> {
@@ -25,7 +25,7 @@ pub fn deployable_mount(ctx: &ReducerContext, request: PlayerDeployableMountRequ
         "Deployable not found!"
     );
     let deployable_desc = unwrap_or_err!(
-        ctx.db.deployable_desc_v4().id().find(&deployable.deployable_description_id),
+        ctx.db.deployable_desc().id().find(&deployable.deployable_description_id),
         "Invalid deployable type"
     );
 

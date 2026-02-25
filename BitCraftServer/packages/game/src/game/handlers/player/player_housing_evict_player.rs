@@ -7,7 +7,7 @@ use crate::{
         reducer_helpers::timer_helpers::now_plus_secs,
     },
     messages::{
-        action_request::PlayerHousingEvictPlayerRequest, authentication::ServerIdentity, components::*, static_data::parameters_desc_v2,
+        action_request::PlayerHousingEvictPlayerRequest, authentication::ServerIdentity, components::*, static_data::parameters_desc,
     },
     params, unwrap_or_err,
 };

@@ -8,7 +8,7 @@ use crate::{
         game_state::{self, game_state_filters},
     },
     messages::{action_request::PlayerDiscoverEntitiesRequest, components::*, game_util::ItemType},
-    parameters_desc_v2,
+    parameters_desc,
 };
 
 #[spacetimedb::reducer]
@@ -16,7 +16,7 @@ pub fn discover_entities(ctx: &ReducerContext, request: PlayerDiscoverEntitiesRe
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
     let player_coord = game_state_filters::coordinates_any(ctx, actor_id);
-    let discovery_range = ctx.db.parameters_desc_v2().version().find(&0).unwrap().discovery_range;
+    let discovery_range = ctx.db.parameters_desc().version().find(&0).unwrap().discovery_range;
 
     let mut discovery = Discovery::new(actor_id);
 

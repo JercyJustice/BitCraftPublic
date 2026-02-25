@@ -11,10 +11,10 @@ use crate::{
     messages::{action_request::PlayerBuildingRepairRequest, components::*},
     unwrap_or_err,
 };
-use crate::{parameters_desc_v2, tool_type_desc, CharacterStatType, ToolDesc};
+use crate::{parameters_desc, tool_type_desc, CharacterStatType, ToolDesc};
 
 pub fn event_delay(ctx: &ReducerContext, player_entity_id: u64) -> Duration {
-    let delay = ctx.db.parameters_desc_v2().version().find(&0).unwrap().repair_building_duration as f32;
+    let delay = ctx.db.parameters_desc().version().find(&0).unwrap().repair_building_duration as f32;
     let building_speed = 1.0 / CharacterStatsState::get_entity_stat(ctx, player_entity_id, CharacterStatType::BuildingSpeed);
     Duration::from_secs_f32(delay * building_speed)
 }

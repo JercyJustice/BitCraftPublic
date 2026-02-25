@@ -1,7 +1,6 @@
 use crate::game::discovery::Discovery;
 use crate::game::entities::location::LocationState;
-use crate::game::game_state::game_state_filters;
-use crate::game::handlers::empires::empires_shared::{validate_empire_build_foundry, validate_empire_build_watchtower};
+use crate::game::handlers::empires::empires_shared::validate_empire_build_foundry;
 use crate::game::reducer_helpers::building_helpers::create_building_unsafe;
 use crate::game::reducer_helpers::footprint_helpers::{self, create_project_site_footprint};
 use crate::game::reducer_helpers::player_action_helpers;
@@ -17,8 +16,6 @@ use crate::{unwrap_or_err, unwrap_or_return, BuildingInteractionLevel, Inventory
 use bitcraft_macro::shared_table_reducer;
 use spacetimedb::{ReducerContext, Table};
 
-const MIN_CLAIM_TOTEM_SMALL_TILE_DISTANCE: i32 = 80;
-
 #[spacetimedb::reducer]
 #[shared_table_reducer]
 pub fn project_site_place(ctx: &ReducerContext, request: PlayerProjectSitePlaceRequest) -> Result<(), String> {
@@ -27,9 +24,9 @@ pub fn project_site_place(ctx: &ReducerContext, request: PlayerProjectSitePlaceR
 
     HealthState::check_incapacitated(ctx, actor_id, true)?;
 
-    for existing_state in ctx.db.user_moderation_state().target_entity_id().filter(actor_id) {
+    for existing_state in ctx.db.user_moderation_state().target_identity().filter(&ctx.sender) {
         if existing_state.user_moderation_policy == UserModerationPolicy::BlockConstruct && ctx.timestamp < existing_state.expiration_time {
-            return Err("Your construction priveleges have been suspended".into());
+            return Err("Your construction privileges have been suspended".into());
         }
     }
 
@@ -43,19 +40,20 @@ pub fn project_site_place(ctx: &ReducerContext, request: PlayerProjectSitePlaceR
     let mut is_rent_terminal = false;
     let mut footprint = Vec::new();
 
-    let construction_recipe = ctx.db.construction_recipe_desc_v2().id().find(&request.construction_recipe_id);
+    let construction_recipe = ctx.db.construction_recipe_desc().id().find(&request.construction_recipe_id);
     let resource_placement_recipe = ctx
         .db
-        .resource_placement_recipe_desc_v2()
+        .resource_placement_recipe_desc()
         .id()
         .find(&request.resource_placement_recipe_id);
 
     let mut terrain_cache = TerrainChunkCache::empty();
 
-    let mut is_watchtower = false;
     let mut is_empire_building = false;
     let mut is_empire_foundry = false;
     let mut is_claim_totem = false;
+    let mut is_bank = false;
+    let mut is_market = false;
 
     //let mut is_empire_stockpile = false;
 
@@ -67,7 +65,6 @@ pub fn project_site_place(ctx: &ReducerContext, request: PlayerProjectSitePlaceR
         );
         is_empire_foundry = building.has_category(ctx, BuildingCategory::EmpireFoundry);
         is_empire_building = building.build_permission == BuildingInteractionLevel::Empire;
-        is_watchtower = building.has_category(ctx, BuildingCategory::Watchtower);
         //is_empire_stockpile = building.has_category(BuildingCategory::Storage) && is_empire_building;
         footprint = building.get_footprint(&coordinates, facing_direction as i32);
         ProjectSiteState::validate_building_placement(
@@ -84,6 +81,11 @@ pub fn project_site_place(ctx: &ReducerContext, request: PlayerProjectSitePlaceR
         is_rent_terminal = building.has_category(ctx, BuildingCategory::RentTerminal);
         is_claim_totem = building.has_category(ctx, BuildingCategory::ClaimTotem);
 
+        // It's possible to start two bank/market project sites at the same time
+        // However attempting to complete the 2nd one will show the error. Too bad for the lost materials,
+        // but this would obvisouly be done on purpose in an attempt to circumvent the limitation.
+        is_bank = building.has_category(ctx, BuildingCategory::Bank);
+        is_market = building.has_category(ctx, BuildingCategory::TownMarket);
         validate_knowledge(ctx, actor_id, &recipe.required_knowledges)?;
     } else if let Some(ref recipe) = resource_placement_recipe {
         let resource = unwrap_or_err!(
@@ -122,7 +124,7 @@ pub fn project_site_place(ctx: &ReducerContext, request: PlayerProjectSitePlaceR
                 all_locations.filter_map(|l| match ctx.db.project_site_state().entity_id().find(&l.entity_id) {
                     Some(c) => Some(
                         ctx.db
-                            .construction_recipe_desc_v2()
+                            .construction_recipe_desc()
                             .id()
                             .find(&c.construction_recipe_id)
                             .unwrap()
@@ -185,7 +187,7 @@ pub fn project_site_place(ctx: &ReducerContext, request: PlayerProjectSitePlaceR
         if existing_claims_id.len() > 1 {
             return Err("You cannot build a project site overlapping several claims".into());
         }
-        if required_claim_tech_ids.len() != 0 && !is_watchtower {
+        if required_claim_tech_ids.len() != 0 {
             return Err("This project site needs to be fully under a claim in order to be built".into());
         }
     }
@@ -239,49 +241,38 @@ pub fn project_site_place(ctx: &ReducerContext, request: PlayerProjectSitePlaceR
 
     // Empire buildings have a few extra rules
     if is_empire_building {
-        // Watch towers are special. They pop instantly. They have special rules to build. Empires know best.
-        if is_watchtower {
-            // Global module doesn't have building references, so we can only validate claim totems distance in the region
-            if game_state_filters::any_claim_totems_in_radius(ctx, coordinates, MIN_CLAIM_TOTEM_SMALL_TILE_DISTANCE) {
-                return Err("Can't place a watchtower this close to a settlement totem".into());
+        if claim_helper::get_claim_under_footprint(ctx, &footprint) == 0 {
+            return Err("This project site needs to be fully under an empire-aligned claim in order to be built".into());
+        }
+        let claim_entity_id = existing_claims_id.get(0).unwrap();
+        if let Some(settlement) = EmpireSettlementState::from_claim(ctx, *claim_entity_id) {
+            if settlement.empire_entity_id == 0 {
+                return Err("This site needs to be fully under an empire-aligned claim in order to be built".into());
             }
-            validate_empire_build_watchtower(ctx, actor_id, coordinates)?;
+            let player_data = unwrap_or_err!(
+                ctx.db.empire_player_data_state().entity_id().find(&actor_id),
+                "You need to be part of an empire to build this"
+            );
+            if settlement.empire_entity_id != player_data.empire_entity_id {
+                return Err("You need to be part of the claim empire to build on this claim".into());
+            }
         } else {
-            // Other empire buildings require to be built in a player-empire-aligned claim
+            return Err("This project site needs to be fully under an empire-aligned claim in order to be built".into());
+        }
 
-            if claim_helper::get_claim_under_footprint(ctx, &footprint) == 0 {
-                return Err("This project site needs to be fully under an empire-aligned claim in order to be built".into());
-            }
-            let claim_entity_id = existing_claims_id.get(0).unwrap();
-            if let Some(settlement) = EmpireSettlementState::from_claim(ctx, *claim_entity_id) {
-                if settlement.empire_entity_id == 0 {
-                    return Err("This site needs to be fully under an empire-aligned claim in order to be built".into());
-                }
-                let player_data = unwrap_or_err!(
-                    ctx.db.empire_player_data_state().entity_id().find(&actor_id),
-                    "You need to be part of an empire to build this"
-                );
-                if settlement.empire_entity_id != player_data.empire_entity_id {
-                    return Err("You need to be part of the claim empire to build on this claim".into());
-                }
-            } else {
-                return Err("This project site needs to be fully under an empire-aligned claim in order to be built".into());
+        if is_empire_foundry {
+            let claim = ctx.db.claim_state().entity_id().find(claim_entity_id).unwrap();
+            if ctx
+                .db
+                .empire_state()
+                .capital_building_entity_id()
+                .find(&claim.owner_building_entity_id)
+                .is_none()
+            {
+                return Err("This building can only be built in the capital of an Empire".into());
             }
 
-            if is_empire_foundry {
-                let claim = ctx.db.claim_state().entity_id().find(claim_entity_id).unwrap();
-                if ctx
-                    .db
-                    .empire_state()
-                    .capital_building_entity_id()
-                    .find(&claim.owner_building_entity_id)
-                    .is_none()
-                {
-                    return Err("This building can only be built in the capital of an Empire".into());
-                }
-
-                validate_empire_build_foundry(ctx, actor_id, coordinates)?;
-            }
+            validate_empire_build_foundry(ctx, actor_id, coordinates)?;
         }
     }
 
@@ -291,6 +282,48 @@ pub fn project_site_place(ctx: &ReducerContext, request: PlayerProjectSitePlaceR
             entity_id,
             owner_entity_id: actor_id,
         });
+    }
+
+    if is_bank || is_market {
+        if existing_claims_id.len() != 1 {
+            return Err("This building can only be built on a claim".into());
+        }
+        let claim_entity_id = existing_claims_id[0];
+        if is_bank {
+            if ctx.db.bank_state().claim_entity_id().filter(claim_entity_id).next().is_some() {
+                return Err("Claims can only have one bank".into());
+            }
+            for project_site in ctx.db.project_site_state().owner_id().filter(claim_entity_id) {
+                if let Some(recipe) = ctx.db.construction_recipe_desc().id().find(project_site.construction_recipe_id) {
+                    if let Some(building_desc) = ctx.db.building_desc().id().find(recipe.building_description_id) {
+                        if building_desc.has_category(ctx, BuildingCategory::Bank) {
+                            return Err("A bank is already under construction".into());
+                        }
+                    }
+                }
+            }
+        }
+        if is_market {
+            if ctx
+                .db
+                .marketplace_state()
+                .claim_entity_id()
+                .filter(claim_entity_id)
+                .next()
+                .is_some()
+            {
+                return Err("Claims can only have one market".into());
+            }
+            for project_site in ctx.db.project_site_state().owner_id().filter(claim_entity_id) {
+                if let Some(recipe) = ctx.db.construction_recipe_desc().id().find(project_site.construction_recipe_id) {
+                    if let Some(building_desc) = ctx.db.building_desc().id().find(recipe.building_description_id) {
+                        if building_desc.has_category(ctx, BuildingCategory::TownMarket) {
+                            return Err("A market is already under construction".into());
+                        }
+                    }
+                }
+            }
+        }
     }
 
     //check built instantly
@@ -372,7 +405,7 @@ fn discover_instant_build(ctx: &ReducerContext, actor_id: u64, building_id: i32,
     discovery.commit(ctx);
 }
 
-fn consume_recipe_input(ctx: &ReducerContext, actor_id: u64, recipe: Option<ConstructionRecipeDescV2>) -> Result<(), String> {
+fn consume_recipe_input(ctx: &ReducerContext, actor_id: u64, recipe: Option<ConstructionRecipeDesc>) -> Result<(), String> {
     if let Some(construction_recipe) = recipe {
         let mut inventory = unwrap_or_err!(InventoryState::get_player_inventory(ctx, actor_id), "Player has no inventory");
         let consumed_items = construction_recipe
@@ -402,7 +435,7 @@ fn consume_recipe_input(ctx: &ReducerContext, actor_id: u64, recipe: Option<Cons
 
 pub fn refund_recipe_input(ctx: &ReducerContext, actor_id: u64, recipe: Option<i32>) {
     if recipe.is_some() {
-        let construction_recipe = ctx.db.construction_recipe_desc_v2().id().find(&recipe.unwrap()).unwrap();
+        let construction_recipe = ctx.db.construction_recipe_desc().id().find(&recipe.unwrap()).unwrap();
         let mut inventory = unwrap_or_return!(InventoryState::get_player_inventory(ctx, actor_id), "Player has no inventory");
         let consumed_items = construction_recipe
             .consumed_item_stacks

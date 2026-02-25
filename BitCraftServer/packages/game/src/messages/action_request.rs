@@ -1,4 +1,4 @@
-use spacetimedb::SpacetimeType;
+use spacetimedb::{Identity, SpacetimeType};
 
 use crate::messages::components::PermissionGroup;
 use crate::messages::game_util::*;
@@ -543,8 +543,7 @@ pub struct CheatSetDebugAiStateRequest {
 
 #[derive(SpacetimeType, Debug)]
 pub struct UserModerationCreateUserPolicyRequest {
-    pub target_entity_id: u64,
-    /* The player to punish */
+    pub target_identity: Identity,
     pub user_moderation_policy: UserModerationPolicy,
     pub duration_ms: u64,
 }
@@ -552,7 +551,6 @@ pub struct UserModerationCreateUserPolicyRequest {
 #[derive(SpacetimeType, Debug)]
 pub struct UserModerationSoftDeleteUserRequest {
     pub user_moderation_entity_id: u64,
-    /* ID to perform soft delete */
 }
 
 #[derive(SpacetimeType)]

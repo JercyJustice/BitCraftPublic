@@ -283,7 +283,7 @@ fn reduce(
 
         let experience_per_progress = ctx
             .db
-            .parameters_desc_v2()
+            .parameters_desc()
             .version()
             .find(0)
             .unwrap()
@@ -291,6 +291,8 @@ fn reduce(
         let construction_skill_id = SkillType::Construction as i32;
         let experience_gain = f32::ceil(experience_per_progress * spent_actions as f32) as i32;
         ExperienceState::add_experience(ctx, actor_id, construction_skill_id, experience_gain);
+
+        PlayerActionState::mark_as_consumed(ctx, actor_id)?;
     }
 
     Ok(())

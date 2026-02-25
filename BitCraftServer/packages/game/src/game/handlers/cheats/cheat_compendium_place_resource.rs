@@ -17,7 +17,7 @@ pub fn cheat_compendium_place_resource(ctx: &ReducerContext, request: CheatCompe
 
     if let Some(resource_desc) = ctx.db.resource_desc().id().find(&request.item_id) {
         let footprint = resource_desc.get_footprint(&request.coordinates.into(), request.facing_direction);
-        clear_and_flatten_terrain_under_footprint(ctx, footprint);
+        clear_and_flatten_terrain_under_footprint(ctx, &footprint);
 
         ResourceState::spawn(
             ctx,

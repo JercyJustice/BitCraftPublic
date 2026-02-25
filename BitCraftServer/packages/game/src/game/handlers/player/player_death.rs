@@ -5,7 +5,7 @@ use crate::game::reducer_helpers::player_action_helpers::post_reducer_update_car
 use crate::game::reducer_helpers::{deployable_helpers, player_action_helpers};
 use crate::messages::authentication::ServerIdentity;
 use crate::messages::components::PlayerActionType;
-use crate::{inventory_state, parameters_desc_v2, unwrap_or_err, InventoryState, ThreatState};
+use crate::{inventory_state, parameters_desc, unwrap_or_err, InventoryState, ThreatState};
 use spacetimedb::ReducerContext;
 use std::time::Duration;
 
@@ -25,7 +25,7 @@ fn player_death_start(ctx: &ReducerContext, timer: PlayerDeathTimer) -> Result<(
 
     let player_entity_id = timer.player_entity_id;
 
-    let respawn_seconds = ctx.db.parameters_desc_v2().version().find(&0).unwrap().respawn_seconds;
+    let respawn_seconds = ctx.db.parameters_desc().version().find(&0).unwrap().respawn_seconds;
     let delay = Duration::from_secs(respawn_seconds as u64);
 
     deployable_helpers::dismount_deployable(ctx, player_entity_id, false);
