@@ -196,7 +196,7 @@ fn reduce(
                 next_crumb_angle: Vec::new(), // this will be updated below
                 contribution: 0,
             });
-            log!("* Joining existing CrumbTrail {}", trail.entity_id);
+            log!("* Joining existing CrumbTrail {{0}}|~{}", trail.entity_id);
         } else {
             if let Some(new_trail) = CrumbTrailState::create(ctx, player_location, prospecting_id) {
                 player_prospecting = Some(ProspectingState {
@@ -242,21 +242,21 @@ fn reduce(
     let is_heading_torwards_reward = step >= crumb_trail.crumb_radiuses.len();
 
     log!("* PROSPECTING RESULT");
-    log!("* Step # {} / {}", step, crumb_trail.crumb_radiuses.len());
+    log!("* Step # {{0}} / {{1}}|~{}|~{}", step, crumb_trail.crumb_radiuses.len());
     if is_heading_torwards_reward {
-        log!("* Target Location: {:?}", target_location,);
+        log!("* Target Location: {{0}}|~{:?}", target_location,);
     } else {
         log!(
-            "* Target Location: {:?} Radius: {}",
+            "* Target Location: {{0}} Radius: {{1}}|~{:?}|~{}",
             target_location,
             crumb_trail.crumb_radiuses[step]
         );
     }
-    log!("* Player Location: {:?}", player_location);
-    log!("* Distance: {:?}", target_location.distance_to(player_location));
+    log!("* Player Location: {{0}}|~{:?}", player_location);
+    log!("* Distance: {{0}}|~{:?}", target_location.distance_to(player_location));
     if !is_heading_torwards_reward {
         log!(
-            "* Success => {}",
+            "* Success => {{0}}|~{}",
             target_location.distance_to(player_location) < crumb_trail.crumb_radiuses[step]
         );
     }

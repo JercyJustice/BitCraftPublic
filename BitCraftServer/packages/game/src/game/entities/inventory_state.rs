@@ -1268,6 +1268,10 @@ impl InventoryState {
     where
         TDistanceFn: Fn(SmallHexTile) -> i32,
     {
+        if item_stacks.iter().any(|i| i.quantity < 0) {
+            return Err("Invalid request.".into());
+        }
+
         //Attempt to withdraw everything from the player's inventory first
         if Self::remove_stacks_from_player_inventory(ctx, player_entity_id, item_stacks, false) {
             return Ok(());
@@ -1323,6 +1327,10 @@ impl InventoryState {
     where
         TDistanceFn: Fn(SmallHexTile) -> i32,
     {
+        if item_stacks.iter().any(|i| i.quantity < 0) {
+            return Err("Invalid request.".into());
+        }
+
         let mut discovery = Discovery::new(player_entity_id);
         let mut output = Vec::new();
 
@@ -1510,6 +1518,10 @@ impl InventoryState {
     where
         TDistanceFn: Fn(SmallHexTile) -> i32,
     {
+        if item_stacks.iter().any(|i| i.quantity < 0) {
+            return Err("Invalid request.".into());
+        }
+
         //Attempt to withdraw everything from the player's inventory first
         if Self::remove_stacks_from_player_inventory(ctx, player_entity_id, item_stacks, true) {
             return Ok(());

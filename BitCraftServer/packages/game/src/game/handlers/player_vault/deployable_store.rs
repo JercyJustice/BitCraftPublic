@@ -93,10 +93,6 @@ fn reduce(ctx: &ReducerContext, actor_id: u64, request: &DeployableStoreRequest,
         return Err("You are not the owner of this deployable.".into());
     }
 
-    if request.remotely {
-        return store_deployable(ctx, actor_id, request.deployable_entity_id, dry_run);
-    }
-
     // make sure the actor is close to the deployable
     let player_coordinates =
         unwrap_or_err!(ctx.db.mobile_entity_state().entity_id().find(actor_id), "Unknown Player Location").coordinates();
@@ -131,6 +127,11 @@ fn reduce_recover(ctx: &ReducerContext, actor_id: u64, request: &DeployableStore
                 .find(request.deployable_entity_id),
             "Deployable doesn't exist"
         );
+
+        if collectible.owner_entity_id != actor_id {
+            return Err("You are not the owner of this deployable.".into());
+        }
+
         //We don't know which region deployable is on, so we just blast messages to all regions and see if one of them succeeds
         send_inter_module_message(
             ctx,

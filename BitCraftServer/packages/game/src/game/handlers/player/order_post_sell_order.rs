@@ -67,7 +67,6 @@ pub fn order_post_sell_order(ctx: &ReducerContext, request: PlayerPostOrderReque
             stored_coins: 0,
         };
         ctx.db.sell_order_state().insert(sell_order);
-        required_item.quantity = 0;
     }
 
     player_action_helpers::post_reducer_update_cargo(ctx, actor_id);

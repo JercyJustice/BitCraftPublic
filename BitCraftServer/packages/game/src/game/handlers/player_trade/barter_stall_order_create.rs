@@ -39,6 +39,10 @@ pub fn reduce(
 ) -> Result<(), String> {
     HealthState::check_incapacitated(ctx, entity_id, true)?;
 
+    if offer_items.iter().any(|i| i.quantity < 0) || required_items.iter().any(|i| i.quantity < 0) {
+        return Err("Invalid request.".into());
+    }
+
     if ThreatState::in_combat(ctx, entity_id) {
         return Err("Cannot execute a trade order while in combat".into());
     }
@@ -79,12 +83,7 @@ pub fn reduce(
         if deployable.owner_id != entity_id {
             return Err("Only the deployable owner can edit listings".into());
         }
-        let deployable_desc = ctx
-            .db
-            .deployable_desc()
-            .id()
-            .find(&deployable.deployable_description_id)
-            .unwrap();
+        let deployable_desc = ctx.db.deployable_desc().id().find(&deployable.deployable_description_id).unwrap();
         if deployable_desc.barter == 0 {
             return Err("Invalid deployable type".into());
         }

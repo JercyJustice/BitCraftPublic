@@ -28,12 +28,36 @@ pub fn retrieve_lost_item(ctx: &ReducerContext, request: PlayerRetrieveLostItemR
         "Unknown building type"
     );
 
-    if building.distance_to(ctx, &game_state_filters::coordinates_float(ctx, actor_id).into()) > 2 {
+    let player_coordinates = game_state_filters::coordinates_float(ctx, actor_id);
+    if building.distance_to(ctx, &player_coordinates.into()) > 2 {
         return Err("Too far".into());
     }
 
     if !building_desc.has_category(ctx, BuildingCategory::RecoveryChest) {
         return Err("You can't retrieve items from this building".into());
+    }
+
+    if request.target_inventory_entity_id != 0 {
+        let target_inventory = unwrap_or_err!(
+            ctx.db.inventory_state().entity_id().find(request.target_inventory_entity_id),
+            "Can't transfer items there"
+        );
+
+        if target_inventory.owner_entity_id != actor_id {
+            let target_deployable = unwrap_or_err!(
+                ctx.db.deployable_state().entity_id().find(target_inventory.owner_entity_id),
+                "Invalid transfer destination"
+            );
+            if target_deployable.owner_id != actor_id {
+                return Err("That deployable is not yours".into());
+            }
+
+            let max_distance = ctx.db.parameters_desc().version().find(&0).unwrap().withdraw_from_deployables_range;
+            if game_state_filters::coordinates_float(ctx, target_deployable.entity_id).distance_to(player_coordinates) > max_distance as f32
+            {
+                return Err("Target inventory is too far".into());
+            }
+        }
     }
 
     let building_coord: SmallHexTile = game_state_filters::coordinates_try_get(ctx, request.building_entity_id)?.into();

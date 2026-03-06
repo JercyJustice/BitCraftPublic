@@ -593,7 +593,7 @@ pub fn move_deployable(
             duration,
             None,
             None,
-            game_state::unix_ms(ctx.timestamp),
+            timestamp,
         );
     }
     Ok(())

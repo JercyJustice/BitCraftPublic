@@ -122,6 +122,11 @@ fn reduce(
                 // This might happen for animated depleted resources
                 return Err("Deposit already depleted.".into());
             }
+
+            if d.resource_id != recipe.resource_id {
+                return Err("Invalid operation".into());
+            }
+
             deposit_entity_id = d.entity_id;
             d
         } else {

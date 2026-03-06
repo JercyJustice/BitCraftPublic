@@ -224,6 +224,10 @@ pub fn reduce(
 ) -> Result<(), String> {
     HealthState::check_incapacitated(ctx, actor_id, true)?;
 
+    if new_craft_count.is_some() && new_craft_count.unwrap() <= 0 {
+        return Err("Invalid quantity".into());
+    }
+
     PlayerActionState::validate_timestamp_basic(ctx, actor_id, PlayerActionType::Craft, timestamp)?;
     if !dry_run {
         // Make sure target and timestamp and action fit
