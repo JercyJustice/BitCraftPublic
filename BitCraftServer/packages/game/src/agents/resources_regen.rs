@@ -5,7 +5,6 @@ use spacetimedb::rand::Rng;
 use spacetimedb::{log, ReducerContext, Table};
 
 use crate::game::coordinates::*;
-use crate::game::game_state::game_state_filters;
 use crate::game::terrain_chunk::TerrainChunkCache;
 use crate::game::unity_helpers::vector2::Vector2;
 use crate::game::world_gen::resources_log::{resources_log, ResourceClumpInfo};
@@ -31,7 +30,7 @@ pub struct ResourcesRegenLoopTimer {
 }
 
 pub fn update_timer(ctx: &ReducerContext) {
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
     let mut count = 0;
     for mut timer in ctx.db.resources_regen_loop_timer().iter() {
         count += 1;
@@ -45,7 +44,7 @@ pub fn update_timer(ctx: &ReducerContext) {
 }
 
 pub fn init(ctx: &ReducerContext) {
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
     ctx.db
         .resources_regen_loop_timer()
         .try_insert(ResourcesRegenLoopTimer {
@@ -67,7 +66,7 @@ fn resources_regen(ctx: &ReducerContext, _timer: ResourcesRegenLoopTimer) -> Res
         return Ok(());
     }
 
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
 
     let resources_log = ctx.db.resources_log().version().find(&0);
 
@@ -482,13 +481,13 @@ pub fn try_spawn_resource_options(
     use_spawn_chance: bool,
 ) -> bool {
     // Check center node (footprint, elevation, water, noise, biome, etc.)
-    let mut spawns_on_uneven_terrain = false;
+    let mut max_elevation_delta = 0;
     if !is_valid_resource_node_options(
         ctx,
         terrain_cache,
         clump_info,
         hex_coordinates,
-        &mut spawns_on_uneven_terrain,
+        &mut max_elevation_delta,
         //ignore_chances,
         ignore_biome,
         use_spawn_chance,
@@ -499,7 +498,7 @@ pub fn try_spawn_resource_options(
     try_spawn_resource_no_node_validation(
         ctx,
         terrain_cache,
-        spawns_on_uneven_terrain,
+        max_elevation_delta,
         clump_desc,
         hex_coordinates,
         occupied_tiles_hashes,
@@ -545,7 +544,7 @@ pub fn try_spawn_resource_no_clump_info(
     try_spawn_resource_no_node_validation(
         ctx,
         terrain_cache,
-        true, // for now, allow uneven terrain spawns for those prizes
+        0, // prizes are not allowed on non flat tiles
         clump_desc,
         hex_coordinates,
         occupied_tiles_hashes,
@@ -558,7 +557,7 @@ pub fn try_spawn_resource_no_clump_info(
 pub fn try_spawn_resource_no_node_validation(
     ctx: &ReducerContext,
     terrain_cache: &mut TerrainChunkCache,
-    spawns_on_uneven_terrain: bool,
+    max_elevation_delta: i32,
     clump_desc: &ResourceClumpDescExtended,
     hex_coordinates: SmallHexTile,
     occupied_tiles_hashes: &mut impl OccupiedTiles,
@@ -584,7 +583,7 @@ pub fn try_spawn_resource_no_node_validation(
             &clump_desc.footprints,
             facing_direction,
             clump_desc.spawn_priority,
-            spawns_on_uneven_terrain,
+            max_elevation_delta,
             occupied_tiles_hashes,
             resource_desc,
         );
@@ -599,7 +598,7 @@ pub fn try_spawn_resource_no_node_validation(
                 &clump_desc.footprints,
                 facing_direction,
                 clump_desc.spawn_priority,
-                spawns_on_uneven_terrain,
+                max_elevation_delta,
                 occupied_tiles_hashes,
                 resource_desc,
             ) {
@@ -676,7 +675,7 @@ fn is_valid_resource_node_options(
     terrain_cache: &mut TerrainChunkCache,
     resource_clump_info: &ResourceClumpInfo,
     hex_coordinates: SmallHexTile,
-    spawns_on_uneven_terrain: &mut bool,
+    max_elevation_delta: &mut i32,
     ignore_biome: bool,
     use_spawn_chance: bool,
     //ignore_chances: bool,
@@ -758,7 +757,7 @@ fn is_valid_resource_node_options(
 
         if ctx.rng().gen_range(0f32..1f32) < biome_value {
             //|| ignore_chances {
-            *spawns_on_uneven_terrain = info.spawns_on_uneven_terrain;
+            *max_elevation_delta = info.max_elevation_delta;
             return true;
         }
     }
@@ -772,16 +771,12 @@ fn is_valid_resource_footprint(
     footprint_no_perimiter: &Vec<FootprintTile>,
     direction: HexDirection,
     spawn_priority: i32,
-    spawns_on_uneven_terrain: bool,
+    max_elevation_delta: i32,
     occupied_tiles_hashes: &mut impl OccupiedTiles,
     resource_desc: &HashMap<i32, ResourceDesc>,
 ) -> bool {
-    let center_terrain = match terrain_cache.get_terrain_cell(ctx, &center_coordinates.parent_large_tile()) {
-        Some(t) => t,
-        None => return false,
-    };
-
-    let center_elevation = center_terrain.elevation;
+    let mut min_elevation = i16::MAX;
+    let mut max_elevation = i16::MIN;
 
     for delta in footprint_no_perimiter {
         let footprint_coordinates = (SmallHexTile {
@@ -810,14 +805,20 @@ fn is_valid_resource_footprint(
             return false;
         }
 
-        if !spawns_on_uneven_terrain {
-            if footprint_coordinates.is_corner() && !game_state_filters::is_flat_corner(ctx, terrain_cache, footprint_coordinates) {
-                return false;
-            }
+        let elevations: [i16; 3] = footprint_coordinates
+            .get_terrain_coordinates()
+            .map(|c| terrain_cache.get_terrain_cell(ctx, &c).unwrap_or_default().elevation);
+        let min = *elevations.iter().min().unwrap();
+        let max = *elevations.iter().max().unwrap();
+        min_elevation = min_elevation.min(min);
+        max_elevation = max_elevation.max(max);
 
-            if footprint_elevation != center_elevation {
-                return false;
-            }
+        if min_elevation == -1 {
+            return false;
+        }
+
+        if max_elevation - min_elevation > max_elevation_delta as i16 {
+            return false;
         }
     }
 

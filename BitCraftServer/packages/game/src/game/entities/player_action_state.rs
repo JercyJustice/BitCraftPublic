@@ -56,8 +56,11 @@ impl PlayerActionState {
                 target: None,
                 recipe_id: None,
                 client_cancel: false,
+                was_consumed: false,
                 chunk_index,
-                _pad: 0,
+                _pad1: 0,
+                _pad2: 0,
+                _pad3: 0,
             },
         )?;
 
@@ -75,10 +78,33 @@ impl PlayerActionState {
                 target: None,
                 recipe_id: None,
                 client_cancel: false,
+                was_consumed: false,
                 chunk_index,
-                _pad: 0,
+                _pad1: 0,
+                _pad2: 0,
+                _pad3: 0,
             },
         )
+    }
+
+    pub fn mark_as_consumed(ctx: &ReducerContext, entity_id: u64) -> Result<(), String> {
+        let mut a = unwrap_or_err!(
+            PlayerActionState::get_state(ctx, &entity_id, &PlayerActionLayer::Base),
+            "Player doesn't have Base PlayerActionState"
+        );
+        a.was_consumed = true;
+        a.start_time = a.start_time + (a.duration * 9 / 10);
+        ctx.db.player_action_state().auto_id().update(a);
+
+        let mut a = unwrap_or_err!(
+            PlayerActionState::get_state(ctx, &entity_id, &PlayerActionLayer::UpperBody),
+            "Player doesn't have UpperBody PlayerActionState"
+        );
+        a.was_consumed = true;
+        a.start_time = a.start_time + (a.duration * 9 / 10);
+        ctx.db.player_action_state().auto_id().update(a);
+
+        Ok(())
     }
 
     pub fn validate_action_timing(
@@ -89,7 +115,7 @@ impl PlayerActionState {
     ) -> Result<(), String> {
         let layer = action_type.get_layer(ctx);
         let player_action = unwrap_or_err!(PlayerActionState::get_state(ctx, &entity_id, &layer), "Player has no ActionState");
-        
+
         if player_action.last_action_result == PlayerActionResult::Fail || player_action.last_action_result == PlayerActionResult::Cancel {
             return Ok(());
         }
@@ -106,6 +132,18 @@ impl PlayerActionState {
         }
 
         player_action_helpers::fail_timing(ctx, entity_id, action_type, format!("Tried to {{0}} too quickly|~{:?}", action_type))
+    }
+
+    pub fn validate_timestamp_basic(
+        ctx: &ReducerContext,
+        entity_id: u64,
+        action_type: PlayerActionType,
+        timestamp: u64,
+    ) -> Result<(), String> {
+        let layer = action_type.get_layer(ctx);
+        let player_action = unwrap_or_err!(PlayerActionState::get_state(ctx, &entity_id, &layer), "Player has no ActionState");
+
+        return move_validation_helpers::validate_move_timestamp(player_action.start_time, timestamp, ctx.timestamp);
     }
 
     pub fn validate(ctx: &ReducerContext, actor_id: u64, action_type: PlayerActionType, target: Option<u64>) -> Result<(), String> {
@@ -128,6 +166,10 @@ impl PlayerActionState {
 
         if player_action.target != target {
             return Err("Invalid action target".into());
+        }
+
+        if player_action.was_consumed {
+            return Err("Invalid repeat action".into());
         }
 
         Ok(())
@@ -159,8 +201,11 @@ impl PlayerActionState {
                 target,
                 recipe_id,
                 client_cancel: false,
+                was_consumed: false,
                 chunk_index,
-                _pad: 0,
+                _pad1: 0,
+                _pad2: 0,
+                _pad3: 0,
             },
         ) {
             log::error!("Couldn't call success on PlayerActionState, with error: {}", e);

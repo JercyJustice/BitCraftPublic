@@ -1,13 +1,16 @@
+use bitcraft_macro::feature_gate;
 use spacetimedb::{ReducerContext, Table};
 
 use crate::game::game_state::{self, create_entity, unix};
 use crate::game::reducer_helpers::user_text_input_helpers::{is_user_text_input_valid, sanitize_user_inputs};
 use crate::messages::action_request::PlayerChatPostMessageRequest;
 use crate::messages::components::*;
+use crate::messages::moderation_config::{region_moderation_config_state, RegionModerationConfigState};
 use crate::messages::static_data::CollectibleType;
 use crate::{collectible_desc, i18n, unwrap_or_err};
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn chat_post_message(ctx: &ReducerContext, request: PlayerChatPostMessageRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -20,10 +23,6 @@ pub fn chat_post_message(ctx: &ReducerContext, request: PlayerChatPostMessageReq
         request.language_code,
     )
 }
-
-const MAX_MESSAGES_PER_TIME_PERIOD: usize = 3;
-const RATE_LIMIT_WINDOW_SEC: i32 = 15;
-const TWO_HOURS: i32 = 60 * 60 * 2;
 
 pub fn reduce(
     ctx: &ReducerContext,
@@ -44,7 +43,7 @@ pub fn reduce(
 
     let player_state = unwrap_or_err!(ctx.db.player_state().entity_id().find(&actor_id), "Invalid player");
 
-    UserModerationState::validate_chat_privileges(ctx, actor_id, "Your chat priveleges have been suspended")?;
+    UserModerationState::validate_chat_privileges(ctx, &ctx.sender, "Your chat privileges have been suspended")?;
 
     if target_id > 0 && channel_id != ChatChannel::Local {
         return Err("This regional channel shouldn't have a target".into());
@@ -72,10 +71,28 @@ pub fn reduce(
 
     let username = player_state.username(ctx);
     if channel_id == ChatChannel::Region && !title_id.is_some() {
-        if player_state.time_signed_in < TWO_HOURS {
-            let two_hours_ago = game_state::unix(ctx.timestamp) - TWO_HOURS;
-            if player_state.sign_in_timestamp > two_hours_ago {
-                return Err("Region chat is unlocked after two hours for new accounts.".into());
+        let config = ctx.db.region_moderation_config_state().id().find(0);
+        let max_messages = config
+            .as_ref()
+            .map_or(RegionModerationConfigState::DEFAULT_MAX_MESSAGES_PER_TIME_PERIOD, |c| {
+                c.max_messages_per_time_period
+            });
+        let rate_limit_window = config
+            .as_ref()
+            .map_or(RegionModerationConfigState::DEFAULT_RATE_LIMIT_WINDOW_SEC, |c| {
+                c.rate_limit_window_sec
+            });
+        let min_playtime = config
+            .as_ref()
+            .map_or(RegionModerationConfigState::DEFAULT_NEW_ACCOUNT_MIN_PLAYTIME_SEC, |c| {
+                c.new_account_min_playtime_sec
+            });
+
+        if player_state.time_signed_in < min_playtime {
+            let cutoff = game_state::unix(ctx.timestamp) - min_playtime;
+            if player_state.sign_in_timestamp > cutoff {
+                let hours = min_playtime / 3600;
+                return Err(format!("Region chat is unlocked after {{0}} hours for new accounts.|~{}", hours));
             }
         }
         if username.starts_with("player") {
@@ -83,7 +100,7 @@ pub fn reduce(
         }
 
         // get all recent region messages
-        let since_ts = unix(ctx.timestamp) - RATE_LIMIT_WINDOW_SEC;
+        let since_ts = unix(ctx.timestamp) - rate_limit_window;
         let msg_count = ctx
             .db
             .chat_message_state()
@@ -91,12 +108,11 @@ pub fn reduce(
             .filter(channel_id as i32)
             .filter(|m| m.owner_entity_id == actor_id && m.timestamp >= since_ts)
             .count();
-        if msg_count >= MAX_MESSAGES_PER_TIME_PERIOD {
+        if msg_count >= max_messages as usize {
             return Err(format!(
                 "You can only send {{0}} messages per {{1}} seconds in Region chat|~{}|~{}",
-                MAX_MESSAGES_PER_TIME_PERIOD, RATE_LIMIT_WINDOW_SEC
-            )
-            .into());
+                max_messages, rate_limit_window
+            ));
         }
     }
 

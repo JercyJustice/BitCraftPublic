@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use crate::game::game_state::{game_state_filters, wind_system};
 use crate::game::handlers::authentication::has_role_no_dev;
 use crate::game::reducer_helpers;
@@ -13,6 +14,7 @@ use crate::{
 use spacetimedb::ReducerContext;
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn deployable_move(ctx: &ReducerContext, request: PlayerDeployableMoveRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     HealthState::check_incapacitated(ctx, actor_id, true)?;
@@ -65,7 +67,7 @@ pub fn deployable_move(ctx: &ReducerContext, request: PlayerDeployableMoveReques
         "Deployable not found!"
     );
     let desc = unwrap_or_err!(
-        ctx.db.deployable_desc_v4().id().find(&deployable.deployable_description_id),
+        ctx.db.deployable_desc().id().find(&deployable.deployable_description_id),
         "Invalid deployable type"
     );
 
@@ -172,7 +174,7 @@ fn validate_move(
     source_coordinates: FloatHexTile,
     _target_coordinates: FloatHexTile,
     paving: &Option<PavingTileDesc>,
-    deployable_desc: &DeployableDescV4,
+    deployable_desc: &DeployableDesc,
 ) -> Result<(), String> {
     let prev_origin = prev_mobile_entity.coordinates_float();
 
@@ -242,7 +244,7 @@ fn validate_move(
             );
         }
 
-        //let par = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+        //let par = ctx.db.parameters_desc().version().find(&0).unwrap();
         //let result = move_validation_helpers::validate_move(
         //    &prev_mobile_entity,
         //    &prev_origin,

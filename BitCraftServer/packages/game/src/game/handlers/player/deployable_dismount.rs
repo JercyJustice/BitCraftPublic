@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use crate::game::game_state::game_state_filters;
 use crate::game::reducer_helpers::deployable_helpers::{
     dismount_deployable_and_explore, dismount_deployable_and_explore_and_set_deployable_position,
@@ -7,7 +8,7 @@ use crate::game::{coordinates::*, game_state};
 use crate::messages::action_request::PlayerDeployableDismountRequest;
 use crate::messages::authentication::ServerIdentity;
 use crate::messages::components::*;
-use crate::{parameters_desc_v2, unwrap_or_err};
+use crate::{parameters_desc, unwrap_or_err};
 use spacetimedb::ReducerContext;
 
 #[spacetimedb::table(name = deployable_dismount_timer, scheduled(deployable_dismount_scheduled, at = scheduled_at))]
@@ -23,8 +24,9 @@ pub struct DeployableDismountTimer {
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 fn deployable_dismount_scheduled(ctx: &ReducerContext, timer: DeployableDismountTimer) -> Result<(), String> {
-    deployable_dismount(
+    deployable_dismount_server(
         ctx,
         PlayerDeployableDismountRequest {
             deployable_entity_id: timer.deployable_entity_id,
@@ -37,19 +39,11 @@ fn deployable_dismount_scheduled(ctx: &ReducerContext, timer: DeployableDismount
 }
 
 #[spacetimedb::reducer]
-pub fn deployable_dismount(ctx: &ReducerContext, request: PlayerDeployableDismountRequest) -> Result<(), String> {
-    // This request can come either from the server (as a result of a deployable being stored) or from a player (as a result of a player direct action)
-    let actor_id = if ServerIdentity::validate_server_only(&ctx).is_err() {
-        if request.skip_deployable_icon {
-            // Players should not be able to skip the icon update - that could lead to some permanent icons markings
-            return Err("Invalid request".into());
-        }
-        game_state::actor_id(&ctx, true)?
-    } else {
-        request.player_entity_id
-    };
-
-    HealthState::check_incapacitated(ctx, actor_id, true)?;
+#[feature_gate]
+pub fn deployable_dismount_server(ctx: &ReducerContext, request: PlayerDeployableDismountRequest) -> Result<(), String> {
+    // This request can only come from the server (as a result of a deployable being stored)
+    ServerIdentity::validate_server_only(&ctx)?;
+    let actor_id = request.player_entity_id;
 
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
 
@@ -78,6 +72,35 @@ pub fn deployable_dismount(ctx: &ReducerContext, request: PlayerDeployableDismou
     }
 }
 
+#[spacetimedb::reducer]
+#[feature_gate]
+pub fn deployable_dismount(
+    ctx: &ReducerContext,
+    coordinates: OffsetCoordinatesFloat,
+    deployable_coordinates: OffsetCoordinatesFloat,
+) -> Result<(), String> {
+    // This request can only come from a player (as a result of a player direct action)
+    let actor_id = game_state::actor_id(&ctx, true)?;
+
+    HealthState::check_incapacitated(ctx, actor_id, true)?;
+
+    PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
+
+    let mounting_state = unwrap_or_err!(ctx.db.mounting_state().entity_id().find(actor_id), "You're not in a deployable");
+    let deployable_coord = unwrap_or_err!(
+        ctx.db.mobile_entity_state().entity_id().find(mounting_state.deployable_entity_id),
+        "Deployable doesn't exist"
+    )
+    .coordinates_float();
+
+    let target_coordinates: FloatHexTile = coordinates.into();
+    self::test_coordinates(ctx, target_coordinates.clone(), deployable_coord)?;
+
+    PlayerState::collect_stats(ctx, actor_id);
+    self::test_coordinates(ctx, deployable_coordinates.into(), deployable_coord)?;
+    dismount_deployable_and_explore_and_set_deployable_position(ctx, actor_id, target_coordinates, deployable_coordinates.into(), false)
+}
+
 fn test_coordinates(ctx: &ReducerContext, dismount_coord: FloatHexTile, deployable_coord: FloatHexTile) -> Result<(), String> {
     let (dismount_coord_small, dismount_coord_large) = dismount_coord.parent_small_and_large_tile();
     let mut terrain_cache = TerrainChunkCache::empty();
@@ -87,12 +110,13 @@ fn test_coordinates(ctx: &ReducerContext, dismount_coord: FloatHexTile, deployab
     };
 
     if dismount_coord.distance_to(deployable_coord) > 5.0 {
-        return Err(format!(
-            "Can't disembark this far! {{0}} to {{1}} = {{2}}|~{}|~{}|~{}",
+        spacetimedb::log::warn!(
+            "Can't disembark this far! {} to {} = {}",
             dismount_coord,
             deployable_coord,
             dismount_coord.distance_to(deployable_coord)
-        ));
+        );
+        return Err("Can't disembark this far!".into());
     }
 
     if game_state_filters::has_hitbox_footprint(ctx, dismount_coord_small) {
@@ -104,7 +128,7 @@ fn test_coordinates(ctx: &ReducerContext, dismount_coord: FloatHexTile, deployab
         None => return Err("Can't find deployable cell".into()),
     };
 
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
     if (dismount_terrain_cell.player_surface_elevation() - deployable_terrain_cell.player_surface_elevation()).abs()
         > params.deployable_disembark_max_elevation as i16
     {

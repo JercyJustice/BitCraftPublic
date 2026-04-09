@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use crate::game::discovery::Discovery;
 use crate::game::entities::building_state::InventoryState;
 use crate::game::game_state;
@@ -6,9 +7,10 @@ use crate::messages::components::*;
 use crate::messages::game_util::ItemType;
 use crate::messages::static_data::premium_item_desc;
 use crate::{collectible_desc, equipment_desc, unwrap_or_err, AchievementDesc};
-use spacetimedb::ReducerContext;
+use spacetimedb::{ReducerContext, Table};
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn convert_deed_to_collectible(ctx: &ReducerContext, request: PlayerConvertDeedToCollectibleRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -48,10 +50,8 @@ pub fn convert_deed_to_collectible(ctx: &ReducerContext, request: PlayerConvertD
     let is_premium_item = ctx
         .db
         .premium_item_desc()
-        .collectible_desc_id()
-        .filter(collectible.id)
-        .next()
-        .is_some();
+        .iter()
+        .any(|prem| prem.collectible_ids.contains(&collectible.id));
     let count = if is_premium_item { stack.quantity } else { 1 };
     stack.quantity -= count;
 

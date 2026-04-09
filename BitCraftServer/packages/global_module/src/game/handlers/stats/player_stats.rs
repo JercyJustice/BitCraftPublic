@@ -16,15 +16,9 @@ pub fn log_player_with_(ctx: &ReducerContext) -> Result<(), String> {
     ctx.db
         .empire_chunk_state()
         .iter()
-        .filter_map(|c| {
-            if c.empire_entity_id.len() == 1 {
-                Some(c.empire_entity_id[0])
-            } else {
-                None
-            }
-        })
-        .for_each(|empire_entity_id| {
-            *territory_counts.entry(empire_entity_id).or_insert(0) += 1;
+        .filter(|c| c.empire_entity_id != 0)
+        .for_each(|c| {
+            *territory_counts.entry(c.empire_entity_id).or_insert(0) += 1;
         });
 
     // Collect counts into a vector and sort by frequency (descending)

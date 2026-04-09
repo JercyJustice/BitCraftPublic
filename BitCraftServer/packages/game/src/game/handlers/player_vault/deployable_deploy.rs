@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use std::time::Duration;
 
 use spacetimedb::ReducerContext;
@@ -20,12 +21,7 @@ pub fn event_delay(ctx: &ReducerContext, actor_id: u64, request: &DeployableDepl
         let collectible_id = collectibles.get(request.vault_index as usize).unwrap().id;
         if let Some(collectible_desc) = ctx.db.collectible_desc().id().find(&collectible_id) {
             if collectible_desc.collectible_type == CollectibleType::Deployable {
-                let deployable_description = ctx
-                    .db
-                    .deployable_desc_v4()
-                    .deploy_from_collectible_id()
-                    .find(&collectible_id)
-                    .unwrap();
+                let deployable_description = ctx.db.deployable_desc().deploy_from_collectible_id().find(&collectible_id).unwrap();
                 return Duration::from_secs_f32(deployable_description.deploy_time);
             }
         }
@@ -34,6 +30,7 @@ pub fn event_delay(ctx: &ReducerContext, actor_id: u64, request: &DeployableDepl
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn deployable_deploy_start(ctx: &ReducerContext, request: DeployableDeployRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -52,6 +49,7 @@ pub fn deployable_deploy_start(ctx: &ReducerContext, request: DeployableDeployRe
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn deployable_deploy(ctx: &ReducerContext, request: DeployableDeployRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);

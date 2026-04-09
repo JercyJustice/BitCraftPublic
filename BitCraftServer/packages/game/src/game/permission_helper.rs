@@ -88,7 +88,7 @@ pub fn can_interact_with_building(
                         if empire_node.energy == 0 {
                             // Depleted watchtowers on empire influence can be destroyed by anyone part of that empire
                             if let Some(chunk) = ctx.db.empire_chunk_state().chunk_index().find(&empire_node.chunk_index) {
-                                if !chunk.empire_entity_id.iter().any(|c| *c != player_rank.empire_entity_id) {
+                                if chunk.empire_entity_id == player_rank.empire_entity_id {
                                     return true;
                                 }
                             }

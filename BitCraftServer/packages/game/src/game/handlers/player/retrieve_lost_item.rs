@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use spacetimedb::ReducerContext;
 
 use crate::game::coordinates::*;
@@ -8,10 +9,10 @@ use crate::messages::components::*;
 use crate::messages::game_util::ItemType;
 use crate::messages::static_data::{building_desc, BuildingCategory};
 use crate::{game_state, params};
-use crate::{parameters_desc_v2, unwrap_or_err};
+use crate::{parameters_desc, unwrap_or_err};
 
 #[spacetimedb::reducer]
-
+#[feature_gate]
 pub fn retrieve_lost_item(ctx: &ReducerContext, request: PlayerRetrieveLostItemRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     HealthState::check_incapacitated(ctx, actor_id, true)?;
@@ -28,7 +29,8 @@ pub fn retrieve_lost_item(ctx: &ReducerContext, request: PlayerRetrieveLostItemR
         "Unknown building type"
     );
 
-    if building.distance_to(ctx, &game_state_filters::coordinates_float(ctx, actor_id).into()) > 2 {
+    let player_coordinates = game_state_filters::coordinates_float(ctx, actor_id);
+    if building.distance_to(ctx, &player_coordinates.into()) > 2 {
         return Err("Too far".into());
     }
 
@@ -36,17 +38,38 @@ pub fn retrieve_lost_item(ctx: &ReducerContext, request: PlayerRetrieveLostItemR
         return Err("You can't retrieve items from this building".into());
     }
 
+    if request.target_inventory_entity_id != 0 {
+        let target_inventory = unwrap_or_err!(
+            ctx.db.inventory_state().entity_id().find(request.target_inventory_entity_id),
+            "Can't transfer items there"
+        );
+
+        if target_inventory.owner_entity_id != actor_id {
+            let target_deployable = unwrap_or_err!(
+                ctx.db.deployable_state().entity_id().find(target_inventory.owner_entity_id),
+                "Invalid transfer destination"
+            );
+            if target_deployable.owner_id != actor_id {
+                return Err("That deployable is not yours".into());
+            }
+
+            let max_distance = ctx.db.parameters_desc().version().find(&0).unwrap().withdraw_from_deployables_range;
+            if game_state_filters::coordinates_float(ctx, target_deployable.entity_id).distance_to(player_coordinates) > max_distance as f32
+            {
+                return Err("Target inventory is too far".into());
+            }
+        }
+    }
+
     let building_coord: SmallHexTile = game_state_filters::coordinates_try_get(ctx, request.building_entity_id)?.into();
     let max_distance = params!(ctx).item_recovery_range;
-
-    let mut target_inventory = ctx.db.inventory_state().entity_id().find(request.target_inventory_entity_id);
 
     // TODO, possibly: sort by distance so the closest inventories get depleted first.
     for lost_items in ctx.db.lost_items_state().owner_entity_id().filter(actor_id) {
         let coord: SmallHexTile = lost_items.location.into();
         if building_coord.distance_to(coord) <= max_distance {
             let mut inventory = ctx.db.inventory_state().entity_id().find(lost_items.inventory_entity_id).unwrap();
-            if target_inventory.is_some() && inventory.entity_id == target_inventory.as_ref().unwrap().entity_id {
+            if inventory.entity_id == request.target_inventory_entity_id {
                 continue;
             }
 
@@ -58,10 +81,17 @@ pub fn retrieve_lost_item(ctx: &ReducerContext, request: PlayerRetrieveLostItemR
                         if let Some(durability) = item_stack.durability {
                             // durability items are only picked one by one if the durability matches the query
                             if durability == request.durability {
-                                if target_inventory.is_some() {
-                                    if !target_inventory.unwrap().add(ctx, *item_stack) {
+                                if request.target_inventory_entity_id != 0 {
+                                    let mut target_inventory = ctx
+                                        .db
+                                        .inventory_state()
+                                        .entity_id()
+                                        .find(request.target_inventory_entity_id)
+                                        .unwrap();
+                                    if !target_inventory.add(ctx, *item_stack) {
                                         return Err("Not enough room in inventory".into());
                                     }
+                                    ctx.db.inventory_state().entity_id().update(target_inventory);
                                 } else {
                                     InventoryState::deposit_to_player_inventory_and_nearby_deployables(
                                         ctx,
@@ -81,12 +111,19 @@ pub fn retrieve_lost_item(ctx: &ReducerContext, request: PlayerRetrieveLostItemR
                             continue;
                         }
                         // no durability items are always stacked
-                        if target_inventory.is_some() {
+                        if request.target_inventory_entity_id != 0 {
+                            let mut target_inventory = ctx
+                                .db
+                                .inventory_state()
+                                .entity_id()
+                                .find(request.target_inventory_entity_id)
+                                .unwrap();
                             if let Some(i) = request.target_inventory_index {
-                                updated_inventory = target_inventory.as_mut().unwrap().add_partial_at(ctx, item_stack, i as usize);
+                                updated_inventory = target_inventory.add_partial_at(ctx, item_stack, i as usize);
                             } else {
-                                updated_inventory = target_inventory.as_mut().unwrap().add_partial(ctx, item_stack);
+                                updated_inventory = target_inventory.add_partial(ctx, item_stack);
                             }
+                            ctx.db.inventory_state().entity_id().update(target_inventory);
                         } else {
                             let overflow_items = InventoryState::deposit_to_player_inventory_and_nearby_deployables_and_get_overflow_stack(
                                 ctx,

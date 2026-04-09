@@ -3,7 +3,7 @@ use std::time::Duration;
 use spacetimedb::{ReducerContext, TimeDuration, Timestamp};
 
 use crate::{
-    crafting_recipe_desc, game::game_state, parameters_desc_v2, progressive_action_state, BuildingDesc, CraftingRecipeDesc,
+    crafting_recipe_desc, game::game_state, parameters_desc, progressive_action_state, BuildingDesc, CraftingRecipeDesc,
     ProgressiveActionState, ProgressiveActionStatus,
 };
 
@@ -66,7 +66,7 @@ impl ProgressiveActionState {
     pub fn set_expiration(&mut self, ctx: &ReducerContext) {
         self.lock_expiration = ctx.timestamp
             + TimeDuration::from(Duration::from_secs(
-                ctx.db.parameters_desc_v2().version().find(0).unwrap().crafting_lock_duration_secs as u64,
+                ctx.db.parameters_desc().version().find(0).unwrap().crafting_lock_duration_secs as u64,
             ));
     }
 

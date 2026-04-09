@@ -8,7 +8,7 @@ use crate::{
     messages::{
         authentication::ServerIdentity,
         components::{duel_state, health_state, signed_in_player_state},
-        static_data::parameters_desc_v2,
+        static_data::parameters_desc,
     },
     params,
 };

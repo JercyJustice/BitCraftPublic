@@ -200,7 +200,7 @@ fn claim_tile_buildings(ctx: &ReducerContext, claim_entity_id: u64, coord: Small
                 BuildingState::claim(ctx, building_entity_id, claim_entity_id);
             }
         } else if let Some(mut project_site) = ctx.db.project_site_state().entity_id().find(&building_entity_id) {
-            if let Some(recipe) = ctx.db.construction_recipe_desc_v2().id().find(&project_site.construction_recipe_id) {
+            if let Some(recipe) = ctx.db.construction_recipe_desc().id().find(&project_site.construction_recipe_id) {
                 let building_id = recipe.building_description_id;
                 if get_claim_under_building(ctx, building_location, building_id, project_site.direction, claim_cache) == claim_entity_id {
                     project_site.owner_id = claim_entity_id;
@@ -208,7 +208,7 @@ fn claim_tile_buildings(ctx: &ReducerContext, claim_entity_id: u64, coord: Small
                 }
             } else if let Some(recipe) = ctx
                 .db
-                .resource_placement_recipe_desc_v2()
+                .resource_placement_recipe_desc()
                 .id()
                 .find(&project_site.resource_placement_recipe_id)
             {
@@ -228,7 +228,7 @@ pub fn unclaim_tile(ctx: &ReducerContext, claim_tile_entity_id: u64, coord: Smal
 
     // Check if a building is on the removed tile, if so it's no longer fully covered by claim tiles therefore no longer claimed
     if let Some(building) = game_state_filters::building_at_coordinates(ctx, &coord) {
-        unclaim_building(ctx, building);
+        unclaim_building(ctx, building, false);
     }
 
     for deployable in game_state_filters::deployables_at_coordinates(ctx, coord) {
@@ -238,7 +238,7 @@ pub fn unclaim_tile(ctx: &ReducerContext, claim_tile_entity_id: u64, coord: Smal
 
 pub fn delete_all_claim_tiles(ctx: &ReducerContext, claim_entity_id: u64) {
     for building in ctx.db.building_state().claim_entity_id().filter(claim_entity_id) {
-        unclaim_building(ctx, building);
+        unclaim_building(ctx, building, false);
     }
 
     for deployable in ctx.db.deployable_state().claim_entity_id().filter(claim_entity_id) {
@@ -252,11 +252,11 @@ pub fn delete_all_claim_tiles(ctx: &ReducerContext, claim_entity_id: u64) {
     }
 }
 
-fn unclaim_building(ctx: &ReducerContext, building: BuildingState) {
+fn unclaim_building(ctx: &ReducerContext, building: BuildingState, from_destructor: bool) {
     let building_entity_id = building.entity_id;
-    building.unclaim_self(ctx, false);
+    building.unclaim_self(ctx, false, from_destructor);
 
-    if let Some(project_site) = ctx.db.project_site_state().entity_id().find(&building_entity_id) {
+    if let Some(project_site) = ctx.db.project_site_state().entity_id().find(building_entity_id) {
         if project_site.owner_id != 0 {
             let mut project_site = project_site;
             project_site.owner_id = 0;
@@ -278,7 +278,7 @@ pub fn claim_area_around_totem(ctx: &ReducerContext, claim_entity_id: u64, radiu
         let mut claim_cache = ClaimTileStateCache::new(&mut location_cache);
 
         if DONT_CHECK_AREA_AROUND_CLAIM_COUNTER.get() <= 0 {
-            let min_distance_between_claims = ctx.db.parameters_desc_v2().version().find(&0).unwrap().min_distance_between_claims;
+            let min_distance_between_claims = ctx.db.parameters_desc().version().find(&0).unwrap().min_distance_between_claims;
             if claim_cache
                 .any_claim_in_radius(
                     ctx,
@@ -325,7 +325,7 @@ pub fn can_place_claim_totem(
     if game_state_filters::any_claims_in_radius(
         ctx,
         coordinates,
-        ctx.db.parameters_desc_v2().version().find(&0).unwrap().min_distance_between_claims + claim_info.radius,
+        ctx.db.parameters_desc().version().find(&0).unwrap().min_distance_between_claims + claim_info.radius,
     ) {
         return Err("Claimed area would be too close to another claim".into());
     }

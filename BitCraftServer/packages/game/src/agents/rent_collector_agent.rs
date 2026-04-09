@@ -6,7 +6,7 @@ use crate::{
     agents, claim_state,
     game::{game_state, reducer_helpers::timer_helpers::now_plus_secs},
     messages::{authentication::ServerIdentity, components::claim_local_state},
-    parameters_desc_v2, rent_state,
+    parameters_desc, rent_state,
 };
 
 const SECONDS_IN_A_DAY: i32 = 24 * 60 * 60;
@@ -21,7 +21,7 @@ pub struct RentCollectorLoopTimer {
 }
 
 pub fn schedule_first_tick(ctx: &ReducerContext) {
-    let tick_time_of_day = ctx.db.parameters_desc_v2().version().find(&0).unwrap().rent_collection_time_of_day;
+    let tick_time_of_day = ctx.db.parameters_desc().version().find(&0).unwrap().rent_collection_time_of_day;
     let daily_timestamp_tick = (tick_time_of_day * 60.0 * 60.0) as i32;
     let seconds_elapsed = game_state::unix(ctx.timestamp);
     let start_of_current_day_timestamp = (seconds_elapsed / SECONDS_IN_A_DAY) * SECONDS_IN_A_DAY;

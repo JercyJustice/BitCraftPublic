@@ -5,7 +5,7 @@ use spacetimedb::{log, ReducerContext, Table};
 use crate::{
     agents, growth_state, location_state,
     messages::{authentication::ServerIdentity, components::ResourceState},
-    parameters_desc_v2, resource_desc, resource_growth_recipe_desc, resource_state,
+    parameters_desc, resource_desc, resource_growth_recipe_desc, resource_state,
 };
 
 #[spacetimedb::table(name = growth_loop_timer, scheduled(growth_agent_loop, at = scheduled_at))]
@@ -19,7 +19,7 @@ pub struct GrowthLoopTimer {
 pub fn update_timer(ctx: &ReducerContext) {
     let tick_length = ctx
         .db
-        .parameters_desc_v2()
+        .parameters_desc()
         .version()
         .find(&0)
         .unwrap()
@@ -39,7 +39,7 @@ pub fn update_timer(ctx: &ReducerContext) {
 pub fn init(ctx: &ReducerContext) {
     let tick_length = ctx
         .db
-        .parameters_desc_v2()
+        .parameters_desc()
         .version()
         .find(&0)
         .unwrap()

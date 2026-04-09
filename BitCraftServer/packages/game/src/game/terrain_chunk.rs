@@ -250,6 +250,10 @@ impl TerrainChunkState {
     pub fn get_water_depth_index(&self, index: usize) -> i16 {
         return (self.water_levels[index] - self.elevations[index]).max(0);
     }
+
+    pub fn get_biome_index(&self, index: usize) -> u32 {
+        return self.biomes[index];
+    }
 }
 
 pub struct TerrainChunkIter<'a> {

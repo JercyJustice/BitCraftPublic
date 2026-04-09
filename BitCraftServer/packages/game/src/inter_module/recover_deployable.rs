@@ -5,7 +5,7 @@ use crate::{
     messages::{
         components::{deployable_state, trade_order_state, PlayerNotificationEvent, TradeOrderState},
         inter_module::RecoverDeployableMsg,
-        static_data::deployable_desc_v4,
+        static_data::deployable_desc,
     },
     unwrap_or_err,
 };
@@ -28,15 +28,15 @@ pub fn process_message_on_destination(ctx: &ReducerContext, sender: u8, msg: Rec
     if let Some(mut deployable) = deployable {
         if msg.deployable_desc_id != deployable.deployable_description_id {
             spacetimedb::log::error!(
-                "Invalid DeployableDescV4 id. Received: {}, State: {}",
+                "Invalid DeployableDesc id. Received: {}, State: {}",
                 msg.deployable_desc_id,
                 deployable.deployable_description_id
             );
             return Err("Invalid deployable type".into());
         }
         let desc = unwrap_or_err!(
-            ctx.db.deployable_desc_v4().id().find(deployable.deployable_description_id),
-            "DeployableDescV4 doesn't exist"
+            ctx.db.deployable_desc().id().find(deployable.deployable_description_id),
+            "DeployableDesc doesn't exist"
         );
 
         deployable_helpers::expel_and_despawn(ctx, msg.player_entity_id, deployable.entity_id, desc)?;
@@ -50,7 +50,7 @@ pub fn process_message_on_destination(ctx: &ReducerContext, sender: u8, msg: Rec
         if msg.deployable_entity_id != 0 {
             send_inter_module_message(
                 ctx,
-                crate::messages::inter_module::MessageContentsV4::OnDeployableRecovered(
+                crate::messages::inter_module::MessageContentsV2::OnDeployableRecovered(
                     crate::messages::inter_module::OnDeployableRecoveredMsg {
                         player_entity_id: msg.player_entity_id,
                         deployable_entity_id: deployable.entity_id,

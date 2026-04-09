@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use super::inventory_helper;
 use crate::game::discovery::Discovery;
 use crate::game::entities::building_state::InventoryState;
@@ -8,11 +9,11 @@ use crate::game::reducer_helpers::player_action_helpers;
 use crate::messages::action_request::PlayerItemStackMoveAllRequest;
 use crate::messages::components::*;
 use crate::messages::game_util::*;
-use crate::player_state;
 use crate::unwrap_or_err;
 use spacetimedb::ReducerContext;
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn item_stack_move_all(ctx: &ReducerContext, request: PlayerItemStackMoveAllRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
 
@@ -63,17 +64,15 @@ pub fn item_stack_move_all(ctx: &ReducerContext, request: PlayerItemStackMoveAll
         request.from_pocket.pocket_index
     );
 
+    let wallet_pocket = target_inventory.wallet_pocket_target(ctx, &source_item);
     // target inventory is overridden by wallet if we're moving a hexcoin item stack into a player inventory from a non-wallet source
-    if source_item.item_id == 1
-        && source_item.item_type == ItemType::Item
-        && ctx.db.player_state().entity_id().find(target_inventory.owner_entity_id).is_some()
+    if wallet_pocket.is_some()
         && !(source_inventory.owner_entity_id == target_inventory.owner_entity_id && source_inventory.inventory_index != 2)
     {
         target_inventory = InventoryState::get_player_wallet(ctx, target_inventory.owner_entity_id).unwrap();
     }
-
     if !target_inventory.fits(ctx, source_item.clone_with_quantity(1)) {
-        return Err("Target inventory is full".into());
+        return Err("~Target inventory is full".into());
     }
 
     let mut added_quantities: Vec<(usize, i32)> = Vec::new();
@@ -92,14 +91,20 @@ pub fn item_stack_move_all(ctx: &ReducerContext, request: PlayerItemStackMoveAll
         }
 
         let original_quantity = contents.quantity;
-        InventoryState::add_partial_to_inventory_and_discover(
-            ctx,
-            target_inventory.owner_entity_id,
-            &mut discovery,
-            &mut target_inventory,
-            &mut contents,
-            target_inventory_owner_entity_id == actor_id,
-        );
+
+        if let Some(wallet_pocket_index) = wallet_pocket {
+            target_inventory.add_at(ctx, wallet_pocket_index, contents);
+            contents.quantity = 0;
+        } else {
+            InventoryState::add_partial_to_inventory_and_discover(
+                ctx,
+                target_inventory.owner_entity_id,
+                &mut discovery,
+                &mut target_inventory,
+                &mut contents,
+                target_inventory_owner_entity_id == actor_id,
+            );
+        }
 
         // Exit early if nothing was added
         if contents.quantity == original_quantity {

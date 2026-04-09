@@ -1,7 +1,11 @@
+use bitcraft_macro::feature_gate;
 use spacetimedb::{ReducerContext, Table};
 
 use crate::{
-    game::{game_state, reducer_helpers::player_action_helpers},
+    game::{
+        game_state::{self, game_state_filters},
+        reducer_helpers::player_action_helpers,
+    },
     messages::{
         action_request::PlayerPostOrderRequest,
         components::{
@@ -14,6 +18,7 @@ use crate::{
 };
 
 #[spacetimedb::reducer]
+#[feature_gate("trade")]
 pub fn order_post_buy_order(ctx: &ReducerContext, request: PlayerPostOrderRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     HealthState::check_incapacitated(ctx, actor_id, true)?;
@@ -30,7 +35,7 @@ pub fn order_post_buy_order(ctx: &ReducerContext, request: PlayerPostOrderReques
         return Err("Invalid coins".into());
     }
 
-    if request.coins_spent != request.max_unit_price * request.quantity {
+    if request.coins_spent != unwrap_or_err!(request.max_unit_price.checked_mul(request.quantity), "overflow") {
         return Err("Coins don't match the offer".into());
     }
 
@@ -38,6 +43,10 @@ pub fn order_post_buy_order(ctx: &ReducerContext, request: PlayerPostOrderReques
         ctx.db.building_state().entity_id().find(request.building_entity_id),
         "Building does not exist"
     );
+
+    if building.distance_to(ctx, &game_state_filters::coordinates_float(ctx, actor_id).into()) > 2 {
+        return Err("Too far".into());
+    }
 
     let claim_entity_id = building.claim_entity_id;
 

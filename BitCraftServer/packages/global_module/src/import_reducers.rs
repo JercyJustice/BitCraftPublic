@@ -336,28 +336,28 @@ fn import_building_desc_internal(ctx: &ReducerContext, records: Vec<BuildingDesc
 }
 
 #[spacetimedb::reducer]
-pub fn import_building_portal_desc(ctx: &ReducerContext, records: Vec<BuildingPortalDescV2>) -> Result<(), String> {
+pub fn import_building_portal_desc(ctx: &ReducerContext, records: Vec<BuildingPortalDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     import_building_portal_desc_internal(ctx, records)?;
     Ok(())
 }
-fn import_building_portal_desc_internal(ctx: &ReducerContext, records: Vec<BuildingPortalDescV2>) -> Result<(), String> {
+fn import_building_portal_desc_internal(ctx: &ReducerContext, records: Vec<BuildingPortalDesc>) -> Result<(), String> {
     for id in ctx.db.building_portal_desc().iter().map(|item| item.id) {
-        ctx.db.building_portal_desc_v2().id().delete(&id);
+        ctx.db.building_portal_desc().id().delete(&id);
     }
     let len: usize = records.len();
-    log::info!("Will insert {} records of type BuildingPortalDescV2", len);
+    log::info!("Will insert {} records of type BuildingPortalDesc", len);
     for record in records {
         let id = record.id;
-        if let Err(err) = ctx.db.building_portal_desc_v2().try_insert(record) {
+        if let Err(err) = ctx.db.building_portal_desc().try_insert(record) {
             return Err(format!(
-                "Couldn't insert BuildingPortalDescV2 record with id {id}. Error message: {err}"
+                "Couldn't insert BuildingPortalDesc record with id {id}. Error message: {err}"
             ));
         }
     }
-    log::info!("Inserted {} records of type BuildingPortalDescV2", len);
+    log::info!("Inserted {} records of type BuildingPortalDesc", len);
     Ok(())
 }
 
@@ -601,22 +601,22 @@ pub fn import_claim_recruitment_state(ctx: &ReducerContext, records: Vec<ClaimRe
 }
 
 #[spacetimedb::reducer]
-pub fn import_claim_tech_desc(ctx: &ReducerContext, records: Vec<ClaimTechDescV2>) -> Result<(), String> {
+pub fn import_claim_tech_desc(ctx: &ReducerContext, records: Vec<ClaimTechDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     import_claim_tech_desc_internal(ctx, records)?;
     Ok(())
 }
-fn import_claim_tech_desc_internal(ctx: &ReducerContext, records: Vec<ClaimTechDescV2>) -> Result<(), String> {
-    for id in ctx.db.claim_tech_desc_v2().iter().map(|item| item.id) {
-        ctx.db.claim_tech_desc_v2().id().delete(&id);
+fn import_claim_tech_desc_internal(ctx: &ReducerContext, records: Vec<ClaimTechDesc>) -> Result<(), String> {
+    for id in ctx.db.claim_tech_desc().iter().map(|item| item.id) {
+        ctx.db.claim_tech_desc().id().delete(&id);
     }
     let len: usize = records.len();
     log::info!("Will insert {} records of type ClaimTechDesc", len);
     for record in records {
         let id = record.id;
-        if let Err(err) = ctx.db.claim_tech_desc_v2().try_insert(record) {
+        if let Err(err) = ctx.db.claim_tech_desc().try_insert(record) {
             return Err(format!("Couldn't insert ClaimTechDesc record with id {id}. Error message: {err}"));
         }
     }
@@ -755,28 +755,28 @@ fn import_collectible_desc_internal(ctx: &ReducerContext, records: Vec<Collectib
 }
 
 #[spacetimedb::reducer]
-pub fn import_combat_action_desc_v3(ctx: &ReducerContext, records: Vec<CombatActionDescV3>) -> Result<(), String> {
+pub fn import_combat_action_desc(ctx: &ReducerContext, records: Vec<CombatActionDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
-    import_combat_action_desc_v3_internal(ctx, records)?;
+    import_combat_action_desc_internal(ctx, records)?;
     Ok(())
 }
-fn import_combat_action_desc_v3_internal(ctx: &ReducerContext, records: Vec<CombatActionDescV3>) -> Result<(), String> {
-    for id in ctx.db.combat_action_desc_v3().iter().map(|item| item.id) {
-        ctx.db.combat_action_desc_v3().id().delete(&id);
+fn import_combat_action_desc_internal(ctx: &ReducerContext, records: Vec<CombatActionDesc>) -> Result<(), String> {
+    for id in ctx.db.combat_action_desc().iter().map(|item| item.id) {
+        ctx.db.combat_action_desc().id().delete(&id);
     }
     let len: usize = records.len();
-    log::info!("Will insert {} records of type CombatActionDescV3", len);
+    log::info!("Will insert {} records of type CombatActionDesc", len);
     for record in records {
         let id = record.id;
-        if let Err(err) = ctx.db.combat_action_desc_v3().try_insert(record) {
+        if let Err(err) = ctx.db.combat_action_desc().try_insert(record) {
             return Err(format!(
-                "Couldn't insert CombatActionDescV3 record with id {id}. Error message: {err}"
+                "Couldn't insert CombatActionDesc record with id {id}. Error message: {err}"
             ));
         }
     }
-    log::info!("Inserted {} records of type CombatActionDescV3", len);
+    log::info!("Inserted {} records of type CombatActionDesc", len);
     Ok(())
 }
 
@@ -809,22 +809,22 @@ pub fn import_config(ctx: &ReducerContext, records: Vec<Config>) {
 }
 
 #[spacetimedb::reducer]
-pub fn import_construction_recipe_desc(ctx: &ReducerContext, records: Vec<ConstructionRecipeDescV2>) -> Result<(), String> {
+pub fn import_construction_recipe_desc(ctx: &ReducerContext, records: Vec<ConstructionRecipeDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     import_construction_recipe_desc_internal(ctx, records)?;
     Ok(())
 }
-fn import_construction_recipe_desc_internal(ctx: &ReducerContext, records: Vec<ConstructionRecipeDescV2>) -> Result<(), String> {
-    for id in ctx.db.construction_recipe_desc_v2().iter().map(|item| item.id) {
-        ctx.db.construction_recipe_desc_v2().id().delete(&id);
+fn import_construction_recipe_desc_internal(ctx: &ReducerContext, records: Vec<ConstructionRecipeDesc>) -> Result<(), String> {
+    for id in ctx.db.construction_recipe_desc().iter().map(|item| item.id) {
+        ctx.db.construction_recipe_desc().id().delete(&id);
     }
     let len: usize = records.len();
     log::info!("Will insert {} records of type ConstructionRecipeDesc", len);
     for record in records {
         let id = record.id;
-        if let Err(err) = ctx.db.construction_recipe_desc_v2().try_insert(record) {
+        if let Err(err) = ctx.db.construction_recipe_desc().try_insert(record) {
             return Err(format!(
                 "Couldn't insert ConstructionRecipeDesc record with id {id}. Error message: {err}"
             ));
@@ -915,26 +915,26 @@ pub fn import_dimension_network_description_state(ctx: &ReducerContext, records:
 }
 
 #[spacetimedb::reducer]
-pub fn import_emote_desc(ctx: &ReducerContext, records: Vec<EmoteDescV2>) -> Result<(), String> {
+pub fn import_emote_desc(ctx: &ReducerContext, records: Vec<EmoteDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     import_emote_desc_internal(ctx, records)?;
     Ok(())
 }
-fn import_emote_desc_internal(ctx: &ReducerContext, records: Vec<EmoteDescV2>) -> Result<(), String> {
-    for id in ctx.db.emote_desc_v2().iter().map(|item| item.id) {
-        ctx.db.emote_desc_v2().id().delete(&id);
+fn import_emote_desc_internal(ctx: &ReducerContext, records: Vec<EmoteDesc>) -> Result<(), String> {
+    for id in ctx.db.emote_desc().iter().map(|item| item.id) {
+        ctx.db.emote_desc().id().delete(&id);
     }
     let len: usize = records.len();
-    log::info!("Will insert {} records of type EmoteDescV2", len);
+    log::info!("Will insert {} records of type EmoteDesc", len);
     for record in records {
         let id = record.id;
-        if let Err(err) = ctx.db.emote_desc_v2().try_insert(record) {
-            return Err(format!("Couldn't insert EmoteDescV2 record with id {id}. Error message: {err}"));
+        if let Err(err) = ctx.db.emote_desc().try_insert(record) {
+            return Err(format!("Couldn't insert EmoteDesc record with id {id}. Error message: {err}"));
         }
     }
-    log::info!("Inserted {} records of type EmoteDescV2", len);
+    log::info!("Inserted {} records of type EmoteDesc", len);
     Ok(())
 }
 
@@ -1069,6 +1069,20 @@ pub fn import_equipment_state(ctx: &ReducerContext, records: Vec<EquipmentState>
         ctx.db.equipment_state().try_insert(record).unwrap();
     }
     log::info!("Inserted {} records of type EquipmentState", len);
+}
+
+#[spacetimedb::reducer]
+pub fn import_equipment_preset_state(ctx: &ReducerContext, records: Vec<EquipmentPresetState>) {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        log::error!("Invalid permissions");
+        return ();
+    }
+    log::info!("Will insert {} records of type EquipmentPresetState", records.len());
+    let len = records.len();
+    for record in records {
+        ctx.db.equipment_preset_state().try_insert(record).unwrap();
+    }
+    log::info!("Inserted {} records of type EquipmentPresetState", len);
 }
 
 #[spacetimedb::reducer]
@@ -2038,28 +2052,28 @@ pub fn import_onboarding_state(ctx: &ReducerContext, records: Vec<OnboardingStat
 }
 
 #[spacetimedb::reducer]
-pub fn import_parameters_desc(ctx: &ReducerContext, records: Vec<ParametersDescV2>) -> Result<(), String> {
+pub fn import_parameters_desc(ctx: &ReducerContext, records: Vec<ParametersDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     import_parameters_desc_internal(ctx, records)?;
     Ok(())
 }
-fn import_parameters_desc_internal(ctx: &ReducerContext, records: Vec<ParametersDescV2>) -> Result<(), String> {
-    for id in ctx.db.parameters_desc_v2().iter().map(|item| item.version) {
-        ctx.db.parameters_desc_v2().version().delete(&id);
+fn import_parameters_desc_internal(ctx: &ReducerContext, records: Vec<ParametersDesc>) -> Result<(), String> {
+    for id in ctx.db.parameters_desc().iter().map(|item| item.version) {
+        ctx.db.parameters_desc().version().delete(&id);
     }
     let len: usize = records.len();
-    log::info!("Will insert {} records of type ParametersDescV2", len);
+    log::info!("Will insert {} records of type ParametersDesc", len);
     for record in records {
         let id = record.version;
-        if let Err(err) = ctx.db.parameters_desc_v2().try_insert(record) {
+        if let Err(err) = ctx.db.parameters_desc().try_insert(record) {
             return Err(format!(
-                "Couldn't insert ParametersDescV2 record with version {id}. Error message: {err}"
+                "Couldn't insert ParametersDesc record with version {id}. Error message: {err}"
             ));
         }
     }
-    log::info!("Inserted {} records of type ParametersDescV2", len);
+    log::info!("Inserted {} records of type ParametersDesc", len);
     Ok(())
 }
 
@@ -2370,22 +2384,22 @@ fn import_resource_growth_recipe_desc_internal(ctx: &ReducerContext, records: Ve
 }
 
 #[spacetimedb::reducer]
-pub fn import_resource_placement_recipe_desc(ctx: &ReducerContext, records: Vec<ResourcePlacementRecipeDescV2>) -> Result<(), String> {
+pub fn import_resource_placement_recipe_desc(ctx: &ReducerContext, records: Vec<ResourcePlacementRecipeDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     import_resource_placement_recipe_desc_internal(ctx, records)?;
     Ok(())
 }
-fn import_resource_placement_recipe_desc_internal(ctx: &ReducerContext, records: Vec<ResourcePlacementRecipeDescV2>) -> Result<(), String> {
-    for id in ctx.db.resource_placement_recipe_desc_v2().iter().map(|item| item.id) {
-        ctx.db.resource_placement_recipe_desc_v2().id().delete(&id);
+fn import_resource_placement_recipe_desc_internal(ctx: &ReducerContext, records: Vec<ResourcePlacementRecipeDesc>) -> Result<(), String> {
+    for id in ctx.db.resource_placement_recipe_desc().iter().map(|item| item.id) {
+        ctx.db.resource_placement_recipe_desc().id().delete(&id);
     }
     let len: usize = records.len();
     log::info!("Will insert {} records of type ResourcePlacementRecipeDesc", len);
     for record in records {
         let id = record.id;
-        if let Err(err) = ctx.db.resource_placement_recipe_desc_v2().try_insert(record) {
+        if let Err(err) = ctx.db.resource_placement_recipe_desc().try_insert(record) {
             return Err(format!(
                 "Couldn't insert ResourcePlacementRecipeDesc record with id {id}. Error message: {err}"
             ));
@@ -2768,28 +2782,26 @@ pub fn import_vault_state(ctx: &ReducerContext, records: Vec<VaultState>) {
 }
 
 #[spacetimedb::reducer]
-pub fn import_deployable_desc(ctx: &ReducerContext, records: Vec<DeployableDescV4>) -> Result<(), String> {
+pub fn import_deployable_desc(ctx: &ReducerContext, records: Vec<DeployableDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     import_deployable_desc_internal(ctx, records)?;
     Ok(())
 }
-fn import_deployable_desc_internal(ctx: &ReducerContext, records: Vec<DeployableDescV4>) -> Result<(), String> {
-    for id in ctx.db.deployable_desc_v4().iter().map(|item| item.id) {
-        ctx.db.deployable_desc_v4().id().delete(&id);
+fn import_deployable_desc_internal(ctx: &ReducerContext, records: Vec<DeployableDesc>) -> Result<(), String> {
+    for id in ctx.db.deployable_desc().iter().map(|item| item.id) {
+        ctx.db.deployable_desc().id().delete(&id);
     }
     let len: usize = records.len();
-    log::info!("Will insert {} records of type DeployableDescV4", len);
+    log::info!("Will insert {} records of type DeployableDesc", len);
     for record in records {
         let id = record.id;
-        if let Err(err) = ctx.db.deployable_desc_v4().try_insert(record) {
-            return Err(format!(
-                "Couldn't insert DeployableDescV4 record with id {id}. Error message: {err}"
-            ));
+        if let Err(err) = ctx.db.deployable_desc().try_insert(record) {
+            return Err(format!("Couldn't insert DeployableDesc record with id {id}. Error message: {err}"));
         }
     }
-    log::info!("Inserted {} records of type DeployableDescV4", len);
+    log::info!("Inserted {} records of type DeployableDesc", len);
     Ok(())
 }
 
@@ -3295,7 +3307,7 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
 
     validate_staged_data(ctx)?;
 
-    let should_init_agents = ctx.db.parameters_desc_v2().version().find(&0).is_none();
+    let should_init_agents = ctx.db.parameters_desc().version().find(&0).is_none();
 
     import_parameters_desc_internal(ctx, collect_table(ctx.db.staged_parameters_desc()))?;
     import_private_parameters_desc_internal(ctx, collect_table(ctx.db.staged_private_parameters_desc()))?;
@@ -3312,7 +3324,7 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     import_emote_desc_internal(ctx, collect_table(ctx.db.staged_emote_desc()))?;
     import_climb_requirement_desc_internal(ctx, collect_table(ctx.db.staged_climb_requirement_desc()))?;
     import_claim_tile_cost_internal(ctx, collect_table(ctx.db.staged_claim_tile_cost()))?;
-    import_claim_tech_desc_internal(ctx, collect_table(ctx.db.staged_claim_tech_desc_v2()))?;
+    import_claim_tech_desc_internal(ctx, collect_table(ctx.db.staged_claim_tech_desc()))?;
     import_character_stat_desc_internal(ctx, collect_table(ctx.db.staged_character_stat_desc()))?;
     import_cargo_desc_internal(ctx, collect_table(ctx.db.staged_cargo_desc()))?;
     import_building_type_desc_internal(ctx, collect_table(ctx.db.staged_building_type_desc()))?;
@@ -3337,8 +3349,8 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     import_chest_rarity_desc_internal(ctx, collect_table(ctx.db.staged_chest_rarity_desc()))?;
     import_clothing_desc_internal(ctx, collect_table(ctx.db.staged_clothing_desc()))?;
     import_collectible_desc_internal(ctx, collect_table(ctx.db.staged_collectible_desc()))?;
-    import_combat_action_desc_v3_internal(ctx, collect_table(ctx.db.staged_combat_action_desc_v3()))?;
-    import_construction_recipe_desc_internal(ctx, collect_table(ctx.db.staged_construction_recipe_desc_v2()))?;
+    import_combat_action_desc_internal(ctx, collect_table(ctx.db.staged_combat_action_desc()))?;
+    import_construction_recipe_desc_internal(ctx, collect_table(ctx.db.staged_construction_recipe_desc()))?;
     import_crafting_recipe_desc_internal(ctx, collect_table(ctx.db.staged_crafting_recipe_desc()))?;
     import_deconstruction_recipe_desc_internal(ctx, collect_table(ctx.db.staged_deconstruction_recipe_desc()))?;
     import_empire_supplies_desc_internal(ctx, collect_table(ctx.db.staged_empire_supplies_desc()))?;
@@ -3354,7 +3366,7 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     import_resource_desc_internal(ctx, collect_table(ctx.db.staged_resource_desc()))?;
     import_resource_clump_desc_internal(ctx, collect_table(ctx.db.staged_resource_clump_desc()))?;
     import_resource_growth_recipe_desc_internal(ctx, collect_table(ctx.db.staged_resource_growth_recipe_desc()))?;
-    import_resource_placement_recipe_desc_internal(ctx, collect_table(ctx.db.staged_resource_placement_recipe_desc_v2()))?;
+    import_resource_placement_recipe_desc_internal(ctx, collect_table(ctx.db.staged_resource_placement_recipe_desc()))?;
     import_teleport_item_desc_internal(ctx, collect_table(ctx.db.staged_teleport_item_desc()))?;
     import_tool_desc_internal(ctx, collect_table(ctx.db.staged_tool_desc()))?;
     import_traveler_task_desc_internal(ctx, collect_table(ctx.db.staged_traveler_task_desc()))?;
@@ -3374,7 +3386,7 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     import_distant_visible_entity_desc_internal(ctx, collect_table(ctx.db.staged_distant_visible_entity_desc()))?;
     import_hexite_exchange_entry_desc_internal(ctx, collect_table(ctx.db.staged_hexite_exchange_entry_desc()))?;
     import_wind_params_desc_internal(ctx, collect_table(ctx.db.staged_wind_params_desc()))?;
-    import_building_portal_desc_internal(ctx, collect_table(ctx.db.staged_building_portal_desc_v2()))?;
+    import_building_portal_desc_internal(ctx, collect_table(ctx.db.staged_building_portal_desc()))?;
     import_premium_item_desc_internal(ctx, collect_table(ctx.db.staged_premium_item_desc()))?;
     import_premium_service_desc_internal(ctx, collect_table(ctx.db.staged_premium_service_desc()))?;
 

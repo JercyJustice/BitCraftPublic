@@ -6,7 +6,7 @@ use spacetimedb::{log, ReducerContext, Table};
 use crate::{
     agents,
     messages::{authentication::ServerIdentity, empire_shared::*},
-    parameters_desc_v2,
+    parameters_desc,
 };
 
 #[spacetimedb::table(name = empire_decay_loop_timer, scheduled(empire_decay_agent_loop, at = scheduled_at))]
@@ -18,7 +18,7 @@ pub struct EmpireDecayLoopTimer {
 }
 
 pub fn update_timer(ctx: &ReducerContext) {
-    let tick_length = ctx.db.parameters_desc_v2().version().find(&0).unwrap().empire_decay_tick_millis as u64;
+    let tick_length = ctx.db.parameters_desc().version().find(&0).unwrap().empire_decay_tick_millis as u64;
     let mut count = 0;
     for mut timer in ctx.db.empire_decay_loop_timer().iter() {
         count += 1;
@@ -32,7 +32,7 @@ pub fn update_timer(ctx: &ReducerContext) {
 }
 
 pub fn init(ctx: &ReducerContext) {
-    let tick_length = ctx.db.parameters_desc_v2().version().find(&0).unwrap().empire_decay_tick_millis as u64;
+    let tick_length = ctx.db.parameters_desc().version().find(&0).unwrap().empire_decay_tick_millis as u64;
     ctx.db
         .empire_decay_loop_timer()
         .try_insert(EmpireDecayLoopTimer {

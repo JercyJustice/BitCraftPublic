@@ -7,7 +7,7 @@ use crate::{
     game::{reducer_helpers::health_helpers::update_health_and_check_death, terrain_chunk::TerrainChunkCache},
     health_state,
     messages::authentication::ServerIdentity,
-    parameters_desc_v2, signed_in_player_state, starving_player_state, ParametersDescV2,
+    parameters_desc, signed_in_player_state, starving_player_state, ParametersDesc,
 };
 
 #[spacetimedb::table(name = starving_loop_timer, scheduled(starving_agent_loop, at = scheduled_at))]
@@ -19,7 +19,7 @@ pub struct StarvingLoopTimer {
 }
 
 pub fn update_timer(ctx: &ReducerContext) {
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
     let mut count = 0;
     for mut timer in ctx.db.starving_loop_timer().iter() {
         count += 1;
@@ -33,7 +33,7 @@ pub fn update_timer(ctx: &ReducerContext) {
 }
 
 pub fn init(ctx: &ReducerContext) {
-    let params: ParametersDescV2 = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let params: ParametersDesc = ctx.db.parameters_desc().version().find(&0).unwrap();
     ctx.db
         .starving_loop_timer()
         .try_insert(StarvingLoopTimer {
@@ -55,7 +55,7 @@ fn starving_agent_loop(ctx: &ReducerContext, _timer: StarvingLoopTimer) {
         return;
     }
 
-    let starving_damage = ctx.db.parameters_desc_v2().version().find(&0).unwrap().starving_damage.abs();
+    let starving_damage = ctx.db.parameters_desc().version().find(&0).unwrap().starving_damage.abs();
 
     reduce(ctx, &starving_damage);
 }

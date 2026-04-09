@@ -3,22 +3,30 @@ use bitcraft_macro::shared_table;
 use crate::messages::game_util::PocketKey;
 
 use super::util::OffsetCoordinatesSmallMessage;
+use strum_macros::EnumIter;
 
-#[derive(spacetimedb::SpacetimeType, Clone, Copy, PartialEq, Debug)]
+#[derive(spacetimedb::SpacetimeType, EnumIter, Clone, Copy, PartialEq, Debug)]
 #[sats(name = "EmpirePermission")]
 #[repr(i32)]
 pub enum EmpirePermission {
     SupplyNode = 0,
     CollectHexiteCapsule = 1,
     BuildWatchtower = 2,
-    InviteSettlementToEmpire = 3, // DAB Note: Remove post alpha-2
-    FlagWatchtowerToSiege = 4,
-    AproveEmpireSubmissions = 5,
-    PromoteLesserRanks = 6,
-    MarkAreaForExpansion = 7,
-    CraftHexiteCapsule = 8,
-    Count,
-    // CollectSiegeSupplies = 9,
+    FlagWatchtowerToSiege = 3,
+    AproveEmpireSubmissions = 4,    // [FINAL RELEASE] fix typo
+    PromoteLesserRanks = 5,
+    CraftHexiteCapsule = 6,
+    Count,          // DO NOT USE [FINAL RELEASE] get rid of 'Count' as it's not migration-friendly.
+    HarvestEmpireResources,
+    WithdrawEmpireCurrency,
+}
+
+#[derive(spacetimedb::SpacetimeType, Clone, Copy, PartialEq, Debug)]
+#[sats(name = "EmpireOwnerType")]
+#[repr(i32)]
+pub enum EmpireOwnerType {
+    Player = 0,
+    Npc = 1,
 }
 
 #[spacetimedb::table(name = empire_state, public)]
@@ -35,6 +43,17 @@ pub struct EmpireState {
     pub nobility_threshold: i32,
     pub num_claims: i32,
     pub location: OffsetCoordinatesSmallMessage,
+    pub empire_currency_treasury: u32,
+    pub owner_type: EmpireOwnerType,
+}
+
+#[spacetimedb::table(name = empire_lowercase_name_state, public)]
+#[derive(Clone, Debug)]
+pub struct EmpireLowercaseNameState {
+    #[primary_key]
+    pub entity_id: u64,
+    #[unique]
+    pub name_lowercase: String,
 }
 
 #[spacetimedb::table(name = empire_node_state, public, 
@@ -72,24 +91,16 @@ pub struct EmpireSettlementState {
     pub location: OffsetCoordinatesSmallMessage, // For map purpose
 }
 
-#[spacetimedb::table(name = empire_chunk_state, public)]
+#[spacetimedb::table(name = empire_chunk_state, public,
+    index(name = watchtower_entity_id, btree(columns = [watchtower_entity_id])),
+    index(name = empire_entity_id, btree(columns = [empire_entity_id])))]
 #[shared_table] //Owned by global module, replicated to regions
 #[derive(Clone, Debug)]
 pub struct EmpireChunkState {
     #[primary_key]
     pub chunk_index: u64, // Same as TerrainChunkState
-    pub empire_entity_id: Vec<u64>,
-}
-
-#[spacetimedb::table(name = empire_expansion_state, public)]
-#[shared_table] //Owned by global module, replicated to regions
-#[derive(Clone, Debug)]
-pub struct EmpireExpansionState {
-    //DAB Note: Right now we cannot subscribe ONLY to your empire's expansions, which means that we can fairly-easily see where ALL empires plan to expand (which isn't good for a competitive feature).
-    //We can change this struct to be `entity_id: u64, chunk_index: u64, empire_entity_id: u64` to avoid that issue. It will also help optimize some code and reduce how much data we send over the network
-    #[primary_key]
-    pub chunk_index: u64, // Same as TerrainChunkState
-    pub empire_entity_id: Vec<u64>,
+    pub empire_entity_id: u64,     // 0 means no empire owns this chunk
+    pub watchtower_entity_id: u64, // Permanent link to owning watchtower, set at world gen
 }
 
 #[spacetimedb::table(name = empire_player_data_state, public, index(name = empire_entity_id, btree(columns = [empire_entity_id])))]
@@ -102,6 +113,7 @@ pub struct EmpirePlayerDataState {
     pub rank: u8,
     pub donated_shards: u32,
     pub noble: Option<Timestamp>, // A player can be a noble without enough donated_shards if that threshold was increased after his promotion
+    pub donated_empire_currency: u32,
 }
 
 #[spacetimedb::table(name = empire_rank_state, public, 
@@ -141,6 +153,21 @@ pub struct EmpireNodeSiegeState {
 pub struct EmpireResupplyNodeRequest {
     pub building_entity_id: u64,
     pub from_pocket: PocketKey,
+}
+
+#[derive(SpacetimeType)]
+pub struct EmpireDonateItemRequest {
+    pub from_pocket: PocketKey,
+}
+
+#[derive(SpacetimeType)]
+pub struct EmpireCreateRequest {
+    pub building_entity_id: u64,
+    pub empire_name: String,
+    pub icon_id: i32,
+    pub shape_id: i32,
+    pub color1_id: i32,
+    pub color2_id: i32,
 }
 
 #[derive(SpacetimeType)]

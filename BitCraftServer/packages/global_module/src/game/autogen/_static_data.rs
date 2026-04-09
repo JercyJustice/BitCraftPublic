@@ -32,14 +32,17 @@ pub fn clear_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     for r in ctx.db.staged_buff_type_desc().iter() {
         ctx.db.staged_buff_type_desc().delete(r);
     }
+    for r in ctx.db.staged_building_buff_desc().iter() {
+        ctx.db.staged_building_buff_desc().delete(r);
+    }
     for r in ctx.db.staged_building_claim_desc().iter() {
         ctx.db.staged_building_claim_desc().delete(r);
     }
     for r in ctx.db.staged_building_desc().iter() {
         ctx.db.staged_building_desc().delete(r);
     }
-    for r in ctx.db.staged_building_portal_desc_v2().iter() {
-        ctx.db.staged_building_portal_desc_v2().delete(r);
+    for r in ctx.db.staged_building_portal_desc().iter() {
+        ctx.db.staged_building_portal_desc().delete(r);
     }
     for r in ctx.db.staged_building_repairs_desc().iter() {
         ctx.db.staged_building_repairs_desc().delete(r);
@@ -59,8 +62,8 @@ pub fn clear_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     for r in ctx.db.staged_chest_rarity_desc().iter() {
         ctx.db.staged_chest_rarity_desc().delete(r);
     }
-    for r in ctx.db.staged_claim_tech_desc_v2().iter() {
-        ctx.db.staged_claim_tech_desc_v2().delete(r);
+    for r in ctx.db.staged_claim_tech_desc().iter() {
+        ctx.db.staged_claim_tech_desc().delete(r);
     }
     for r in ctx.db.staged_claim_tile_cost().iter() {
         ctx.db.staged_claim_tile_cost().delete(r);
@@ -74,14 +77,14 @@ pub fn clear_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     for r in ctx.db.staged_collectible_desc().iter() {
         ctx.db.staged_collectible_desc().delete(r);
     }
-    for r in ctx.db.staged_combat_action_desc_v3().iter() {
-        ctx.db.staged_combat_action_desc_v3().delete(r);
+    for r in ctx.db.staged_combat_action_desc().iter() {
+        ctx.db.staged_combat_action_desc().delete(r);
     }
     for r in ctx.db.staged_combat_action_multi_hit_desc().iter() {
         ctx.db.staged_combat_action_multi_hit_desc().delete(r);
     }
-    for r in ctx.db.staged_construction_recipe_desc_v2().iter() {
-        ctx.db.staged_construction_recipe_desc_v2().delete(r);
+    for r in ctx.db.staged_construction_recipe_desc().iter() {
+        ctx.db.staged_construction_recipe_desc().delete(r);
     }
     for r in ctx.db.staged_contribution_loot_desc().iter() {
         ctx.db.staged_contribution_loot_desc().delete(r);
@@ -136,6 +139,9 @@ pub fn clear_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     }
     for r in ctx.db.staged_equipment_desc().iter() {
         ctx.db.staged_equipment_desc().delete(r);
+    }
+    for r in ctx.db.staged_equipment_preset_knowledge_desc().iter() {
+        ctx.db.staged_equipment_preset_knowledge_desc().delete(r);
     }
     for r in ctx.db.staged_extraction_recipe_desc().iter() {
         ctx.db.staged_extraction_recipe_desc().delete(r);
@@ -248,8 +254,8 @@ pub fn clear_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     for r in ctx.db.staged_resource_growth_recipe_desc().iter() {
         ctx.db.staged_resource_growth_recipe_desc().delete(r);
     }
-    for r in ctx.db.staged_resource_placement_recipe_desc_v2().iter() {
-        ctx.db.staged_resource_placement_recipe_desc_v2().delete(r);
+    for r in ctx.db.staged_resource_placement_recipe_desc().iter() {
+        ctx.db.staged_resource_placement_recipe_desc().delete(r);
     }
     for r in ctx.db.staged_secondary_knowledge_desc().iter() {
         ctx.db.staged_secondary_knowledge_desc().delete(r);
@@ -277,6 +283,9 @@ pub fn clear_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     }
     for r in ctx.db.staged_traveler_task_desc().iter() {
         ctx.db.staged_traveler_task_desc().delete(r);
+    }
+    for r in ctx.db.staged_traveler_task_knowledge_requirement_desc().iter() {
+        ctx.db.staged_traveler_task_knowledge_requirement_desc().delete(r);
     }
     for r in ctx.db.staged_traveler_trade_order_desc().iter() {
         ctx.db.staged_traveler_trade_order_desc().delete(r);
@@ -396,6 +405,20 @@ pub fn stage_buff_type_desc(ctx: &ReducerContext, records: Vec<BuffTypeDesc>) ->
 }
 
 #[spacetimedb::reducer]
+pub fn stage_building_buff_desc(ctx: &ReducerContext, records: Vec<BuildingBuffDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_building_buff_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
 pub fn stage_building_claim_desc(ctx: &ReducerContext, records: Vec<BuildingClaimDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
@@ -424,12 +447,12 @@ pub fn stage_building_desc(ctx: &ReducerContext, records: Vec<BuildingDesc>) -> 
 }
 
 #[spacetimedb::reducer]
-pub fn stage_building_portal_desc_v2(ctx: &ReducerContext, records: Vec<BuildingPortalDescV2>) -> Result<(), String> {
+pub fn stage_building_portal_desc(ctx: &ReducerContext, records: Vec<BuildingPortalDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     for r in records {
-        if let Err(e) = ctx.db.staged_building_portal_desc_v2().try_insert(r.clone()) {
+        if let Err(e) = ctx.db.staged_building_portal_desc().try_insert(r.clone()) {
             spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
             return Err(e.to_string());
         }
@@ -522,12 +545,12 @@ pub fn stage_chest_rarity_desc(ctx: &ReducerContext, records: Vec<ChestRarityDes
 }
 
 #[spacetimedb::reducer]
-pub fn stage_claim_tech_desc_v2(ctx: &ReducerContext, records: Vec<ClaimTechDescV2>) -> Result<(), String> {
+pub fn stage_claim_tech_desc(ctx: &ReducerContext, records: Vec<ClaimTechDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     for r in records {
-        if let Err(e) = ctx.db.staged_claim_tech_desc_v2().try_insert(r.clone()) {
+        if let Err(e) = ctx.db.staged_claim_tech_desc().try_insert(r.clone()) {
             spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
             return Err(e.to_string());
         }
@@ -592,12 +615,12 @@ pub fn stage_collectible_desc(ctx: &ReducerContext, records: Vec<CollectibleDesc
 }
 
 #[spacetimedb::reducer]
-pub fn stage_combat_action_desc_v3(ctx: &ReducerContext, records: Vec<CombatActionDescV3>) -> Result<(), String> {
+pub fn stage_combat_action_desc(ctx: &ReducerContext, records: Vec<CombatActionDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     for r in records {
-        if let Err(e) = ctx.db.staged_combat_action_desc_v3().try_insert(r.clone()) {
+        if let Err(e) = ctx.db.staged_combat_action_desc().try_insert(r.clone()) {
             spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
             return Err(e.to_string());
         }
@@ -620,12 +643,12 @@ pub fn stage_combat_action_multi_hit_desc(ctx: &ReducerContext, records: Vec<Com
 }
 
 #[spacetimedb::reducer]
-pub fn stage_construction_recipe_desc_v2(ctx: &ReducerContext, records: Vec<ConstructionRecipeDescV2>) -> Result<(), String> {
+pub fn stage_construction_recipe_desc(ctx: &ReducerContext, records: Vec<ConstructionRecipeDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     for r in records {
-        if let Err(e) = ctx.db.staged_construction_recipe_desc_v2().try_insert(r.clone()) {
+        if let Err(e) = ctx.db.staged_construction_recipe_desc().try_insert(r.clone()) {
             spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
             return Err(e.to_string());
         }
@@ -634,7 +657,7 @@ pub fn stage_construction_recipe_desc_v2(ctx: &ReducerContext, records: Vec<Cons
 }
 
 #[spacetimedb::reducer]
-pub fn stage_contribution_loot_desc(ctx: &ReducerContext, records: Vec<ContributionLootDescV2>) -> Result<(), String> {
+pub fn stage_contribution_loot_desc(ctx: &ReducerContext, records: Vec<ContributionLootDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
@@ -676,7 +699,7 @@ pub fn stage_deconstruction_recipe_desc(ctx: &ReducerContext, records: Vec<Decon
 }
 
 #[spacetimedb::reducer]
-pub fn stage_deployable_desc(ctx: &ReducerContext, records: Vec<DeployableDescV4>) -> Result<(), String> {
+pub fn stage_deployable_desc(ctx: &ReducerContext, records: Vec<DeployableDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
@@ -718,7 +741,7 @@ pub fn stage_elevator_desc(ctx: &ReducerContext, records: Vec<ElevatorDesc>) -> 
 }
 
 #[spacetimedb::reducer]
-pub fn stage_emote_desc(ctx: &ReducerContext, records: Vec<EmoteDescV2>) -> Result<(), String> {
+pub fn stage_emote_desc(ctx: &ReducerContext, records: Vec<EmoteDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
@@ -878,6 +901,20 @@ pub fn stage_equipment_desc(ctx: &ReducerContext, records: Vec<EquipmentDesc>) -
     }
     for r in records {
         if let Err(e) = ctx.db.staged_equipment_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn stage_equipment_preset_knowledge_desc(ctx: &ReducerContext, records: Vec<EquipmentPresetKnowledgeDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_equipment_preset_knowledge_desc().try_insert(r.clone()) {
             spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
             return Err(e.to_string());
         }
@@ -1180,7 +1217,7 @@ pub fn stage_onboarding_reward_desc(ctx: &ReducerContext, records: Vec<Onboardin
 }
 
 #[spacetimedb::reducer]
-pub fn stage_parameters_desc(ctx: &ReducerContext, records: Vec<ParametersDescV2>) -> Result<(), String> {
+pub fn stage_parameters_desc(ctx: &ReducerContext, records: Vec<ParametersDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
@@ -1404,12 +1441,12 @@ pub fn stage_resource_growth_recipe_desc(ctx: &ReducerContext, records: Vec<Reso
 }
 
 #[spacetimedb::reducer]
-pub fn stage_resource_placement_recipe_desc_v2(ctx: &ReducerContext, records: Vec<ResourcePlacementRecipeDescV2>) -> Result<(), String> {
+pub fn stage_resource_placement_recipe_desc(ctx: &ReducerContext, records: Vec<ResourcePlacementRecipeDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
     }
     for r in records {
-        if let Err(e) = ctx.db.staged_resource_placement_recipe_desc_v2().try_insert(r.clone()) {
+        if let Err(e) = ctx.db.staged_resource_placement_recipe_desc().try_insert(r.clone()) {
             spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
             return Err(e.to_string());
         }
@@ -1544,6 +1581,20 @@ pub fn stage_traveler_task_desc(ctx: &ReducerContext, records: Vec<TravelerTaskD
 }
 
 #[spacetimedb::reducer]
+pub fn stage_traveler_task_knowledge_requirement_desc(ctx: &ReducerContext, records: Vec<TravelerTaskKnowledgeRequirementDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_traveler_task_knowledge_requirement_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
 pub fn stage_traveler_trade_order_desc(ctx: &ReducerContext, records: Vec<TravelerTradeOrderDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
@@ -1635,14 +1686,17 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
     if ctx.db.staged_buff_type_desc().count() == 0 {
         return Err("Staged data for BuffTypeDesc is empty, aborting.".into());
     }
+    if ctx.db.staged_building_buff_desc().count() == 0 {
+        return Err("Staged data for BuildingBuffDesc is empty, aborting.".into());
+    }
     if ctx.db.staged_building_claim_desc().count() == 0 {
         return Err("Staged data for BuildingClaimDesc is empty, aborting.".into());
     }
     if ctx.db.staged_building_desc().count() == 0 {
         return Err("Staged data for BuildingDesc is empty, aborting.".into());
     }
-    if ctx.db.staged_building_portal_desc_v2().count() == 0 {
-        return Err("Staged data for BuildingPortalDescV2 is empty, aborting.".into());
+    if ctx.db.staged_building_portal_desc().count() == 0 {
+        return Err("Staged data for BuildingPortalDesc is empty, aborting.".into());
     }
     if ctx.db.staged_building_repairs_desc().count() == 0 {
         return Err("Staged data for BuildingRepairsDesc is empty, aborting.".into());
@@ -1662,8 +1716,8 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
     if ctx.db.staged_chest_rarity_desc().count() == 0 {
         return Err("Staged data for ChestRarityDesc is empty, aborting.".into());
     }
-    if ctx.db.staged_claim_tech_desc_v2().count() == 0 {
-        return Err("Staged data for ClaimTechDescV2 is empty, aborting.".into());
+    if ctx.db.staged_claim_tech_desc().count() == 0 {
+        return Err("Staged data for ClaimTechDesc is empty, aborting.".into());
     }
     if ctx.db.staged_claim_tile_cost().count() == 0 {
         return Err("Staged data for ClaimTileCost is empty, aborting.".into());
@@ -1677,17 +1731,17 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
     if ctx.db.staged_collectible_desc().count() == 0 {
         return Err("Staged data for CollectibleDesc is empty, aborting.".into());
     }
-    if ctx.db.staged_combat_action_desc_v3().count() == 0 {
-        return Err("Staged data for CombatActionDescV3 is empty, aborting.".into());
+    if ctx.db.staged_combat_action_desc().count() == 0 {
+        return Err("Staged data for CombatActionDesc is empty, aborting.".into());
     }
     if ctx.db.staged_combat_action_multi_hit_desc().count() == 0 {
         return Err("Staged data for CombatActionMultiHitDesc is empty, aborting.".into());
     }
-    if ctx.db.staged_construction_recipe_desc_v2().count() == 0 {
-        return Err("Staged data for ConstructionRecipeDescV2 is empty, aborting.".into());
+    if ctx.db.staged_construction_recipe_desc().count() == 0 {
+        return Err("Staged data for ConstructionRecipeDesc is empty, aborting.".into());
     }
     if ctx.db.staged_contribution_loot_desc().count() == 0 {
-        return Err("Staged data for ContributionLootDescV2 is empty, aborting.".into());
+        return Err("Staged data for ContributionLootDesc is empty, aborting.".into());
     }
     if ctx.db.staged_crafting_recipe_desc().count() == 0 {
         return Err("Staged data for CraftingRecipeDesc is empty, aborting.".into());
@@ -1696,7 +1750,7 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
         return Err("Staged data for DeconstructionRecipeDesc is empty, aborting.".into());
     }
     if ctx.db.staged_deployable_desc().count() == 0 {
-        return Err("Staged data for DeployableDescV4 is empty, aborting.".into());
+        return Err("Staged data for DeployableDesc is empty, aborting.".into());
     }
     if ctx.db.staged_distant_visible_entity_desc().count() == 0 {
         return Err("Staged data for DistantVisibleEntityDesc is empty, aborting.".into());
@@ -1705,7 +1759,7 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
         return Err("Staged data for ElevatorDesc is empty, aborting.".into());
     }
     if ctx.db.staged_emote_desc().count() == 0 {
-        return Err("Staged data for EmoteDescV2 is empty, aborting.".into());
+        return Err("Staged data for EmoteDesc is empty, aborting.".into());
     }
     if ctx.db.staged_empire_colors_desc().count() == 0 {
         return Err("Staged data for EmpireColorDesc is empty, aborting.".into());
@@ -1739,6 +1793,9 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
     }
     if ctx.db.staged_equipment_desc().count() == 0 {
         return Err("Staged data for EquipmentDesc is empty, aborting.".into());
+    }
+    if ctx.db.staged_equipment_preset_knowledge_desc().count() == 0 {
+        return Err("Staged data for EquipmentPresetKnowledgeDesc is empty, aborting.".into());
     }
     if ctx.db.staged_extraction_recipe_desc().count() == 0 {
         return Err("Staged data for ExtractionRecipeDesc is empty, aborting.".into());
@@ -1804,7 +1861,7 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
         return Err("Staged data for OnboardingRewardDesc is empty, aborting.".into());
     }
     if ctx.db.staged_parameters_desc().count() == 0 {
-        return Err("Staged data for ParametersDescV2 is empty, aborting.".into());
+        return Err("Staged data for ParametersDesc is empty, aborting.".into());
     }
     if ctx.db.staged_pathfinding_desc().count() == 0 {
         return Err("Staged data for PathfindingDesc is empty, aborting.".into());
@@ -1851,8 +1908,8 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
     if ctx.db.staged_resource_growth_recipe_desc().count() == 0 {
         return Err("Staged data for ResourceGrowthRecipeDesc is empty, aborting.".into());
     }
-    if ctx.db.staged_resource_placement_recipe_desc_v2().count() == 0 {
-        return Err("Staged data for ResourcePlacementRecipeDescV2 is empty, aborting.".into());
+    if ctx.db.staged_resource_placement_recipe_desc().count() == 0 {
+        return Err("Staged data for ResourcePlacementRecipeDesc is empty, aborting.".into());
     }
     if ctx.db.staged_secondary_knowledge_desc().count() == 0 {
         return Err("Staged data for SecondaryKnowledgeDesc is empty, aborting.".into());
@@ -1880,6 +1937,9 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
     }
     if ctx.db.staged_traveler_task_desc().count() == 0 {
         return Err("Staged data for TravelerTaskDesc is empty, aborting.".into());
+    }
+    if ctx.db.staged_traveler_task_knowledge_requirement_desc().count() == 0 {
+        return Err("Staged data for TravelerTaskKnowledgeRequirementDesc is empty, aborting.".into());
     }
     if ctx.db.staged_traveler_trade_order_desc().count() == 0 {
         return Err("Staged data for TravelerTradeOrderDesc is empty, aborting.".into());

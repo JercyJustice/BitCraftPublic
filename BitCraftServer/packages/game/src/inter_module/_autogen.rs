@@ -22,6 +22,11 @@ pub enum BuildingStateOp {
     Delete(BuildingState),
 }
 #[derive(SpacetimeType, Clone, Debug)]
+pub enum ClaimLowercaseNameStateOp {
+    Insert(ClaimLowercaseNameState),
+    Delete(ClaimLowercaseNameState),
+}
+#[derive(SpacetimeType, Clone, Debug)]
 pub enum ClaimMemberStateOp {
     Insert(ClaimMemberState),
     Delete(ClaimMemberState),
@@ -35,11 +40,6 @@ pub enum ClaimStateOp {
 pub enum EmpireChunkStateOp {
     Insert(EmpireChunkState),
     Delete(EmpireChunkState),
-}
-#[derive(SpacetimeType, Clone, Debug)]
-pub enum EmpireExpansionStateOp {
-    Insert(EmpireExpansionState),
-    Delete(EmpireExpansionState),
 }
 #[derive(SpacetimeType, Clone, Debug)]
 pub enum EmpireNodeSiegeStateOp {
@@ -97,6 +97,11 @@ pub enum RegionConnectionInfoOp {
     Delete(RegionConnectionInfo),
 }
 #[derive(SpacetimeType, Clone, Debug)]
+pub enum RegionControlInfoOp {
+    Insert(RegionControlInfo),
+    Delete(RegionControlInfo),
+}
+#[derive(SpacetimeType, Clone, Debug)]
 pub enum RegionPopulationInfoOp {
     Insert(RegionPopulationInfo),
     Delete(RegionPopulationInfo),
@@ -127,10 +132,10 @@ pub struct InterModuleTableUpdates {
     pub blocked_identity: Option<Vec<BlockedIdentityOp>>,
     pub building_nickname_state: Option<Vec<BuildingNicknameStateOp>>,
     pub building_state: Option<Vec<BuildingStateOp>>,
+    pub claim_lowercase_name_state: Option<Vec<ClaimLowercaseNameStateOp>>,
     pub claim_member_state: Option<Vec<ClaimMemberStateOp>>,
     pub claim_state: Option<Vec<ClaimStateOp>>,
     pub empire_chunk_state: Option<Vec<EmpireChunkStateOp>>,
-    pub empire_expansion_state: Option<Vec<EmpireExpansionStateOp>>,
     pub empire_node_siege_state: Option<Vec<EmpireNodeSiegeStateOp>>,
     pub empire_node_state: Option<Vec<EmpireNodeStateOp>>,
     pub empire_player_data_state: Option<Vec<EmpirePlayerDataStateOp>>,
@@ -142,6 +147,7 @@ pub struct InterModuleTableUpdates {
     pub player_housing_state: Option<Vec<PlayerHousingStateOp>>,
     pub player_report_state: Option<Vec<PlayerReportStateOp>>,
     pub region_connection_info: Option<Vec<RegionConnectionInfoOp>>,
+    pub region_control_info: Option<Vec<RegionControlInfoOp>>,
     pub region_population_info: Option<Vec<RegionPopulationInfoOp>>,
     pub region_sign_in_parameters: Option<Vec<RegionSignInParametersOp>>,
     pub user_authentication_state: Option<Vec<UserAuthenticationStateOp>>,
@@ -155,10 +161,10 @@ impl InterModuleTableUpdates {
             blocked_identity: None,
             building_nickname_state: None,
             building_state: None,
+            claim_lowercase_name_state: None,
             claim_member_state: None,
             claim_state: None,
             empire_chunk_state: None,
-            empire_expansion_state: None,
             empire_node_siege_state: None,
             empire_node_state: None,
             empire_player_data_state: None,
@@ -170,6 +176,7 @@ impl InterModuleTableUpdates {
             player_housing_state: None,
             player_report_state: None,
             region_connection_info: None,
+            region_control_info: None,
             region_population_info: None,
             region_sign_in_parameters: None,
             user_authentication_state: None,
@@ -202,6 +209,14 @@ impl InterModuleTableUpdates {
                 }
             }
         }
+        if let Some(v) = self.claim_lowercase_name_state {
+            for op in v {
+                match op {
+                    ClaimLowercaseNameStateOp::Insert(val) => _ = ctx.db.claim_lowercase_name_state().insert(val),
+                    ClaimLowercaseNameStateOp::Delete(val) => _ = ctx.db.claim_lowercase_name_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
         if let Some(v) = self.claim_member_state {
             for op in v {
                 match op {
@@ -223,14 +238,6 @@ impl InterModuleTableUpdates {
                 match op {
                     EmpireChunkStateOp::Insert(val) => _ = ctx.db.empire_chunk_state().insert(val),
                     EmpireChunkStateOp::Delete(val) => _ = ctx.db.empire_chunk_state().chunk_index().delete(val.chunk_index),
-                }
-            }
-        }
-        if let Some(v) = self.empire_expansion_state {
-            for op in v {
-                match op {
-                    EmpireExpansionStateOp::Insert(val) => _ = ctx.db.empire_expansion_state().insert(val),
-                    EmpireExpansionStateOp::Delete(val) => _ = ctx.db.empire_expansion_state().chunk_index().delete(val.chunk_index),
                 }
             }
         }
@@ -319,6 +326,14 @@ impl InterModuleTableUpdates {
                 match op {
                     RegionConnectionInfoOp::Insert(val) => _ = ctx.db.region_connection_info().insert(val),
                     RegionConnectionInfoOp::Delete(val) => _ = ctx.db.region_connection_info().id().delete(val.id),
+                }
+            }
+        }
+        if let Some(v) = self.region_control_info {
+            for op in v {
+                match op {
+                    RegionControlInfoOp::Insert(val) => _ = ctx.db.region_control_info().insert(val),
+                    RegionControlInfoOp::Delete(val) => _ = ctx.db.region_control_info().region_id().delete(val.region_id),
                 }
             }
         }

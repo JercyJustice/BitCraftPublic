@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use std::time::Duration;
 
 use spacetimedb::{ReducerContext, Table};
@@ -32,6 +33,7 @@ pub struct PlayerUseElevatorTimer {
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn player_use_elevator(ctx: &ReducerContext, platform_entity_id: u64) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     HealthState::check_incapacitated(ctx, actor_id, true)?;
@@ -54,6 +56,12 @@ pub fn player_use_elevator(ctx: &ReducerContext, platform_entity_id: u64) -> Res
         ctx.db.elevator_desc().building_id().find(&building.building_description_id),
         "Building is not an elevator"
     );
+
+    let player_coord = game_state_filters::coordinates_any(ctx, actor_id);
+    if building.distance_to(ctx, &player_coord.into()) > 2 {
+        return Err("Too far".into());
+    }
+
     let origin_platform_location =
         unwrap_or_err!(ctx.db.location_state().entity_id().find(&platform_entity_id), "Unknown Location").coordinates();
     let destination_platform_location = origin_platform_location.neighbor(HexDirection::from(building.direction_index));
@@ -106,6 +114,7 @@ pub fn player_use_elevator(ctx: &ReducerContext, platform_entity_id: u64) -> Res
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn player_elevator_arrive(ctx: &ReducerContext, timer: PlayerUseElevatorTimer) -> Result<(), String> {
     ServerIdentity::validate_server_or_admin(&ctx)?;
     player_action_helpers::schedule_clear_player_action(

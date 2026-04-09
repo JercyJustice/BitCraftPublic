@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use crate::game::discovery::Discovery;
 use crate::game::entities::building_state::InventoryState;
 use crate::game::game_state;
@@ -5,10 +6,11 @@ use crate::messages::action_request::PlayerConvertCollectibleToDeedRequest;
 use crate::messages::components::*;
 use crate::messages::game_util::{ItemStack, ItemType};
 use crate::messages::static_data::premium_item_desc;
-use crate::{collectible_desc, deployable_desc_v4, unwrap_or_err, CollectibleDesc, CollectibleType, DeployableDescV4};
-use spacetimedb::ReducerContext;
+use crate::{collectible_desc, deployable_desc, unwrap_or_err, CollectibleDesc, CollectibleType, DeployableDesc};
+use spacetimedb::{ReducerContext, Table};
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn convert_collectible_to_deed(ctx: &ReducerContext, request: PlayerConvertCollectibleToDeedRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -40,10 +42,8 @@ pub fn convert_collectible_to_deed(ctx: &ReducerContext, request: PlayerConvertC
     let is_premium_item = ctx
         .db
         .premium_item_desc()
-        .collectible_desc_id()
-        .filter(collectible_desc.id)
-        .next()
-        .is_some();
+        .iter()
+        .any(|prem| prem.collectible_ids.contains(&collectible_desc.id));
     let vault_count = vault.collectibles[request.vault_index as usize].count;
     let stack = ItemStack::new(
         ctx,
@@ -70,9 +70,9 @@ pub fn convert_collectible_to_deed(ctx: &ReducerContext, request: PlayerConvertC
                 ctx.db.player_prefs_state().entity_id().update(player_prefs);
             }
 
-            let deployable_desc: DeployableDescV4 = unwrap_or_err!(
-                ctx.db.deployable_desc_v4().deploy_from_collectible_id().find(&collectible_desc.id),
-                "Unkown DeployableDescV4"
+            let deployable_desc: DeployableDesc = unwrap_or_err!(
+                ctx.db.deployable_desc().deploy_from_collectible_id().find(&collectible_desc.id),
+                "Unkown DeployableDesc"
             );
 
             if let Some(deployable) = ctx
@@ -87,7 +87,7 @@ pub fn convert_collectible_to_deed(ctx: &ReducerContext, request: PlayerConvertC
                 }
                 ctx.db.deployable_state().entity_id().delete(&deployable.entity_id);
                 ctx.db
-                    .deployable_collectible_state_v2()
+                    .deployable_collectible_state()
                     .deployable_entity_id()
                     .delete(&deployable.entity_id);
                 ctx.db.trade_order_state().shop_entity_id().delete(&deployable.entity_id);

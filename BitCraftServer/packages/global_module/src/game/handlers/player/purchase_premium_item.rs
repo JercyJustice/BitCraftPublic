@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use spacetimedb::{ReducerContext, Table};
 
 use crate::{
@@ -12,6 +13,7 @@ use crate::{
 };
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn purchase_premium_item(ctx: &ReducerContext, premium_item_desc_id: i32) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
 
@@ -27,25 +29,27 @@ pub fn purchase_premium_item(ctx: &ReducerContext, premium_item_desc_id: i32) ->
         return Err("Not enough shards".into());
     }
 
+    player_shard_state.shards -= premium_item_desc.price;
+    ctx.db.player_shard_state().entity_id().update(player_shard_state);
+
     ctx.db.premium_purchase_state().insert(PremiumPurchaseState {
         entity_id: 0,
         identity: ctx.sender,
-        collectible_desc_id: Some(premium_item_desc.collectible_desc_id),
+        collectible_desc_ids: Some(premium_item_desc.collectible_ids),
         price: premium_item_desc.price,
         timestamp: ctx.timestamp,
         processed: false,
         quantity: premium_item_desc.quantity,
     });
 
-    player_shard_state.shards -= premium_item_desc.price;
-    ctx.db.player_shard_state().entity_id().update(player_shard_state);
-
     grant_hub_item::send_message(
         ctx,
         ctx.sender,
-        HubItemType::Collectible,
-        premium_item_desc.collectible_desc_id,
+        HubItemType::PremiumItem,
+        premium_item_desc_id,
         premium_item_desc.quantity,
         user_region_state.region_id,
-    )
+    )?;
+
+    Ok(())
 }

@@ -2,9 +2,12 @@
 
 pub mod empire_claim_join;
 pub mod empire_collect_hexite_capsule;
+pub mod empire_create;
+pub mod empire_donate_item;
 pub mod empire_entities;
 pub mod empire_queue_supplies;
 pub mod empire_resupply_node;
 pub mod empire_siege_add_supplies;
 pub mod empire_start_siege;
+pub mod empire_withdraw_item;
 pub mod empires_shared;

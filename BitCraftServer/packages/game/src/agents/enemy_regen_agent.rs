@@ -21,7 +21,7 @@ pub struct EnemyRegenLoopTimer {
 }
 
 pub fn update_timer(ctx: &ReducerContext) {
-    let tick_length = ctx.db.parameters_desc_v2().version().find(&0).unwrap().enemy_regen_tick_millis as u64;
+    let tick_length = ctx.db.parameters_desc().version().find(&0).unwrap().enemy_regen_tick_millis as u64;
     let mut count = 0;
     for mut timer in ctx.db.enemy_regen_loop_timer().iter() {
         count += 1;
@@ -35,7 +35,7 @@ pub fn update_timer(ctx: &ReducerContext) {
 }
 
 pub fn init(ctx: &ReducerContext) {
-    let tick_length = ctx.db.parameters_desc_v2().version().find(&0).unwrap().enemy_regen_tick_millis as u64;
+    let tick_length = ctx.db.parameters_desc().version().find(&0).unwrap().enemy_regen_tick_millis as u64;
     ctx.db
         .enemy_regen_loop_timer()
         .try_insert(EnemyRegenLoopTimer {
@@ -57,7 +57,7 @@ fn enemy_regen_agent_loop(ctx: &ReducerContext, _timer: EnemyRegenLoopTimer) {
         return;
     }
 
-    let params = unwrap_or_return!(ctx.db.parameters_desc_v2().version().find(&0), "Failed to get ParametersDescV2");
+    let params = unwrap_or_return!(ctx.db.parameters_desc().version().find(&0), "Failed to get ParametersDesc");
     let min_seconds_to_passive_regen_health = params.min_seconds_to_passive_regen_health as u64;
 
     regen_enemies(ctx, min_seconds_to_passive_regen_health);

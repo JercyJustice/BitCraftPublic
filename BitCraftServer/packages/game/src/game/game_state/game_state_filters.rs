@@ -379,7 +379,7 @@ pub fn teleport_home(ctx: &ReducerContext, actor_id: u64, from_death: bool) -> R
 
     // Innerlight buff
     let mut active_buff_state = unwrap_or_err!(ctx.db.active_buff_state().entity_id().find(&actor_id), "Player has no buff state");
-    let innerlight_buff_duration = ctx.db.parameters_desc_v2().version().find(&0).unwrap().respawn_aggro_immunity;
+    let innerlight_buff_duration = ctx.db.parameters_desc().version().find(&0).unwrap().respawn_aggro_immunity;
     active_buff_state.set_innerlight_buff(ctx, innerlight_buff_duration);
 
     let teleportation_energy_state = TeleportationEnergyState::get(ctx, actor_id);
@@ -470,7 +470,7 @@ pub fn teleport_waystone(
 
     // Innerlight buff
     let mut active_buff_state = unwrap_or_err!(ctx.db.active_buff_state().entity_id().find(&actor_id), "Player has no buff state");
-    let innerlight_buff_duration = ctx.db.parameters_desc_v2().version().find(&0).unwrap().respawn_aggro_immunity;
+    let innerlight_buff_duration = ctx.db.parameters_desc().version().find(&0).unwrap().respawn_aggro_immunity;
     active_buff_state.set_innerlight_buff(ctx, innerlight_buff_duration);
 
     // verify teleportation energy
@@ -530,7 +530,7 @@ pub fn teleport_to(
                 panic!("Can't do inter-module teleport without dismounting deployables");
             }
             deployable_helpers::dismount_deployable(ctx, actor_id, false);
-            crate::inter_module::transfer_player::send_message(ctx, actor_id, teleport_location.into(), false, teleport_energy_cost);
+            crate::inter_module::transfer_player::send_message(ctx, actor_id, teleport_location.into(), false, teleport_energy_cost)?;
             return Ok(());
         } else if teleport_energy_cost > 0.0 {
             // consume energy for local teleport. Off region teleport will consume energy when arriving at destination module

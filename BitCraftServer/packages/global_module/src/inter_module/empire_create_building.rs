@@ -1,18 +1,12 @@
 use spacetimedb::{ReducerContext, Table, Timestamp};
 
 use crate::{
-    game::{
-        coordinates::SmallHexTile,
-        handlers::empires::{
-            empires::create_watchtower,
-            empires_shared::{validate_empire_build_foundry, validate_empire_build_watchtower},
-        },
-    },
+    game::{coordinates::SmallHexTile, handlers::empires::empires_shared::validate_empire_build_foundry},
     messages::{
         empire_schema::*,
         empire_shared::*,
         inter_module::EmpireCreateBuildingMsg,
-        static_data::{building_desc, construction_recipe_desc_v2, BuildingCategory},
+        static_data::{building_desc, construction_recipe_desc, BuildingCategory},
     },
     unwrap_or_err,
 };
@@ -37,17 +31,11 @@ pub fn process_message_on_destination(ctx: &ReducerContext, request: EmpireCreat
         ctx.db.empire_foundry_state().insert(foundry);
     }
 
-    if building_desc.has_category(ctx, BuildingCategory::Watchtower) {
-        validate_empire_build_watchtower(ctx, request.player_entity_id, coord)?;
-        create_watchtower(ctx, request.player_entity_id, request.building_entity_id, coord)?;
-    }
-
     //Consume shards from empire treasury
     if request.construction_recipe_id.is_some() && request.player_entity_id > 0 {
-        spacetimedb::log::info!("{}", request.construction_recipe_id.is_some());
         let construction_recipe = ctx
             .db
-            .construction_recipe_desc_v2()
+            .construction_recipe_desc()
             .id()
             .find(request.construction_recipe_id.unwrap())
             .unwrap();
@@ -59,10 +47,10 @@ pub fn process_message_on_destination(ctx: &ReducerContext, request: EmpireCreat
                 .find(&request.player_entity_id)
                 .unwrap();
             let mut empire = ctx.db.empire_state().entity_id().find(&player_data.empire_entity_id).unwrap();
-            if empire.shard_treasury < construction_recipe.consumed_shards as u32 {
-                return Err("Not enough hexite shards in empire treasury".into());
+            if empire.empire_currency_treasury < construction_recipe.consumed_shards as u32 {
+                return Err("Your empire does not have enough hexite energy".into());
             }
-            empire.shard_treasury -= construction_recipe.consumed_shards as u32;
+            empire.empire_currency_treasury -= construction_recipe.consumed_shards as u32;
             EmpireState::update_shared(ctx, empire, super::InterModuleDestination::AllOtherRegions);
         }
     }

@@ -14,7 +14,7 @@ pub fn migrate_player_settings(ctx: &ReducerContext) -> Result<(), String> {
     let mut count = 0;
 
     for player_settings_state in ctx.db.player_settings_state().iter() {
-        ctx.db.player_settings_state_v2().insert(PlayerSettingsStateV2 {
+        ctx.db.player_settings_state().insert(PlayerSettingsState {
             entity_id: player_settings_state.entity_id,
             fill_player_inventory: true,
             fill_deployable_inventory_first: player_settings_state.fill_deployable_inventory_first,

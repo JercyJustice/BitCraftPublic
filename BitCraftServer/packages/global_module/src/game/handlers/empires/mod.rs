@@ -3,3 +3,4 @@
 pub mod empire_entities;
 pub mod empires;
 pub mod empires_shared;
+pub mod npc_empire;

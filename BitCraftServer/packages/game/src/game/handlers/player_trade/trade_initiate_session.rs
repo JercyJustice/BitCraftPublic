@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use spacetimedb::{ReducerContext, Table};
 
 use crate::game::coordinates::*;
@@ -10,9 +11,10 @@ use crate::{
     },
     unwrap_or_err,
 };
-use crate::{i18n, parameters_desc_v2, player_state};
+use crate::{i18n, parameters_desc, player_state};
 
 #[spacetimedb::reducer]
+#[feature_gate("trade")]
 pub fn trade_initiate_session(ctx: &ReducerContext, request: PlayerTradeInitiateSessionRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -52,7 +54,7 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, acceptor_entity_id: u64) -> 
         return Err(error_string.into());
     }
 
-    let max_traded_items = ctx.db.parameters_desc_v2().version().find(&0).unwrap().max_traded_items as usize;
+    let max_traded_items = ctx.db.parameters_desc().version().find(&0).unwrap().max_traded_items as usize;
     let trade_session_entity_id = game_state::create_entity(ctx);
     let trade_session = TradeSessionState {
         entity_id: trade_session_entity_id,

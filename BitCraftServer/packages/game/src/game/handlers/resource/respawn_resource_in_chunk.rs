@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use spacetimedb::{log, rand::Rng, ReducerContext};
 
 use crate::{
@@ -8,7 +9,7 @@ use crate::{
         world_gen::resources_log::{resources_log, single_resource_clump_info},
     },
     messages::{authentication::Role, static_data::resource_clump_desc},
-    parameters_desc_v2, resource_desc, resource_state, terrain_chunk_state, unwrap_or_err, OffsetCoordinatesSmall, ResourceState,
+    parameters_desc, resource_desc, resource_state, terrain_chunk_state, unwrap_or_err, OffsetCoordinatesSmall, ResourceState,
     SmallHexTile, TerrainChunkState,
 };
 
@@ -24,6 +25,7 @@ pub struct RespawnResourceInChunkTimer {
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn respawn_resource_in_chunk(ctx: &ReducerContext, timer: RespawnResourceInChunkTimer) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
@@ -66,7 +68,7 @@ pub fn respawn_resource_in_chunk(ctx: &ReducerContext, timer: RespawnResourceInC
         let mut terrain_cache = TerrainChunkCache::empty();
         let mut attempts = Vec::new();
 
-        let respawn_attempts = ctx.db.parameters_desc_v2().version().find(&0).unwrap().auto_respawn_attempts;
+        let respawn_attempts = ctx.db.parameters_desc().version().find(&0).unwrap().auto_respawn_attempts;
 
         // Find 10 potential coordinates within the chunk
         for _i in 0..respawn_attempts {

@@ -42,6 +42,7 @@ pub fn admin_rename_claim_entity(ctx: &ReducerContext, entity_id: u64, new_name:
 pub fn reduce(ctx: &ReducerContext, entity_id: u64, new_name: String) -> Result<(), String> {
     claim_rename::reduce(
         ctx,
+        0,
         crate::messages::action_request::PlayerClaimRenameRequest {
             claim_entity_id: entity_id,
             claim_name: new_name,

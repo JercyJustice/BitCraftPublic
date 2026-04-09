@@ -1,6 +1,7 @@
-use crate::game::claim_helper;
+use bitcraft_macro::feature_gate;
 use crate::game::reducer_helpers::player_action_helpers;
 use crate::game::terrain_chunk::TerrainChunkCache;
+use crate::game::{claim_helper, dimensions};
 use crate::messages::components::PlayerActionState;
 use crate::messages::game_util::ItemStack;
 use crate::{
@@ -17,6 +18,7 @@ use spacetimedb::{ReducerContext, Table};
 use std::time::Duration;
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn paving_place_tile_start(ctx: &ReducerContext, request: PlayerPavingPlaceTileRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -37,6 +39,7 @@ pub fn paving_place_tile_start(ctx: &ReducerContext, request: PlayerPavingPlaceT
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn paving_place_tile(ctx: &ReducerContext, request: PlayerPavingPlaceTileRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -75,6 +78,10 @@ fn reduce(
     // Verify distance to paving target
     let player_mobile = unwrap_or_err!(ctx.db.mobile_entity_state().entity_id().find(&actor_id), "Invalid player");
     let player_coord = player_mobile.coordinates();
+    if player_coord.dimension != dimensions::OVERWORLD {
+        return Err("Cannot pave in interiors".into());
+    }
+
     let target_coord = request.coordinates.into();
 
     if player_coord.distance_to(target_coord) > 3 {
@@ -102,7 +109,7 @@ fn reduce(
 
             for biome in ctx.db.biome_desc().disallow_player_build().filter(true) {
                 if terrain_target.biome_percentage(Biome::to_enum(biome.biome_type)) > 0f32 {
-                    return Err("Can't pave close to a spawn area".into());
+                    return Err("Can't pave in this biome".into());
                 }
             }
         } else {

@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use bitcraft_macro::shared_table_reducer;
 use spacetimedb::ReducerContext;
 
@@ -9,12 +10,13 @@ use crate::game::permission_helper;
 use crate::game::reducer_helpers::distance_helpers;
 use crate::messages::action_request::PlayerPortalEnterRequest;
 use crate::messages::components::*;
-use crate::messages::static_data::building_portal_desc_v2;
-use crate::{deployable_desc_v4, game_state, ClaimPermission};
-use crate::{parameters_desc_v2, unwrap_or_err};
+use crate::messages::static_data::building_portal_desc;
+use crate::{deployable_desc, game_state, ClaimPermission};
+use crate::{parameters_desc, unwrap_or_err};
 
 #[spacetimedb::reducer]
 #[shared_table_reducer]
+#[feature_gate]
 pub fn portal_enter(ctx: &ReducerContext, request: PlayerPortalEnterRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     HealthState::check_incapacitated(ctx, actor_id, true)?;
@@ -50,7 +52,7 @@ pub fn portal_enter(ctx: &ReducerContext, request: PlayerPortalEnterRequest) -> 
             .building_description_id;
         let building_portal_desc = ctx
             .db
-            .building_portal_desc_v2()
+            .building_portal_desc()
             .building_id()
             .filter(portal_building_entity_id)
             .next()
@@ -76,7 +78,7 @@ pub fn portal_enter(ctx: &ReducerContext, request: PlayerPortalEnterRequest) -> 
 
     if let Some(mounting) = ctx.db.mounting_state().entity_id().find(actor_id) {
         let deployable = ctx.db.deployable_state().entity_id().find(mounting.deployable_entity_id).unwrap();
-        let deployable_desc = ctx.db.deployable_desc_v4().id().find(deployable.deployable_description_id).unwrap();
+        let deployable_desc = ctx.db.deployable_desc().id().find(deployable.deployable_description_id).unwrap();
         if !deployable_desc.can_enter_portals {
             return Err("This deployable cannot enter portals".into());
         }
@@ -95,7 +97,7 @@ pub fn portal_enter(ctx: &ReducerContext, request: PlayerPortalEnterRequest) -> 
             "Player has no active buff state."
         );
 
-        let innerlight_buff_duration = ctx.db.parameters_desc_v2().version().find(&0).unwrap().sign_in_aggro_immunity; //note: separate parameter?
+        let innerlight_buff_duration = ctx.db.parameters_desc().version().find(&0).unwrap().sign_in_aggro_immunity; //note: separate parameter?
         active_buff_state.set_innerlight_buff(ctx, innerlight_buff_duration);
         ctx.db.active_buff_state().entity_id().update(active_buff_state);
     }

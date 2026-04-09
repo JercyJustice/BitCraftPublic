@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use crate::game::reducer_helpers::player_action_helpers;
 use crate::game::terrain_chunk::TerrainChunkCache;
 use crate::game::{coordinates::*, game_state};
@@ -40,6 +41,7 @@ fn event_delay_recipe_id(ctx: &ReducerContext, terrain_cell: Option<TerrainCell>
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn terraform_start(ctx: &ReducerContext, request: PlayerTerraformRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -86,6 +88,7 @@ fn get_terraform_building_id(ctx: &ReducerContext, coordinates: OffsetCoordinate
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn terraform(ctx: &ReducerContext, request: PlayerTerraformRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -104,6 +107,7 @@ fn reduce(
     request: &PlayerTerraformRequest,
     dry_run: bool,
 ) -> Result<(), String> {
+    PlayerActionState::validate_timestamp_basic(ctx, actor_id, PlayerActionType::Terraform, request.timestamp)?;
     if !dry_run {
         // Make sure target and timestamp and action fit
         PlayerActionState::validate(
@@ -283,7 +287,7 @@ fn reduce(
 
         let experience_per_progress = ctx
             .db
-            .parameters_desc_v2()
+            .parameters_desc()
             .version()
             .find(0)
             .unwrap()
@@ -291,6 +295,8 @@ fn reduce(
         let construction_skill_id = SkillType::Construction as i32;
         let experience_gain = f32::ceil(experience_per_progress * spent_actions as f32) as i32;
         ExperienceState::add_experience(ctx, actor_id, construction_skill_id, experience_gain);
+
+        PlayerActionState::mark_as_consumed(ctx, actor_id)?;
     }
 
     Ok(())

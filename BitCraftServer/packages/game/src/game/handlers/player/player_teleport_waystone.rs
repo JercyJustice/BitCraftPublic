@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use bitcraft_macro::shared_table_reducer;
 use spacetimedb::ReducerContext;
 use std::time::Duration;
@@ -8,7 +9,7 @@ use crate::{
         reducer_helpers::player_action_helpers,
     },
     messages::{action_request::*, components::*},
-    parameters_desc_v2, params, unwrap_or_err,
+    parameters_desc, params, unwrap_or_err,
 };
 
 use super::sleep;
@@ -19,6 +20,7 @@ pub fn event_delay(ctx: &ReducerContext, _actor_id: u64, _request: &PlayerTelepo
 
 #[spacetimedb::reducer]
 #[shared_table_reducer]
+#[feature_gate]
 pub fn player_teleport_waystone_start(ctx: &ReducerContext, request: PlayerTeleportWaystoneRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -37,6 +39,7 @@ pub fn player_teleport_waystone_start(ctx: &ReducerContext, request: PlayerTelep
 
 #[spacetimedb::reducer]
 #[shared_table_reducer]
+#[feature_gate]
 pub fn player_teleport_waystone(ctx: &ReducerContext, request: PlayerTeleportWaystoneRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     let entity_id_from = request.entity_id_from;
@@ -44,10 +47,7 @@ pub fn player_teleport_waystone(ctx: &ReducerContext, request: PlayerTeleportWay
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
 
     //get building location
-    let location_state_to = unwrap_or_err!(
-        ctx.db.location_state().entity_id().find(&entity_id_to),
-        "Waystone does not exist."
-    );
+    let location_state_to = unwrap_or_err!(ctx.db.location_state().entity_id().find(&entity_id_to), "Waystone does not exist.");
     let coords = location_state_to.coordinates();
     let teleport_location_tile = coords;
 

@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use crate::game::game_state::game_state_filters;
 use crate::game::reducer_helpers;
 use crate::{
@@ -8,6 +9,7 @@ use crate::{
 use spacetimedb::ReducerContext;
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn deployable_follow(ctx: &ReducerContext, request: PlayerDeployableMoveRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
 
@@ -56,7 +58,7 @@ pub fn deployable_follow(ctx: &ReducerContext, request: PlayerDeployableMoveRequ
     }
 
     let desc = unwrap_or_err!(
-        ctx.db.deployable_desc_v4().id().find(&deployable.deployable_description_id),
+        ctx.db.deployable_desc().id().find(&deployable.deployable_description_id),
         "~Invalid deployable type"
     );
 
@@ -77,7 +79,7 @@ pub fn deployable_follow(ctx: &ReducerContext, request: PlayerDeployableMoveRequ
     // update deployable map location
     let mut deployable_collectible = unwrap_or_err!(
         ctx.db
-            .deployable_collectible_state_v2()
+            .deployable_collectible_state()
             .deployable_entity_id()
             .find(deployable_entity_id),
         "No deployable collectible state"
@@ -89,7 +91,7 @@ pub fn deployable_follow(ctx: &ReducerContext, request: PlayerDeployableMoveRequ
     let coord = source_coordinates.parent_small_tile();
     deployable_collectible.location = Some(coord.into());
     ctx.db
-        .deployable_collectible_state_v2()
+        .deployable_collectible_state()
         .deployable_entity_id()
         .update(deployable_collectible);
 

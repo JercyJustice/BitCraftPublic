@@ -4,7 +4,7 @@ use crate::{
     agents,
     game::{game_state, reducer_helpers::timer_helpers::now_plus_millis},
     messages::authentication::ServerIdentity,
-    parameters_desc_v2,
+    parameters_desc,
 };
 
 #[spacetimedb::table(name = day_night_loop_timer, scheduled(day_night_agent_loop, at = scheduled_at))]
@@ -77,11 +77,11 @@ pub fn night_tick(ctx: &ReducerContext) {
 }
 
 pub fn night_duration(ctx: &ReducerContext) -> i32 {
-    ctx.db.parameters_desc_v2().version().find(&0).unwrap().nighttime
+    ctx.db.parameters_desc().version().find(&0).unwrap().nighttime
 }
 
 pub fn day_duration(ctx: &ReducerContext) -> i32 {
-    ctx.db.parameters_desc_v2().version().find(&0).unwrap().daytime
+    ctx.db.parameters_desc().version().find(&0).unwrap().daytime
 }
 
 pub fn time_of_day(ctx: &ReducerContext) -> i32 {

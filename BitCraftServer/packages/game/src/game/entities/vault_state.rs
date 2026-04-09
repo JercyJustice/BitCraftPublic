@@ -1,13 +1,13 @@
 use spacetimedb::{ReducerContext, Table};
 
 use crate::{
-    deployable_collectible_state_v2, deployable_state,
+    deployable_collectible_state, deployable_state,
     game::game_state,
     messages::{
         components::{VaultCollectible, VaultState},
         static_data::*,
     },
-    player_prefs_state, vault_state, DeployableCollectibleStateV2, DeployableState, PlayerState,
+    player_prefs_state, vault_state, DeployableCollectibleState, DeployableState, PlayerState,
 };
 
 impl VaultState {
@@ -61,7 +61,7 @@ impl VaultState {
                     // Create location-less deployable
                     let deployable_description = ctx
                         .db
-                        .deployable_desc_v4()
+                        .deployable_desc()
                         .deploy_from_collectible_id()
                         .find(&collectible_desc.id)
                         .unwrap();
@@ -81,7 +81,7 @@ impl VaultState {
                         .ok()
                         .unwrap();
 
-                    let _ = ctx.db.deployable_collectible_state_v2().try_insert(DeployableCollectibleStateV2 {
+                    let _ = ctx.db.deployable_collectible_state().try_insert(DeployableCollectibleState {
                         owner_entity_id: self.entity_id,
                         deployable_entity_id: deployable.entity_id,
                         collectible_id,

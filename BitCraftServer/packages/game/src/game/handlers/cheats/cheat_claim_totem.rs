@@ -1,7 +1,7 @@
 use crate::game::handlers::cheats::cheat_type::{can_run_cheat, CheatType};
 use crate::game::handlers::claim::claim_tech_unlock_tech::claim_tech_unlock_timer;
 use crate::inter_module::claim_create_empire_settlement_state;
-use crate::{claim_state, claim_tech_desc_v2, claim_tech_state, unwrap_or_err};
+use crate::{claim_state, claim_tech_desc, claim_tech_state, unwrap_or_err};
 use spacetimedb::{ReducerContext, Table, Timestamp};
 
 #[spacetimedb::reducer]
@@ -34,7 +34,7 @@ fn cheat_claim_totem_research_all(ctx: &ReducerContext, claim_entity_id: u64) ->
         tech.scheduled_id = None;
     }
 
-    tech.learned = ctx.db.claim_tech_desc_v2().iter().map(|a| a.id).collect();
+    tech.learned = ctx.db.claim_tech_desc().iter().map(|a| a.id).collect();
     ctx.db.claim_tech_state().entity_id().update(tech);
 
     // EMPIRE INFRASTRUCTURE

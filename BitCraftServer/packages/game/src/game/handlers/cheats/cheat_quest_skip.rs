@@ -19,9 +19,9 @@ pub fn cheat_quest_skip(ctx: &ReducerContext, player_entity_id: u64, quest_desc_
             player_entity_id: player_entity_id,
             quest_chain_desc_id: quest_desc_id,
             stage_id: 0,
-            is_active: false,
             completed: false,
             stage_rewards_awarded: Vec::new(),
+            tracked: false
         })?;
     }
 
@@ -38,8 +38,8 @@ pub fn cheat_quest_skip(ctx: &ReducerContext, player_entity_id: u64, quest_desc_
     }
 
     quest_chain_state.stage_id = -2;
-    quest_chain_state.is_active = false;
     quest_chain_state.completed = true;
+    quest_chain_state.tracked = false;
 
     ctx.db.quest_chain_state().entity_id().update(quest_chain_state);
     

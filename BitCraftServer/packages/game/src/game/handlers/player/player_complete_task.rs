@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use spacetimedb::ReducerContext;
 
 use crate::{
@@ -8,12 +9,13 @@ use crate::{
     messages::{
         action_request::PlayerCompleteTaskRequest,
         components::*,
-        static_data::{npc_desc, traveler_task_desc},
+        static_data::{npc_desc, traveler_task_desc, traveler_task_knowledge_requirement_desc},
     },
     unwrap_or_err,
 };
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn player_complete_task(ctx: &ReducerContext, request: PlayerCompleteTaskRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     HealthState::check_incapacitated(ctx, actor_id, true)?;
@@ -57,6 +59,26 @@ pub fn player_complete_task(ctx: &ReducerContext, request: PlayerCompleteTaskReq
     if !npc_desc.task_skill_check.contains(&task_desc.level_requirement.skill_id) {
         return Err("This traveler does not offer that kind of task".into());
     }
+
+    let player_knowledges = ctx.db.knowledge_secondary_state().entity_id().find(actor_id).unwrap();
+    if let Some(task_requirements) = ctx
+        .db
+        .traveler_task_knowledge_requirement_desc()
+        .traveler_task_id()
+        .find(task.task_id)
+    {
+        if !task_requirements.required_knowledges.is_empty()
+            && !task_requirements
+                .required_knowledges
+                .iter()
+                .all(|knowledge_id| player_knowledges.is_acquired(*knowledge_id))
+        {
+            return Err("You don't have the knowledge required to complete this task".into());
+        }
+        // Blocking knowledges are used to prevent tasks from being offered, and are not checked here
+    }
+
+    // NOT adding blocking knowledges to turn in the task, in case the knowledge was acquired AFTER delivering the task
 
     let mut inventory = InventoryState::get_player_inventory(ctx, actor_id).unwrap();
     if !inventory.remove(&task_desc.required_items) {

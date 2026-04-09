@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use spacetimedb::{log, rand::Rng};
 
 use crate::{
-    building_desc, building_portal_desc_v2, building_state, dimension_description_state, dimension_network_state, enemy_state,
+    building_desc, building_portal_desc, building_state, dimension_description_state, dimension_network_state, enemy_state,
     game::{
         coordinates::*,
         game_state::{self, game_state_filters},
@@ -22,7 +22,7 @@ use crate::{
         },
         game_util::DimensionType,
     },
-    portal_state, resource_clump_desc, resource_desc, resource_state, terrain_chunk_state, unwrap_or_err, BuildingPortalDescV2,
+    portal_state, resource_clump_desc, resource_desc, resource_state, terrain_chunk_state, unwrap_or_err, BuildingPortalDesc,
     FootprintTile, FootprintType, InteriorPortalConnectionsDesc, InteriorSpawnDesc, InteriorSpawnType, LocationState, TerrainCell,
 };
 
@@ -88,9 +88,9 @@ pub fn interior_trigger_collapse(ctx: &ReducerContext, dimension_network_entity_
 pub fn find_teleport_coordinates_for_interior_destruction(ctx: &ReducerContext, building_id: u64) -> OffsetCoordinatesFloat {
     let building = ctx.db.building_state().entity_id().find(&building_id).unwrap();
     let building_coord = game_state_filters::coordinates(ctx, building_id);
-    let building_portals: Vec<BuildingPortalDescV2> = ctx
+    let building_portals: Vec<BuildingPortalDesc> = ctx
         .db
-        .building_portal_desc_v2()
+        .building_portal_desc()
         .building_id()
         .filter(building.building_description_id)
         .collect();
@@ -468,9 +468,9 @@ fn create_building_interior_internal(
 
     //Link external building portals to spawns
     let mut entrance_dimension = 0;
-    let external_portals: Vec<BuildingPortalDescV2> = ctx
+    let external_portals: Vec<BuildingPortalDesc> = ctx
         .db
-        .building_portal_desc_v2()
+        .building_portal_desc()
         .building_id()
         .filter(building_description_id)
         .collect();
@@ -482,7 +482,7 @@ fn create_building_interior_internal(
             .filter(portal.id)
             .collect();
         for connection in connections {
-            let connected_portal = ctx.db.building_portal_desc_v2().id().find(&connection.exit_portal_id).unwrap();
+            let connected_portal = ctx.db.building_portal_desc().id().find(&connection.exit_portal_id).unwrap();
             let connected_spawn = ctx.db.interior_spawn_desc().id().find(&connection.exit_spawn_id).unwrap();
             let connected_dimension = dimension_map.get(&connected_spawn.interior_instance_id).unwrap();
             if update_external_portals {
@@ -527,7 +527,7 @@ fn create_building_interior_internal(
             .filter(building.0)
             .collect();
         for connection in connections {
-            let connected_portal = ctx.db.building_portal_desc_v2().id().find(&connection.exit_portal_id).unwrap();
+            let connected_portal = ctx.db.building_portal_desc().id().find(&connection.exit_portal_id).unwrap();
             if connection.exit_spawn_id != 0 {
                 //Connect to another spawn
                 let connected_spawn = ctx.db.interior_spawn_desc().id().find(&connection.exit_spawn_id).unwrap();

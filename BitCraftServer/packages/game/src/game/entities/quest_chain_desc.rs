@@ -3,7 +3,7 @@ use spacetimedb::ReducerContext;
 use crate::{
     game::discovery::Discovery,
     messages::{
-        components::{mobile_entity_state, quest_chain_state, ExperienceState, InventoryState, PlayerState, QuestChainState},
+        components::{ExperienceState, InventoryState, PlayerState, QuestChainState, mobile_entity_state, quest_chain_state},
         static_data::{QuestChainDesc, QuestRequirement, QuestReward},
     },
     unwrap_or_err,
@@ -22,13 +22,7 @@ impl QuestChainDesc {
                 QuestReward::PaddingNone(_) => {}
 
                 QuestReward::ItemStack(stack) => {
-                    let player_coord = ctx
-                        .db
-                        .mobile_entity_state()
-                        .entity_id()
-                        .find(&player_entity_id)
-                        .unwrap()
-                        .coordinates();
+                    let player_coord = ctx.db.mobile_entity_state().entity_id().find(&player_entity_id).unwrap().coordinates();
                     InventoryState::deposit_to_player_inventory_and_nearby_deployables(
                         ctx,
                         player_entity_id,

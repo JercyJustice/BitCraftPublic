@@ -180,8 +180,11 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
         duration: 0,
         last_action_result: PlayerActionResult::Success,
         client_cancel: false,
+        was_consumed: false,
         chunk_index,
-        _pad: 0,
+        _pad1: 0,
+        _pad2: 0,
+        _pad3: 0,
     })?;
 
     ctx.db.player_action_state().try_insert(PlayerActionState {
@@ -195,8 +198,11 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
         duration: 0,
         last_action_result: PlayerActionResult::Success,
         client_cancel: false,
+        was_consumed: false,
         chunk_index,
-        _pad: 0,
+        _pad1: 0,
+        _pad2: 0,
+        _pad3: 0,
     })?;
 
     // activate first collectible of each type
@@ -271,6 +277,7 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
     discovery.acquire_item(ctx, hex_coin_id);
     discovery.commit(ctx);
 
+    // [FINAL RELEASE]
     let equipment = EquipmentState {
         entity_id,
         equipment_slots: vec![
@@ -284,19 +291,19 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
             },
             EquipmentSlot {
                 item: None,
-                primary: EquipmentSlotType::HeadArtifact,
+                primary: EquipmentSlotType::HeadArtifact, // Seems to be where the Heart artifact is stored
             },
             EquipmentSlot {
                 item: None,
-                primary: EquipmentSlotType::TorsoArtifact,
+                primary: EquipmentSlotType::TorsoArtifact, // Seems unused
             },
             EquipmentSlot {
                 item: None,
-                primary: EquipmentSlotType::HandArtifact, // Obsolete for now
+                primary: EquipmentSlotType::HandArtifact, // Ring artifacts
             },
             EquipmentSlot {
                 item: None,
-                primary: EquipmentSlotType::FeetArtifact, // Obsolete for now
+                primary: EquipmentSlotType::FeetArtifact, // Seems unused
             },
             EquipmentSlot {
                 item: None,
@@ -325,9 +332,8 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
         ],
     };
 
-    //toolbelt
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
-    let num_toolbelt_pockets = params.default_num_toolbelt_pockets;
+    //toolbet
+    let num_toolbelt_pockets = ToolTypeDesc::get_combat_weapon_slot(ctx) + 1;
     if !InventoryState::new_with_index(
         ctx,
         num_toolbelt_pockets,
@@ -346,18 +352,25 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
     let mut toolbelt_inventory = InventoryState::get_player_toolbelt(ctx, entity_id).unwrap();
     let mallet = ctx.db.tool_desc().iter().find(|t| t.tool_type == 14 && t.level == 1).unwrap();
     let cooking_pot = ctx.db.tool_desc().iter().find(|t| t.tool_type == 11 && t.level == 1).unwrap();
+    let hexite_gatherer = ctx.db.tool_desc().iter().find(|t| t.tool_type == 15 && t.level == 1).unwrap();
     toolbelt_inventory.set_at(
-        mallet.tool_type as usize - 1,
+        ToolTypeDesc::get_slot_from_tool_type_id(ctx, mallet.tool_type) as usize,
         Some(ItemStack::new(ctx, mallet.item_id, ItemType::Item, 1)),
     );
     toolbelt_inventory.set_at(
-        cooking_pot.tool_type as usize - 1,
+        ToolTypeDesc::get_slot_from_tool_type_id(ctx, cooking_pot.tool_type) as usize,
         Some(ItemStack::new(ctx, cooking_pot.item_id, ItemType::Item, 1)),
     );
+
+    toolbelt_inventory.set_at(
+        ToolTypeDesc::get_slot_from_tool_type_id(ctx, hexite_gatherer.tool_type) as usize,
+        Some(ItemStack::new(ctx, hexite_gatherer.item_id, ItemType::Item, 1)),
+    );
+
     ctx.db.inventory_state().entity_id().update(toolbelt_inventory);
 
     //wallet
-    let num_wallet_pockets = 1;
+    let num_wallet_pockets = 2;
     if !InventoryState::new_with_index(
         ctx,
         num_wallet_pockets,
@@ -406,13 +419,7 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
         satiation: SatiationState::get_player_max_satiation(ctx, entity_id),
     })?;
 
-    let num_pockets = ctx
-        .db
-        .parameters_desc_v2()
-        .version()
-        .find(&0)
-        .unwrap()
-        .default_num_inventory_pockets;
+    let num_pockets = ctx.db.parameters_desc().version().find(&0).unwrap().default_num_inventory_pockets;
 
     let num_cargo_pockets = 1;
 
@@ -460,11 +467,12 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
     })?;
 
     ctx.db.attack_outcome_state().try_insert(AttackOutcomeState::new(entity_id))?;
-    ctx.db.extract_outcome_state().try_insert(ExtractOutcomeState {
+    ctx.db.extract_outcome_state().try_insert(ExtractOutcomeStateV2 {
         entity_id,
         target_entity_id: 0,
         last_timestamp: ctx.timestamp,
         damage: 0,
+        is_crit: false,
     })?;
 
     ctx.db.targetable_state().try_insert(TargetableState::new(entity_id))?;
@@ -514,7 +522,7 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
 
     // Innerlight buff
     let mut active_buff_state = ctx.db.active_buff_state().entity_id().find(&entity_id).unwrap();
-    let innerlight_buff_duration = ctx.db.parameters_desc_v2().version().find(&0).unwrap().new_user_aggro_immunity;
+    let innerlight_buff_duration = ctx.db.parameters_desc().version().find(&0).unwrap().new_user_aggro_immunity;
     active_buff_state.set_innerlight_buff(ctx, innerlight_buff_duration);
     // pause buffs as they will be restarted in sign in
     active_buff_state.pause_all_buffs(ctx);
@@ -526,7 +534,7 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
     //add sword to toolbelt
     if let Some(mut toolbelt) = InventoryState::get_player_toolbelt(ctx, entity_id) {
         toolbelt.set_at(
-            (ctx.db.parameters_desc_v2().version().find(&0).unwrap().default_num_toolbelt_pockets - 1) as usize,
+            ToolTypeDesc::get_combat_weapon_slot(ctx) as usize,
             Some(ItemStack::new(ctx, weapon_equipment_id, ItemType::Item, 1)),
         );
 
@@ -540,7 +548,7 @@ fn create_player(ctx: &ReducerContext, entity_id: u64) -> Result<u64, String> {
 
     send_inter_module_message(
         ctx,
-        crate::messages::inter_module::MessageContentsV4::OnRegionPlayerCreated(OnRegionPlayerCreatedMsg {
+        crate::messages::inter_module::MessageContentsV2::OnRegionPlayerCreated(OnRegionPlayerCreatedMsg {
             player_entity_id: entity_id,
         }),
         crate::inter_module::InterModuleDestination::Global,

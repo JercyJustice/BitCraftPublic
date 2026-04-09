@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use spacetimedb::{ReducerContext, Table};
 
 use crate::game::game_state::{self, create_entity, unix};
@@ -12,6 +13,7 @@ use crate::messages::global::{
 use crate::{i18n, unwrap_or_err};
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn chat_post_targeted_message(ctx: &ReducerContext, request: PlayerChatPostMessageRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     // PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp); // TODO: Maybe we want to do this in the future, but not trivial. It would require sending intermodule messages.
@@ -28,7 +30,7 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, text: String, target_entity_i
         return Err("Failed to send chat messages".into());
     }
 
-    UserModerationState::validate_chat_privileges(ctx, actor_id, "Your chat priveleges have been suspended")?;
+    UserModerationState::validate_chat_privileges(ctx, &ctx.sender, "Your chat privileges have been suspended")?;
 
     let username = unwrap_or_err!(ctx.db.player_username_state().entity_id().find(actor_id), "Invalid player").username;
 

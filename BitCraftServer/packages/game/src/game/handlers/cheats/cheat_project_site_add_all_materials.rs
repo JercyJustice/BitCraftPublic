@@ -1,8 +1,8 @@
 use crate::{
-    construction_recipe_desc_v2,
+    construction_recipe_desc,
     game::handlers::cheats::cheat_type::{can_run_cheat, CheatType},
     messages::game_util::{InputItemStack, ItemStack, ItemType},
-    project_site_state, resource_placement_recipe_desc_v2, unwrap_or_err,
+    project_site_state, resource_placement_recipe_desc, unwrap_or_err,
 };
 use spacetimedb::ReducerContext;
 
@@ -16,10 +16,10 @@ pub fn cheat_project_site_add_all_materials(ctx: &ReducerContext, project_site_e
         ctx.db.project_site_state().entity_id().find(&project_site_entity_id),
         "Invalid project site"
     );
-    let construction_recipe = ctx.db.construction_recipe_desc_v2().id().find(&project_site.construction_recipe_id);
+    let construction_recipe = ctx.db.construction_recipe_desc().id().find(&project_site.construction_recipe_id);
     let resource_placement_recipe = ctx
         .db
-        .resource_placement_recipe_desc_v2()
+        .resource_placement_recipe_desc()
         .id()
         .find(&project_site.resource_placement_recipe_id);
 

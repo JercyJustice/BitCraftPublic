@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use std::time::Duration;
 
 use spacetimedb::ReducerContext;
@@ -6,7 +7,7 @@ use crate::game::claim_helper;
 use crate::game::handlers::inventory::inventory_helper;
 use crate::game::reducer_helpers::player_action_helpers;
 use crate::messages::action_request::ClaimResupplyRequest;
-use crate::{building_repairs_desc, parameters_desc_v2};
+use crate::{building_repairs_desc, parameters_desc};
 use crate::{
     game::{
         game_state::{self, game_state_filters},
@@ -17,12 +18,13 @@ use crate::{
 };
 
 pub fn event_delay(ctx: &ReducerContext) -> Duration {
-    let delay = ctx.db.parameters_desc_v2().version().find(0).unwrap().repair_building_duration as f32;
+    let delay = ctx.db.parameters_desc().version().find(0).unwrap().repair_building_duration as f32;
 
     Duration::from_secs_f32(delay)
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn claim_resupply_start(ctx: &ReducerContext, request: ClaimResupplyRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -41,6 +43,7 @@ pub fn claim_resupply_start(ctx: &ReducerContext, request: ClaimResupplyRequest)
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn claim_resupply(ctx: &ReducerContext, request: ClaimResupplyRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);

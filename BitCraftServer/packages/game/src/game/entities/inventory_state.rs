@@ -402,6 +402,23 @@ impl InventoryState {
         }
     }
 
+    pub fn count_item_quantity(&self, item_id: i32, item_type: ItemType) -> i32 {
+        let mut count = 0;
+        for p in self.pockets.iter() {
+            count += match &p.contents {
+                Some(c) => {
+                    if c.item_id == item_id && c.item_type == item_type {
+                        c.quantity
+                    } else {
+                        0
+                    }
+                }
+                None => 0,
+            };
+        }
+        count
+    }
+
     pub fn has(&self, item_stacks: &Vec<ItemStack>) -> bool {
         if item_stacks.len() == 0 {
             return true;
@@ -409,21 +426,7 @@ impl InventoryState {
 
         let merged_stacks = ItemStack::merge_multiple(item_stacks);
         for stack in merged_stacks {
-            let mut required = stack.quantity;
-            for p in self.pockets.iter() {
-                required -= match &p.contents {
-                    Some(c) => {
-                        if c.item_id == stack.item_id {
-                            c.quantity
-                        } else {
-                            0
-                        }
-                    }
-                    None => 0,
-                };
-            }
-
-            if required > 0 {
+            if stack.quantity > self.count_item_quantity(stack.item_id, stack.item_type) {
                 return false;
             }
         }
@@ -724,9 +727,25 @@ impl InventoryState {
         Self::get_by_owner_with_index(ctx, player_entity_id, 2)
     }
 
+    pub fn wallet_pocket_target(&self, ctx: &ReducerContext, item_stack: &ItemStack) -> Option<usize> {
+        if ctx.db.player_state().entity_id().find(self.owner_entity_id).is_none() {
+            return None;
+        }
+        if item_stack.item_type == ItemType::Cargo {
+            return None;
+        }
+        if item_stack.item_id == ItemStack::hex_coins(0).item_id {
+            return Some(0);
+        }
+        if item_stack.item_id == ItemStack::empire_currency(ctx, 0).item_id {
+            return Some(1);
+        }
+        return None;
+    }
+
     pub fn reduce_tool_durability(ctx: &ReducerContext, player_entity_id: u64, tool_type: i32, durability_lost: i32) {
         let mut toolbelt = InventoryState::get_player_toolbelt(ctx, player_entity_id).unwrap();
-        let toolbelt_pocket_index = (tool_type - 1) as usize;
+        let toolbelt_pocket_index = ToolTypeDesc::get_slot_from_tool_type_id(ctx, tool_type) as usize;
         if let Some(pocket) = toolbelt.pockets.get_mut(toolbelt_pocket_index) {
             if let Some(equipped_tool) = pocket.contents.as_mut() {
                 let equipped_item_id = equipped_tool.item_id;
@@ -791,11 +810,24 @@ impl InventoryState {
         }
     }
 
-    pub fn add_to_player_wallet_and_commit(ctx: &ReducerContext, player_entity_id: u64, amount: i32) -> bool {
+    pub fn add_to_player_wallet_and_commit(
+        ctx: &ReducerContext,
+        player_entity_id: u64,
+        coin_amount: i32,
+        empire_currency_amount: i32,
+    ) -> bool {
         if let Some(mut wallet) = Self::get_player_wallet(ctx, player_entity_id) {
-            let coins = ItemStack::hex_coins(amount);
-            if !wallet.add(ctx, coins) {
-                return false;
+            if coin_amount > 0 {
+                let coins = ItemStack::hex_coins(coin_amount);
+                if !wallet.add_at(ctx, 0, coins) {
+                    return false;
+                }
+            }
+            if empire_currency_amount > 0 {
+                let empire_currency = ItemStack::empire_currency(ctx, empire_currency_amount);
+                if !wallet.add_at(ctx, 1, empire_currency) {
+                    return false;
+                }
             }
             ctx.db.inventory_state().entity_id().update(wallet);
             return true;
@@ -845,11 +877,11 @@ impl InventoryState {
         let item_stack = item_stack.fix_durability();
 
         //hex coin use wallet first
-        let mut inventory = if item_stack.item_type == ItemType::Item && item_stack.item_id == 1 {
-            InventoryState::get_player_wallet(ctx, player_entity_id).unwrap()
-        } else {
-            InventoryState::get_by_owner(ctx, player_entity_id).unwrap()
-        };
+        let mut inventory = InventoryState::get_by_owner(ctx, player_entity_id).unwrap();
+        let wallet_pocket = inventory.wallet_pocket_target(ctx, &item_stack);
+        if wallet_pocket.is_some() {
+            inventory = InventoryState::get_player_wallet(ctx, player_entity_id).unwrap();
+        }
 
         if item_stack.item_type == ItemType::Item {
             //handle item list items
@@ -865,7 +897,11 @@ impl InventoryState {
                             item_stack.auto_collect(ctx, discovery, player_entity_id);
                             if item_stack.quantity > 0 {
                                 for _ in 0..item_stack.quantity {
-                                    inventory.add_multiple_with_overflow(ctx, &vec![item_stack]);
+                                    if let Some(wallet_pocket_index) = wallet_pocket.as_ref() {
+                                        inventory.add_at(ctx, *wallet_pocket_index, item_stack);
+                                    } else {
+                                        inventory.add_multiple_with_overflow(ctx, &vec![item_stack]);
+                                    }
                                 }
                             }
                         }
@@ -881,15 +917,23 @@ impl InventoryState {
             }
         }
 
-        return if inventory.add(ctx, item_stack) {
+        if let Some(wallet_pocket_index) = wallet_pocket {
+            let ret = inventory.add_at(ctx, wallet_pocket_index, item_stack);
             if !dry_run {
                 discovery.acquire_item_stack(ctx, &item_stack);
                 ctx.db.inventory_state().entity_id().update(inventory);
             }
-            true
-        } else {
-            false
-        };
+            return ret;
+        }
+
+        if inventory.add(ctx, item_stack) {
+            if !dry_run {
+                discovery.acquire_item_stack(ctx, &item_stack);
+                ctx.db.inventory_state().entity_id().update(inventory);
+            }
+            return true;
+        }
+        false
     }
 
     pub fn add_self(&mut self, ctx: &ReducerContext, item_stack: ItemStack) -> bool {
@@ -955,15 +999,15 @@ impl InventoryState {
                         continue;
                     }
 
-                    let item_id_to_remove = stack_to_remove.item_id;
+                    let wallet_pocket = wallet.wallet_pocket_target(ctx, &stack_to_remove);
 
-                    //hex coin
-                    if item_id_to_remove == 1 {
+                    //wallet item
+                    if let Some(wallet_pocket_index) = wallet_pocket {
                         let mut quantity_to_remove = stack_to_remove.quantity;
 
                         //wallet has coins
-                        if let Some(wallet_coin_pocket) = wallet.pockets.get(0).as_mut() {
-                            if let Some(wallet_coin_stack) = wallet_coin_pocket.contents {
+                        if let Some(current_wallet_pocket) = wallet.pockets.get(wallet_pocket_index).as_mut() {
+                            if let Some(wallet_coin_stack) = current_wallet_pocket.contents {
                                 //wallet quantity less than amount to remove, attempt to remove from wallet and inventory
                                 if wallet_coin_stack.quantity < quantity_to_remove {
                                     let pocket_quantity = wallet_coin_stack.quantity;
@@ -1034,15 +1078,22 @@ impl InventoryState {
         discovery: &mut Discovery,
         item_stack: &mut ItemStack,
     ) -> bool {
-        if let Some(mut inventory) = if item_stack.item_type == ItemType::Item && item_stack.item_id == 1 {
-            InventoryState::get_player_wallet(ctx, player_entity_id)
-        } else {
-            InventoryState::get_player_inventory(ctx, player_entity_id)
-        } {
-            if InventoryState::add_partial_to_inventory_and_discover(ctx, player_entity_id, discovery, &mut inventory, item_stack, true) {
-                ctx.db.inventory_state().entity_id().update(inventory);
-                return true;
-            }
+        let mut inventory = InventoryState::get_player_inventory(ctx, player_entity_id).unwrap();
+        if inventory.wallet_pocket_target(ctx, item_stack).is_some() {
+            let coin_amount = if item_stack.item_id == ItemStack::hex_coins(0).item_id {
+                item_stack.quantity
+            } else {
+                0
+            };
+            discovery.acquire_item(ctx, item_stack.item_id);
+            let empire_currency_amount = if coin_amount == 0 { item_stack.quantity } else { 0 };
+            InventoryState::add_to_player_wallet_and_commit(ctx, player_entity_id, coin_amount, empire_currency_amount);
+            return true;
+        }
+
+        if InventoryState::add_partial_to_inventory_and_discover(ctx, player_entity_id, discovery, &mut inventory, item_stack, true) {
+            ctx.db.inventory_state().entity_id().update(inventory);
+            return true;
         }
         return false;
     }
@@ -1211,6 +1262,57 @@ impl InventoryState {
         return inventories_with_distance.into_iter().map(|x| x.0).collect();
     }
 
+    pub fn has_items_in_player_inventory_and_nearby_deployables<TDistanceFn>(
+        ctx: &ReducerContext,
+        player_entity_id: u64,
+        item_stacks: &Vec<ItemStack>,
+        get_distance_fn: TDistanceFn,
+    ) -> Result<bool, String>
+    where
+        TDistanceFn: Fn(SmallHexTile) -> i32,
+    {
+        if item_stacks.iter().any(|i| i.quantity < 0) {
+            return Err("Invalid request.".into());
+        }
+
+        let player_inventory = unwrap_or_err!(
+            InventoryState::get_player_inventory(ctx, player_entity_id),
+            "Player has no inventory"
+        );
+
+        // Check inventory first
+        if player_inventory.has(item_stacks) {
+            return Ok(true);
+        }
+
+        //Find the player's nearby deployables and get their inventories
+        let max_distance = ctx.db.parameters_desc().version().find(&0).unwrap().withdraw_from_deployables_range;
+        let mut inventories = Self::get_nearby_deployable_inventories(ctx, player_entity_id, get_distance_fn, max_distance);
+
+        if inventories.len() == 0 {
+            return Ok(false);
+        }
+
+        let player_wallet = unwrap_or_err!(InventoryState::get_player_wallet(ctx, player_entity_id), "Player has no wallet");
+
+        inventories.insert(0, player_wallet);
+        inventories.insert(1, player_inventory);
+
+        // Count up total quantity of each item across all inventories
+        for item_stack in item_stacks {
+            let mut count = 0;
+            for inventory in inventories.iter() {
+                count += inventory.count_item_quantity(item_stack.item_id, item_stack.item_type);
+            }
+
+            if item_stack.quantity > count {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
+    }
+
     pub fn withdraw_from_player_inventory_and_nearby_deployables<TDistanceFn>(
         ctx: &ReducerContext,
         player_entity_id: u64,
@@ -1220,19 +1322,17 @@ impl InventoryState {
     where
         TDistanceFn: Fn(SmallHexTile) -> i32,
     {
+        if item_stacks.iter().any(|i| i.quantity < 0) {
+            return Err("Invalid request.".into());
+        }
+
         //Attempt to withdraw everything from the player's inventory first
         if Self::remove_stacks_from_player_inventory(ctx, player_entity_id, item_stacks, false) {
             return Ok(());
         }
 
         //Find the player's nearby deployables and get their inventories
-        let max_distance = ctx
-            .db
-            .parameters_desc_v2()
-            .version()
-            .find(&0)
-            .unwrap()
-            .withdraw_from_deployables_range;
+        let max_distance = ctx.db.parameters_desc().version().find(&0).unwrap().withdraw_from_deployables_range;
         let mut inventories = Self::get_nearby_deployable_inventories(ctx, player_entity_id, get_distance_fn, max_distance);
 
         if inventories.len() == 0 {
@@ -1281,6 +1381,10 @@ impl InventoryState {
     where
         TDistanceFn: Fn(SmallHexTile) -> i32,
     {
+        if item_stacks.iter().any(|i| i.quantity < 0) {
+            return Err("Invalid request.".into());
+        }
+
         let mut discovery = Discovery::new(player_entity_id);
         let mut output = Vec::new();
 
@@ -1305,19 +1409,13 @@ impl InventoryState {
             item_stack.auto_collect(ctx, &mut discovery, player_entity_id);
         }
 
-        let player_settings = ctx.db.player_settings_state_v2().entity_id().find(player_entity_id);
+        let player_settings = ctx.db.player_settings_state().entity_id().find(player_entity_id);
         let player_wallet = unwrap_or_err!(InventoryState::get_player_wallet(ctx, player_entity_id), "Player has no wallet");
         let player_inventory = unwrap_or_err!(
             InventoryState::get_player_inventory(ctx, player_entity_id),
             "Player has no inventory"
         );
-        let max_distance = ctx
-            .db
-            .parameters_desc_v2()
-            .version()
-            .find(&0)
-            .unwrap()
-            .withdraw_from_deployables_range;
+        let max_distance = ctx.db.parameters_desc().version().find(&0).unwrap().withdraw_from_deployables_range;
         let mut inventories = Self::get_nearby_deployable_inventories(ctx, player_entity_id, get_distance_fn, max_distance);
         let mut changed_inventory_indices = HashSet::new();
         let mut overflow_items = Vec::new();
@@ -1332,25 +1430,29 @@ impl InventoryState {
             }
         }
 
-        //Partially remove ItemStacks from the player's wallet, inventory, nearby deployables and keep track of changing inventories and overflowing items
+        //Partially add ItemStacks from the player's wallet, inventory, nearby deployables and keep track of changing inventories and overflowing items
         for item_stack_index in (0..output.len()).rev() {
             let item_stack = &mut output[item_stack_index];
 
             for (inventory_index, inventory) in inventories.iter_mut().enumerate() {
-                //Ensure only coins go into the wallet
-                if inventory_index == 0 && (item_stack.item_type != ItemType::Item || item_stack.item_id != 1) {
-                    continue;
-                }
-
-                if inventory.add_partial(ctx, item_stack) {
-                    changed_inventory_indices.insert(inventory_index);
-
-                    if item_stack.quantity <= 0 {
+                //Ensure only wallet items go into the wallet
+                let wallet_pocket = inventory.wallet_pocket_target(ctx, item_stack);
+                if let Some(wallet_pocket_ix) = wallet_pocket {
+                    if inventory.add_at(ctx, wallet_pocket_ix, *item_stack) {
+                        changed_inventory_indices.insert(inventory_index);
+                        item_stack.quantity = 0;
                         break;
+                    }
+                } else if inventory_index > 0 {
+                    // non-wallet items go in non-wallet inventories
+                    if inventory.add_partial(ctx, item_stack) {
+                        changed_inventory_indices.insert(inventory_index);
+                        if item_stack.quantity <= 0 {
+                            break;
+                        }
                     }
                 }
             }
-
             if item_stack.quantity > 0 {
                 let item_stack = output.remove(item_stack_index);
                 overflow_items.push(item_stack);
@@ -1470,19 +1572,17 @@ impl InventoryState {
     where
         TDistanceFn: Fn(SmallHexTile) -> i32,
     {
+        if item_stacks.iter().any(|i| i.quantity < 0) {
+            return Err("Invalid request.".into());
+        }
+
         //Attempt to withdraw everything from the player's inventory first
         if Self::remove_stacks_from_player_inventory(ctx, player_entity_id, item_stacks, true) {
             return Ok(());
         }
 
         //Find the player's nearby deployables and get their inventories
-        let max_distance = ctx
-            .db
-            .parameters_desc_v2()
-            .version()
-            .find(&0)
-            .unwrap()
-            .withdraw_from_deployables_range;
+        let max_distance = ctx.db.parameters_desc().version().find(&0).unwrap().withdraw_from_deployables_range;
         let mut inventories = Self::get_nearby_deployable_inventories(ctx, player_entity_id, get_distance_fn, max_distance);
 
         if inventories.len() == 0 {

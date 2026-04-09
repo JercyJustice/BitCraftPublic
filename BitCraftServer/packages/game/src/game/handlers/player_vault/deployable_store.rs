@@ -1,9 +1,10 @@
+use bitcraft_macro::feature_gate;
 use std::time::Duration;
 
 use spacetimedb::ReducerContext;
 
 use crate::{
-    deployable_desc_v4,
+    deployable_desc,
     game::{
         game_state::{self},
         reducer_helpers::{deployable_helpers::store_deployable, player_action_helpers},
@@ -16,11 +17,11 @@ use crate::{
 pub fn event_delay(ctx: &ReducerContext, request: &DeployableStoreRequest) -> Duration {
     if let Some(deployable) = ctx
         .db
-        .deployable_collectible_state_v2()
+        .deployable_collectible_state()
         .deployable_entity_id()
         .find(&request.deployable_entity_id)
     {
-        let deployable_description = ctx.db.deployable_desc_v4().id().find(&deployable.deployable_desc_id).unwrap();
+        let deployable_description = ctx.db.deployable_desc().id().find(&deployable.deployable_desc_id).unwrap();
         let duration = match request.remotely {
             true => 30f32,
             false => deployable_description.deploy_time,
@@ -32,6 +33,7 @@ pub fn event_delay(ctx: &ReducerContext, request: &DeployableStoreRequest) -> Du
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn deployable_store_start(ctx: &ReducerContext, request: DeployableStoreRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     HealthState::check_incapacitated(ctx, actor_id, true)?;
@@ -53,6 +55,7 @@ pub fn deployable_store_start(ctx: &ReducerContext, request: DeployableStoreRequ
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn deployable_store(ctx: &ReducerContext, request: DeployableStoreRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -93,10 +96,6 @@ fn reduce(ctx: &ReducerContext, actor_id: u64, request: &DeployableStoreRequest,
         return Err("You are not the owner of this deployable.".into());
     }
 
-    if request.remotely {
-        return store_deployable(ctx, actor_id, request.deployable_entity_id, dry_run);
-    }
-
     // make sure the actor is close to the deployable
     let player_coordinates =
         unwrap_or_err!(ctx.db.mobile_entity_state().entity_id().find(actor_id), "Unknown Player Location").coordinates();
@@ -126,15 +125,20 @@ fn reduce_recover(ctx: &ReducerContext, actor_id: u64, request: &DeployableStore
         //Deployable is on another region
         let collectible = unwrap_or_err!(
             ctx.db
-                .deployable_collectible_state_v2()
+                .deployable_collectible_state()
                 .deployable_entity_id()
                 .find(request.deployable_entity_id),
             "Deployable doesn't exist"
         );
+
+        if collectible.owner_entity_id != actor_id {
+            return Err("You are not the owner of this deployable.".into());
+        }
+
         //We don't know which region deployable is on, so we just blast messages to all regions and see if one of them succeeds
         send_inter_module_message(
             ctx,
-            crate::messages::inter_module::MessageContentsV4::RecoverDeployable(crate::messages::inter_module::RecoverDeployableMsg {
+            crate::messages::inter_module::MessageContentsV2::RecoverDeployable(crate::messages::inter_module::RecoverDeployableMsg {
                 player_entity_id: actor_id,
                 deployable_entity_id: request.deployable_entity_id,
                 deployable_desc_id: collectible.deployable_desc_id,

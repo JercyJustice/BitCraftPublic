@@ -1,10 +1,9 @@
 use spacetimedb::ReducerContext;
 
 use crate::{
-    game::{coordinates::SmallHexTile, dimensions, handlers::authentication::has_role},
+    game::{coordinates::SmallHexTile, dimensions},
     messages::{
-        authentication::Role,
-        components::{building_state, claim_state, TerrainChunkState},
+        components::{building_state, claim_state},
         empire_shared::*,
     },
     unwrap_or_err,
@@ -60,8 +59,11 @@ impl EmpireNodeSiegeState {
     }
 
     pub fn has_active_siege(ctx: &ReducerContext, building_entity_id: u64) -> bool {
-        let mut sieges_on_node = ctx.db.empire_node_siege_state().building_entity_id().filter(building_entity_id);
-        sieges_on_node.any(|s| s.active)
+        ctx.db
+            .empire_node_siege_state()
+            .building_entity_id()
+            .filter(building_entity_id)
+            .any(|s| s.active)
     }
 
     pub fn validate_action(ctx: &ReducerContext, actor_id: u64, building_entity_id: u64) -> Result<(), String> {
@@ -125,8 +127,8 @@ impl EmpireNodeState {
         }
 
         if let Some(empire_chunk) = ctx.db.empire_chunk_state().chunk_index().find(chunk_index) {
-            if empire_chunk.empire_entity_id.iter().any(|eid| *eid != empire_entity_id) {
-                return Err("Contested area".into());
+            if empire_chunk.empire_entity_id != 0 && empire_chunk.empire_entity_id != empire_entity_id {
+                return Err("Another empire controls this territory".into());
             }
         }
 
@@ -156,7 +158,7 @@ pub fn empire_resupply_node_validate(ctx: &ReducerContext, actor_id: u64, buildi
     }
 
     if let Some(empire_chunk) = ctx.db.empire_chunk_state().chunk_index().find(&empire_node.chunk_index) {
-        if empire_chunk.empire_entity_id.iter().any(|e| *e != empire_node.empire_entity_id) {
+        if empire_chunk.empire_entity_id != 0 && empire_chunk.empire_entity_id != empire_node.empire_entity_id {
             return Err("Cannot resupply watchtower when not under your empire control".into());
         }
     }
@@ -164,49 +166,6 @@ pub fn empire_resupply_node_validate(ctx: &ReducerContext, actor_id: u64, buildi
     if EmpireNodeSiegeState::get(ctx, building_entity_id, empire_node.empire_entity_id).is_some() {
         return Err("Cannot resupply watchtower directly when it's under siege".into());
     }
-
-    Ok(())
-}
-
-// not a reducer since we go through the project site placement
-pub fn validate_empire_build_watchtower(ctx: &ReducerContext, actor_id: u64, coord: SmallHexTile) -> Result<(), String> {
-    if coord.dimension != dimensions::OVERWORLD {
-        return Err("Cannot build a watchtower indoors".into());
-    }
-
-    if !has_role(ctx, &ctx.sender, Role::Gm) && !EmpirePlayerDataState::has_permission(ctx, actor_id, EmpirePermission::BuildWatchtower) {
-        return Err("You don't have the permissions to build a watchtower".into());
-    }
-
-    if coord != coord.parent_large_tile().center_small_tile() {
-        return Err("Watchtowers need to be placed in the middle of the large tile".into());
-    }
-
-    // todo- check permissions
-    let empire_rank = unwrap_or_err!(
-        ctx.db.empire_player_data_state().entity_id().find(&actor_id),
-        "You need to be part of an empire in order to expand it."
-    );
-    let empire_entity_id = empire_rank.empire_entity_id;
-
-    let chunk_coordinates = coord.chunk_coordinates();
-    let chunk_index = TerrainChunkState::chunk_index_from_coords(&chunk_coordinates);
-
-    // Only check for expansion orders if you're not allowed to mark for expansion
-    if !EmpirePlayerDataState::has_permission(ctx, actor_id, EmpirePermission::MarkAreaForExpansion) {
-        let expansion = unwrap_or_err!(
-            ctx.db.empire_expansion_state().chunk_index().find(&chunk_index),
-            "There is no order to expand the empire there."
-        );
-        if expansion.empire_entity_id.contains(&empire_entity_id) {
-            // A watch tower is built, no one else can build one there now.
-            // ctx.db.empire_expansion_state().chunk_index().delete(&chunk_index);
-        } else {
-            return Err("There is no order to expand the empire there".into());
-        }
-    }
-
-    EmpireNodeState::validate_influence(ctx, chunk_index, empire_entity_id)?;
 
     Ok(())
 }

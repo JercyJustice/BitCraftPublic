@@ -20,13 +20,13 @@ impl ProjectSiteState {
     }
 
     pub fn footprint(&self, ctx: &ReducerContext, center: SmallHexTile) -> Vec<(SmallHexTile, FootprintType)> {
-        if let Some(recipe) = ctx.db.construction_recipe_desc_v2().id().find(&self.construction_recipe_id) {
+        if let Some(recipe) = ctx.db.construction_recipe_desc().id().find(&self.construction_recipe_id) {
             if let Some(building_desc) = ctx.db.building_desc().id().find(&recipe.building_description_id) {
                 return building_desc.get_footprint(&center, self.direction);
             }
         } else if let Some(recipe) = ctx
             .db
-            .resource_placement_recipe_desc_v2()
+            .resource_placement_recipe_desc()
             .id()
             .find(&self.resource_placement_recipe_id)
         {
@@ -52,7 +52,7 @@ impl ProjectSiteState {
     ) -> Result<(), String> {
         if !ignore_player_placement {
             if coordinates.distance_to(game_state_filters::coordinates_float(ctx, player_entity_id).into())
-                > ctx.db.parameters_desc_v2().version().find(&0).unwrap().max_build_range
+                > ctx.db.parameters_desc().version().find(&0).unwrap().max_build_range
             {
                 return Err("Too far".into());
             }
@@ -204,14 +204,14 @@ impl ProjectSiteState {
             );
 
             if terrain_target.biome_percentage(Biome::to_enum(biome.biome_type)) > 0f32 {
-                return Err("Can't build close to a spawn area".into());
+                return Err("Can't build in this biome".into());
             }
         }
 
         let footprint = building.get_footprint(&coordinates, facing_direction as i32);
         let required_paving = match ctx
             .db
-            .construction_recipe_desc_v2()
+            .construction_recipe_desc()
             .building_description_id()
             .filter(building.id)
             .next()
@@ -270,7 +270,7 @@ impl ProjectSiteState {
 
     pub fn validate_resource_placement(
         ctx: &ReducerContext,
-        recipe: &ResourcePlacementRecipeDescV2,
+        recipe: &ResourcePlacementRecipeDesc,
         terrain_cache: &mut TerrainChunkCache,
         coordinates: SmallHexTile,
     ) -> Result<(), String> {

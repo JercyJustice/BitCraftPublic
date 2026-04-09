@@ -19,9 +19,9 @@ pub fn cheat_quest_restart(ctx: &ReducerContext, player_entity_id: u64, quest_de
             player_entity_id: player_entity_id,
             quest_chain_desc_id: quest_desc_id,
             stage_id: 0,
-            is_active: false,
             completed: false,
             stage_rewards_awarded: Vec::new(),
+            tracked: false,
         })?;
     }
 
@@ -41,8 +41,8 @@ pub fn cheat_quest_restart(ctx: &ReducerContext, player_entity_id: u64, quest_de
     );
 
     quest_chain_state.stage_id = quest_chain_desc.stages.first().copied().unwrap_or(0);
-    quest_chain_state.is_active = false;
     quest_chain_state.completed = false;
+    quest_chain_state.tracked = false;
     quest_chain_state.stage_rewards_awarded = Vec::new();
 
     ctx.db.quest_chain_state().entity_id().update(quest_chain_state);

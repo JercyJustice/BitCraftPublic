@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use std::time::Duration;
 
 use spacetimedb::ReducerContext;
@@ -12,6 +13,7 @@ use crate::messages::static_data::{ability_custom_desc, AbilityCustomDesc, Abili
 use crate::unwrap_or_err;
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn ability_custom_activate_start(
     ctx: &ReducerContext,
     ability_custom_id: i32,
@@ -42,6 +44,7 @@ pub fn ability_custom_activate_start(
 }
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn ability_custom_activate(ctx: &ReducerContext, ability_custom_id: i32, target_entity_id: u64, timestamp: u64) -> Result<(), String> {
     let custom_effect = unwrap_or_err!(ctx.db.ability_custom_desc().id().find(ability_custom_id), "Unknown Custom Effect");
     reduce(ctx, &custom_effect, target_entity_id, timestamp, false)
@@ -62,6 +65,7 @@ pub fn reduce(
     AbilityUnlockDesc::evaluate(ctx, actor_id, AbilityTypeEnum::Custom, ability_data)?;
 
     // Validate timestamps
+    PlayerActionState::validate_timestamp_basic(ctx, actor_id, PlayerActionType::AbilityCustom, timestamp)?;
     if !dry_run && custom_effect.cast_time > 0.0 {
         // Make sure target and timestamp and action fit
         PlayerActionState::validate(ctx, actor_id, PlayerActionType::AbilityCustom, Some(target_entity_id))?;

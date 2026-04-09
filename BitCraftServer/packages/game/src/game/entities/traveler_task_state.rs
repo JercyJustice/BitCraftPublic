@@ -5,16 +5,16 @@ use spacetimedb::{log, rand::Rng, ReducerContext, Table};
 use crate::{
     game::game_state,
     messages::{
-        components::{experience_state, player_state, traveler_task_state, TravelerTaskState},
-        static_data::{npc_desc, traveler_task_desc, TravelerTaskDesc},
+        components::{experience_state, knowledge_secondary_state, player_state, traveler_task_state, TravelerTaskState},
+        static_data::{
+            npc_desc, traveler_task_desc, traveler_task_knowledge_requirement_desc, TravelerTaskDesc, TravelerTaskKnowledgeRequirementDesc,
+        },
     },
 };
 
 impl TravelerTaskState {
     pub fn delete_all_for_player(ctx: &ReducerContext, player_entity_id: u64) {
-        for trade_order in ctx.db.traveler_task_state().player_entity_id().filter(player_entity_id) {
-            ctx.db.traveler_task_state().entity_id().delete(trade_order.entity_id);
-        }
+        ctx.db.traveler_task_state().player_entity_id().delete(player_entity_id);
     }
 
     pub fn create_and_commit(ctx: &ReducerContext, player_entity_id: u64, traveler_id: i32, task_id: i32) {
@@ -54,6 +54,14 @@ impl TravelerTaskState {
         player.traveler_tasks_expiration = next_traveler_task_refresh;
         ctx.db.player_state().entity_id().update(player);
 
+        let player_knowledges = ctx.db.knowledge_secondary_state().entity_id().find(player_entity_id).unwrap();
+        let knowledge_requirements: HashMap<i32, TravelerTaskKnowledgeRequirementDesc> = ctx
+            .db
+            .traveler_task_knowledge_requirement_desc()
+            .iter()
+            .map(|requirements| (requirements.traveler_task_id, requirements))
+            .collect();
+
         let experience = ctx.db.experience_state().entity_id().find(player_entity_id).unwrap();
         for traveler_id in requests.keys() {
             if requests[traveler_id].len() == 0 {
@@ -65,6 +73,26 @@ impl TravelerTaskState {
                     let level = experience.get_level(t.level_requirement.skill_id);
                     level >= t.level_requirement.min_level && level <= t.level_requirement.max_level
                 })
+                .filter(|t| match knowledge_requirements.get(&t.id) {
+                    Some(requirements) => {
+                        requirements.required_knowledges.is_empty()
+                            || requirements
+                                .required_knowledges
+                                .iter()
+                                .all(|knowledge_id| player_knowledges.is_acquired(*knowledge_id))
+                    }
+                    None => true,
+                })
+                .filter(|t| match knowledge_requirements.get(&t.id) {
+                    Some(requirements) => {
+                        requirements.blocking_knowledges.is_empty()
+                            || !requirements
+                                .blocking_knowledges
+                                .iter()
+                                .any(|knowledge_id| player_knowledges.is_acquired(*knowledge_id))
+                    }
+                    None => true,
+                })
                 .map(|t| t.id)
                 .collect();
             let iterations = skill_appropriate_task_pool.len().min(tasks_per_npc as usize);
@@ -74,7 +102,7 @@ impl TravelerTaskState {
 
             for _i in 0..iterations {
                 let rnd = ctx.rng().gen_range(0..skill_appropriate_task_pool.len());
-                let task_id = skill_appropriate_task_pool.remove(rnd);
+                let task_id = skill_appropriate_task_pool.swap_remove(rnd);
                 Self::create_and_commit(ctx, player_entity_id, *traveler_id, task_id);
             }
         }

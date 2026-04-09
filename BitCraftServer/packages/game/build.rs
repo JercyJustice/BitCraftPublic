@@ -123,7 +123,6 @@ fn build_knowledge() {
     output_commit.push_str("        if self.knowledges.is_none() {\n");
     output_commit.push_str("            return;\n");
     output_commit.push_str("        }\n\n");
-    output_commit.push_str("        self.on_knowledge_acquired(ctx);\n\n");
     output_commit.push_str("        let knowledges = self.knowledges.as_mut().unwrap();\n\n");
     output_commit.push_str("        let player_entity_id = self.player_entity_id;\n\n");
 

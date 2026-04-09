@@ -3,12 +3,12 @@ use std::collections::HashSet;
 
 use crate::{
     game::{game_state::game_state_filters, handlers::player_trade::trade_decline::trade_cancel_server},
-    inventory_state, parameters_desc_v2, trade_session_state, unwrap_or_err, InventoryState, TradeSessionState, TradeSessionStatus,
+    inventory_state, parameters_desc, trade_session_state, unwrap_or_err, InventoryState, TradeSessionState, TradeSessionStatus,
 };
 
 impl TradeSessionState {
     pub fn validate_distance(&self, ctx: &ReducerContext) -> Result<(), String> {
-        let max = ctx.db.parameters_desc_v2().version().find(&0).unwrap().max_trade_distance_large_tiles;
+        let max = ctx.db.parameters_desc().version().find(&0).unwrap().max_trade_distance_large_tiles;
         let c1 = game_state_filters::coordinates_float(ctx, self.initiator_entity_id).parent_large_tile();
         let c2 = game_state_filters::coordinates_float(ctx, self.acceptor_entity_id).parent_large_tile();
         if c1.distance_to(c2) > max {

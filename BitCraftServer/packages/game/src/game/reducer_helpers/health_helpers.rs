@@ -4,7 +4,7 @@ use crate::game::game_state::game_state_filters;
 use crate::game::handlers::player::player_death::player_death_timer;
 use crate::game::handlers::server::building_despawn::building_despawn_timer;
 use crate::game::handlers::server::enemy_despawn::enemy_despawn_timer;
-use crate::{enemy_state, health_state, interior_collapse_trigger_state, parameters_desc_v2, player_state, threat_state};
+use crate::{enemy_state, health_state, interior_collapse_trigger_state, parameters_desc, player_state, threat_state};
 use crate::{
     game::{
         discovery::Discovery,
@@ -37,7 +37,7 @@ pub fn update_health_and_check_death(
 
     // Ignore this function if still alive or if this new death occurs before respawning
     if !health_state.is_incapacitated_self()
-        || m < health_state.died_timestamp + ctx.db.parameters_desc_v2().version().find(&0).unwrap().respawn_seconds
+        || m < health_state.died_timestamp + ctx.db.parameters_desc().version().find(&0).unwrap().respawn_seconds
     {
         // We still need to do the update for any preceding health update
         ctx.db.health_state().entity_id().update(health_state);

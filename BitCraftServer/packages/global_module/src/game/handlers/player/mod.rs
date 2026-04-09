@@ -13,6 +13,7 @@ pub mod join_chat_channel;
 pub mod leave_chat_channel;
 pub mod player_claim_daily_shards;
 pub mod player_dismiss_notification;
+pub mod player_restore_skills;
 pub mod player_set_name;
 pub mod player_vote_answer;
 pub mod player_vote_conclude;

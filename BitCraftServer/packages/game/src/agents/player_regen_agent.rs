@@ -21,7 +21,7 @@ pub struct PlayerRegenLoopTimer {
 }
 
 pub fn update_timer(ctx: &ReducerContext) {
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
     let mut count = 0;
     for mut timer in ctx.db.player_regen_loop_timer().iter() {
         count += 1;
@@ -35,7 +35,7 @@ pub fn update_timer(ctx: &ReducerContext) {
 }
 
 pub fn init(ctx: &ReducerContext) {
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
     ctx.db
         .player_regen_loop_timer()
         .try_insert(PlayerRegenLoopTimer {
@@ -57,7 +57,7 @@ fn player_regen_agent_loop(ctx: &ReducerContext, _timer: PlayerRegenLoopTimer) {
         return;
     }
 
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
 
     let min_seconds_to_passive_regen_health = params.min_seconds_to_passive_regen_health as u64;
     let min_seconds_to_passive_regen_stamina = params.min_seconds_to_passive_regen_stamina as u64;

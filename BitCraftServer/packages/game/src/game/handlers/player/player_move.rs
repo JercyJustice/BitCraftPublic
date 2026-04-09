@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use crate::game::game_state::game_state_filters;
 use crate::game::handlers::authentication::has_role_no_dev;
 use crate::game::terrain_chunk::TerrainChunkCache;
@@ -10,6 +11,7 @@ use crate::{
 use spacetimedb::ReducerContext;
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn player_move(ctx: &ReducerContext, mut request: PlayerMoveRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     HealthState::check_incapacitated(ctx, actor_id, false)?;
@@ -76,7 +78,7 @@ pub fn player_move(ctx: &ReducerContext, mut request: PlayerMoveRequest) -> Resu
         }
     }
 
-    let stamina_used = if prev_mobile_entity.is_running {
+    let stamina_used = if prev_mobile_entity.is_walking {
         let distance_traveled = prev_origin.distance_to(source_coordinates.clone());
         let mut run_stamina_use = player_stats.get(CharacterStatType::SprintStaminaDrain);
         if let Some(paving) = &paving {
@@ -92,7 +94,7 @@ pub fn player_move(ctx: &ReducerContext, mut request: PlayerMoveRequest) -> Resu
         if (s < 0.0) & (stamina_state.stamina < 0.2) {
             //This is a rough approximation to avoid rubber-banding players from small errors
             // cancel the run, don't drain the stamina
-            prev_mobile_entity.is_running = false;
+            prev_mobile_entity.is_walking = false;
             request.running = false;
             // used to be:
             // return move_validation_helpers::fail_validation(ctx, "Not enough stamina to sprint".into(), actor_id, prev_origin, None);
@@ -164,7 +166,7 @@ fn validate_move(
     // if source_coordinates.x != target_coordinates.x || source_coordinates.z != target_coordinates.z {
     if source_coordinates.x != prev_origin.x || source_coordinates.z != prev_origin.z {
         let base_speed = speed * player_stats.get(CharacterStatType::MovementMultiplier);
-        let mut prev_speed = if prev_mobile_entity.is_running {
+        let mut prev_speed = if prev_mobile_entity.is_walking {
             base_speed * player_stats.get(CharacterStatType::SprintMultiplier)
         } else {
             base_speed
@@ -175,7 +177,7 @@ fn validate_move(
 
         if let Some(paving) = paving {
             prev_speed = paving.apply_stat_to_value_unclamped(prev_speed, crate::CharacterStatType::MovementMultiplier);
-            if prev_mobile_entity.is_running {
+            if prev_mobile_entity.is_walking {
                 prev_speed = paving.apply_stat_to_value_unclamped(prev_speed, crate::CharacterStatType::SprintMultiplier);
             }
         }
@@ -199,7 +201,7 @@ fn validate_move(
 
         //DAB Note
         // TODO: enable this at some point
-        //let par = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+        //let par = ctx.db.parameters_desc().version().find(&0).unwrap();
         //if let Err(error) = reducer_helpers::validate_move(
         //    &prev_mobile_entity,
         //    &prev_origin,

@@ -1,4 +1,5 @@
 use crate::game::handlers::cheats::cheat_type::{can_run_cheat, CheatType};
+use crate::messages::static_data::ToolTypeDesc;
 use spacetimedb::{log, ReducerContext};
 
 use crate::game::discovery::Discovery;
@@ -59,8 +60,7 @@ pub fn cheat_item_stack_grant_and_equip(
 
     let mut toolbelt_inventory = InventoryState::get_player_toolbelt(ctx, player_entity_id).unwrap();
     if let Some(tool) = ctx.db.tool_desc().item_id().filter(item_stack.item_id).next() {
-        let tool_type = tool.tool_type;
-        let tool_pocket = (tool_type - 1) as usize;
+        let tool_pocket = ToolTypeDesc::get_slot_from_tool_type_id(ctx, tool.tool_type) as usize;
         toolbelt_inventory.set_at(tool_pocket, Some(item_stack));
         ctx.db.inventory_state().entity_id().update(toolbelt_inventory);
     } else {

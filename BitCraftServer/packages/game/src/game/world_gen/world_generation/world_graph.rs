@@ -1244,6 +1244,8 @@ fn is_valid_resource_footprint(
 ) -> bool {
     let center_coordinates = center_node.coordinates;
 
+    let mut min_elevation = i16::MAX;
+    let mut max_elevation = i16::MIN;
     for delta in footprint
         .into_iter()
         .filter(|f| f.footprint_type != (FootprintType::Perimeter) && !(f.x == 0 && f.z == 0))
@@ -1263,6 +1265,18 @@ fn is_valid_resource_footprint(
         let footprint_node = graph.get(footprint_node_index).unwrap();
 
         if footprint_node.building.is_some() || footprint_node.resource.is_some() {
+            return false;
+        }
+
+        let elevations = footprint_node.min_max_elevation(&terrain_graph);
+        min_elevation = min_elevation.min(elevations[0]);
+        max_elevation = max_elevation.max(elevations[1]);
+
+        if min_elevation == -1 {
+            return false;
+        }
+
+        if max_elevation - min_elevation > resource.max_elevation_delta as i16 {
             return false;
         }
 

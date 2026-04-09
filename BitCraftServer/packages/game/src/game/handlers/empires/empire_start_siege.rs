@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use std::time::Duration;
 
 use spacetimedb::ReducerContext;
@@ -16,6 +17,7 @@ use crate::{
 };
 
 #[spacetimedb::reducer]
+#[feature_gate("empire")]
 pub fn empire_siege_depleted_watchtower(ctx: &ReducerContext, request: EmpireStartSiegeRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
 
@@ -36,13 +38,14 @@ pub fn empire_siege_depleted_watchtower(ctx: &ReducerContext, request: EmpireSta
 }
 
 #[spacetimedb::reducer]
+#[feature_gate("empire")]
 pub fn empire_deploy_siege_engine_start(ctx: &ReducerContext, request: EmpireStartSiegeRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
 
     HealthState::check_incapacitated(ctx, actor_id, true)?;
 
     let deployable_id = 1000; // Siege Engine
-    let deployable_description = ctx.db.deployable_desc_v4().id().find(&deployable_id).unwrap();
+    let deployable_description = ctx.db.deployable_desc().id().find(&deployable_id).unwrap();
     let delay = Duration::from_secs_f32(deployable_description.deploy_time);
 
     player_action_helpers::start_action(
@@ -58,6 +61,7 @@ pub fn empire_deploy_siege_engine_start(ctx: &ReducerContext, request: EmpireSta
 }
 
 #[spacetimedb::reducer]
+#[feature_gate("empire")]
 pub fn empire_deploy_siege_engine(ctx: &ReducerContext, request: EmpireStartSiegeRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
 
@@ -85,7 +89,7 @@ fn empire_deploy_siege_engine_reduce(
 
     let node_location = game_state_filters::coordinates(ctx, building_entity_id);
     let d = node_location.distance_to(coord.into());
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
     let min = params.empire_min_siege_distance;
     let max = params.empire_max_siege_distance;
     if d < min || d > max {
@@ -143,7 +147,7 @@ pub fn send_message(
 ) {
     send_inter_module_message(
         ctx,
-        crate::messages::inter_module::MessageContentsV4::EmpireStartSiege(EmpireStartSiegeMsg {
+        crate::messages::inter_module::MessageContentsV2::EmpireStartSiege(EmpireStartSiegeMsg {
             building_coord: game_state_filters::coordinates(ctx, building_entity_id).into(),
             player_entity_id,
             building_entity_id,

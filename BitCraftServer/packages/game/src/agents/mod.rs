@@ -1,7 +1,7 @@
 use crate::game::handlers::authentication::has_role;
 use crate::messages::authentication::Role;
 use crate::messages::generic::config;
-use crate::parameters_desc_v2;
+use crate::parameters_desc;
 use spacetimedb::{log, ReducerContext};
 
 mod auto_logout_agent;
@@ -34,7 +34,7 @@ pub fn should_run(ctx: &ReducerContext) -> bool {
 }
 
 pub fn init(ctx: &ReducerContext) {
-    if ctx.db.parameters_desc_v2().version().find(&0).is_some() {
+    if ctx.db.parameters_desc().version().find(&0).is_some() {
         enemy_regen_agent::init(ctx);
         player_regen_agent::init(ctx);
         teleportation_energy_regen_agent::init(ctx);

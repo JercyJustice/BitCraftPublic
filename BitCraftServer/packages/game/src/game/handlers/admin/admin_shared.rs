@@ -1,9 +1,11 @@
-﻿use bitcraft_macro::shared_table_reducer;
+use bitcraft_macro::shared_table_reducer;
 use spacetimedb::{ReducerContext, Table};
 
 use crate::game::game_state::{create_entity, unix};
 use crate::messages::action_request::CreatePlayerReportRequest;
-use crate::messages::components::{chat_message_state, player_report_state, player_username_state, ChatChannel, ChatMessageState, PlayerReportState};
+use crate::messages::components::{
+    chat_message_state, player_report_state, player_username_state, ChatChannel, ChatMessageState, PlayerReportState,
+};
 use crate::{game::handlers::authentication::has_role, messages::authentication::Role, unwrap_or_err};
 
 const CONTEXT_SIZE: usize = 5;

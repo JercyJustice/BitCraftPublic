@@ -1,5 +1,5 @@
 use crate::{
-    barter_stall_state, collectible_desc, deployable_collectible_state_v2, deployable_desc_v4, deployable_state,
+    barter_stall_state, collectible_desc, deployable_collectible_state, deployable_desc, deployable_state,
     game::{
         claim_helper,
         coordinates::*,
@@ -17,7 +17,7 @@ use crate::{
         components::{dimension_description_state, dimension_network_state, portal_state, PlayerHousingState},
         empire_shared::{empire_player_data_state, empire_state},
         game_util::ItemStack,
-        static_data::{DeployableDescV4, DeployableType},
+        static_data::{DeployableDesc, DeployableType},
     },
     mobile_entity_state, mounting_state, pathfinding_desc, unwrap_or_err, vault_state, BarterStallState, DroppedInventoryState,
     FootprintTileState, FootprintType, InventoryState, MobileEntityState, MovementType, PlayerActionState, PlayerActionType,
@@ -47,15 +47,15 @@ pub fn deploy_deployable(
     }
 
     let deployable_description = unwrap_or_err!(
-        ctx.db.deployable_desc_v4().deploy_from_collectible_id().find(collectible_id),
+        ctx.db.deployable_desc().deploy_from_collectible_id().find(collectible_id),
         "This is not a deployable."
     );
 
     // DAB Note: this only works if there is only a maximum of 1 deployable per collectible type.
-    // If we want to deploy more than one, we will need to get rid of the CollectibleType::Deployable and only use DeployableCollectibleStateV2 entries in the UI.
+    // If we want to deploy more than one, we will need to get rid of the CollectibleType::Deployable and only use DeployableCollectibleState entries in the UI.
     let mut deployable_collectible = unwrap_or_err!(
         ctx.db
-            .deployable_collectible_state_v2()
+            .deployable_collectible_state()
             .owner_entity_id()
             .filter(actor_id)
             .filter(|v| v.collectible_id == collectible_id)
@@ -78,14 +78,14 @@ pub fn deploy_deployable(
 
     if ctx
         .db
-        .deployable_collectible_state_v2()
+        .deployable_collectible_state()
         .owner_entity_id()
         .filter(actor_id)
         .filter_map(|v| match v.location {
             Some(_) => Some(v.deployable_desc_id),
             None => None,
         })
-        .filter(|id: &i32| ctx.db.deployable_desc_v4().id().find(id).unwrap().deployable_type == deployable_description.deployable_type)
+        .filter(|id: &i32| ctx.db.deployable_desc().id().find(id).unwrap().deployable_type == deployable_description.deployable_type)
         .next()
         .is_some()
     {
@@ -179,7 +179,7 @@ pub fn deploy_deployable(
 
         deployable_collectible.location = Some(offset);
         ctx.db
-            .deployable_collectible_state_v2()
+            .deployable_collectible_state()
             .deployable_entity_id()
             .update(deployable_collectible);
 
@@ -233,7 +233,7 @@ pub fn deploy_standalone_deployable(
         return Err("Can't place a deployable while in a deployable".into());
     }
 
-    let deployable_description = unwrap_or_err!(ctx.db.deployable_desc_v4().id().find(&deployable_id), "This is not a deployable.");
+    let deployable_description = unwrap_or_err!(ctx.db.deployable_desc().id().find(&deployable_id), "This is not a deployable.");
 
     let player_coordinates = coordinates_any_float(ctx, actor_id);
     if player_coordinates.dimension != dimensions::OVERWORLD {
@@ -359,14 +359,14 @@ pub fn dismount_deployable(ctx: &ReducerContext, player_entity_id: u64, skip_dep
         if !skip_deployable_icon {
             if let Some(mut deployable_collectible) = ctx
                 .db
-                .deployable_collectible_state_v2()
+                .deployable_collectible_state()
                 .deployable_entity_id()
                 .find(&mounting.deployable_entity_id)
             {
                 let coord = coordinates_any(ctx, mounting.deployable_entity_id);
                 deployable_collectible.location = Some(coord.into());
                 ctx.db
-                    .deployable_collectible_state_v2()
+                    .deployable_collectible_state()
                     .deployable_entity_id()
                     .update(deployable_collectible);
             }
@@ -387,14 +387,14 @@ pub fn dismount_deployable_and_set_deployable_position(
         if !skip_deployable_icon {
             if let Some(mut deployable_collectible) = ctx
                 .db
-                .deployable_collectible_state_v2()
+                .deployable_collectible_state()
                 .deployable_entity_id()
                 .find(&mounting.deployable_entity_id)
             {
                 let coord = deployable_coordinates.parent_small_tile();
                 deployable_collectible.location = Some(coord.into());
                 ctx.db
-                    .deployable_collectible_state_v2()
+                    .deployable_collectible_state()
                     .deployable_entity_id()
                     .update(deployable_collectible);
 
@@ -434,7 +434,7 @@ pub fn store_deployable(ctx: &ReducerContext, actor_id: u64, deployable_entity_i
 
     let deployable_desc = ctx
         .db
-        .deployable_desc_v4()
+        .deployable_desc()
         .id()
         .find(deployable_state.deployable_description_id)
         .unwrap();
@@ -454,7 +454,7 @@ pub fn expel_and_despawn(
     ctx: &ReducerContext,
     actor_id: u64,
     deployable_entity_id: u64,
-    deployable_desc: DeployableDescV4,
+    deployable_desc: DeployableDesc,
 ) -> Result<(), String> {
     if deployable_desc.deployable_type == DeployableType::SiegeEngine {
         return Err("You cannot store siege engines".into());
@@ -491,7 +491,7 @@ pub fn expel_and_despawn(
 pub fn deactivate_deployable_collectible(
     ctx: &ReducerContext,
     actor_id: u64,
-    deployable_desc: &DeployableDescV4,
+    deployable_desc: &DeployableDesc,
     dry_run: bool,
 ) -> Result<(), String> {
     // Deactivate deployable collectible
@@ -513,14 +513,14 @@ pub fn despawn(ctx: &ReducerContext, deployable_entity_id: u64) {
     ctx.db.mobile_entity_state().entity_id().delete(&deployable_entity_id);
     if let Some(mut deployable_collectible) = ctx
         .db
-        .deployable_collectible_state_v2()
+        .deployable_collectible_state()
         .deployable_entity_id()
         .find(&deployable_entity_id)
     {
         if deployable_collectible.location.is_some() {
             deployable_collectible.location = None;
             ctx.db
-                .deployable_collectible_state_v2()
+                .deployable_collectible_state()
                 .deployable_entity_id()
                 .update(deployable_collectible);
         }
@@ -537,7 +537,7 @@ pub fn despawn(ctx: &ReducerContext, deployable_entity_id: u64) {
 pub fn is_spawned(ctx: &ReducerContext, deployable_entity_id: u64) -> bool {
     if let Some(deployable_collectible) = ctx
         .db
-        .deployable_collectible_state_v2()
+        .deployable_collectible_state()
         .deployable_entity_id()
         .find(&deployable_entity_id)
     {
@@ -593,7 +593,7 @@ pub fn move_deployable(
             duration,
             None,
             None,
-            game_state::unix_ms(ctx.timestamp),
+            timestamp,
         );
     }
     Ok(())

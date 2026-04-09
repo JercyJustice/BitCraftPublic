@@ -2,13 +2,14 @@ use spacetimedb::{ReducerContext, Table};
 
 pub use crate::game::coordinates::*;
 use crate::game::game_state;
+use crate::game::reducer_helpers::building_helpers;
 use crate::messages::components::{
     bank_state, building_nickname_state, claim_local_state, claim_tech_state, waystone_state, BankState, BuildingNicknameState,
     DimensionNetworkState, MarketplaceState, RentState, WaystoneState,
 };
 pub use crate::messages::components::{BuildingState, InventoryState};
 use crate::messages::inter_module::EmpireCreateBuildingMsg;
-use crate::messages::static_data::{construction_recipe_desc_v2, BuildingCategory, BuildingDesc};
+use crate::messages::static_data::{construction_recipe_desc, BuildingCategory, BuildingDesc};
 use crate::messages::util::SmallHexTileMessage;
 use crate::{
     building_desc, building_state, claim_state, dimension_network_state, inter_module, inventory_state, marketplace_state, rent_state,
@@ -119,29 +120,20 @@ impl BuildingState {
         }
     }
 
-    pub fn unclaim(ctx: &ReducerContext, building_entity_id: u64) {
+    pub fn unclaim(ctx: &ReducerContext, building_entity_id: u64, from_destructor: bool) {
         if let Some(building) = ctx.db.building_state().entity_id().find(&building_entity_id) {
-            building.unclaim_self(ctx, true);
-        }
-        if let Some(mut waystone) = ctx.db.waystone_state().building_entity_id().find(&building_entity_id) {
-            waystone.claim_entity_id = 0;
-            ctx.db.waystone_state().building_entity_id().update(waystone);
-        }
-        if let Some(mut bank) = ctx.db.bank_state().building_entity_id().find(&building_entity_id) {
-            bank.claim_entity_id = 0;
-            ctx.db.bank_state().building_entity_id().update(bank);
-        }
-        if let Some(mut marketplace) = ctx.db.marketplace_state().building_entity_id().find(&building_entity_id) {
-            marketplace.claim_entity_id = 0;
-            ctx.db.marketplace_state().building_entity_id().update(marketplace);
+            building.unclaim_self(ctx, true, from_destructor);
         }
     }
 
-    pub fn unclaim_self(self, ctx: &ReducerContext, update_claim_maintenance: bool) {
+    pub fn unclaim_self(self, ctx: &ReducerContext, update_claim_maintenance: bool, from_destructor: bool) {
+        let building_entity_id = self.entity_id;
+        let building_desc = ctx.db.building_desc().id().find(self.building_description_id).unwrap();
+
         if self.claim_entity_id != 0 {
             if update_claim_maintenance {
                 // Update claim decay
-                let building_maintenance = ctx.db.building_desc().id().find(&self.building_description_id).unwrap().maintenance;
+                let building_maintenance = building_desc.maintenance;
                 if building_maintenance != 0.0 {
                     let claim = ctx.db.claim_state().entity_id().find(&self.claim_entity_id).unwrap();
                     let mut claim_local = claim.local_state(ctx);
@@ -153,6 +145,28 @@ impl BuildingState {
             let mut building = self;
             building.claim_entity_id = 0;
             ctx.db.building_state().entity_id().update(building);
+        }
+
+        if from_destructor {
+            return;
+        }
+
+        if let Some(mut waystone) = ctx.db.waystone_state().building_entity_id().find(building_entity_id) {
+            waystone.claim_entity_id = 0;
+            ctx.db.waystone_state().building_entity_id().update(waystone);
+        }
+        // Shouldn't be needed since banks SHOULD have the destroy_on_unclaim flag; still leaving this code in case it's forgotten as the alternative would be worse.
+        if let Some(mut bank) = ctx.db.bank_state().building_entity_id().find(&building_entity_id) {
+            bank.claim_entity_id = 0;
+            ctx.db.bank_state().building_entity_id().update(bank);
+        }
+        // Shouldn't be needed since marketplaces SHOULD have the destroy_on_unclaim flag; still leaving this code in case it's forgotten as the alternative would be worse.
+        if let Some(mut marketplace) = ctx.db.marketplace_state().building_entity_id().find(&building_entity_id) {
+            marketplace.claim_entity_id = 0;
+            ctx.db.marketplace_state().building_entity_id().update(marketplace);
+        }
+        if building_desc.destroy_on_unclaim {
+            building_helpers::delete_building(ctx, 0, building_entity_id, None, false, false);
         }
     }
 
@@ -200,11 +214,10 @@ impl BuildingState {
         location: SmallHexTile,
         construction_recipe_id: Option<i32>,
     ) {
-        if building_desc.has_category(ctx, BuildingCategory::Watchtower) || building_desc.has_category(ctx, BuildingCategory::EmpireFoundry)
-        {
+        if building_desc.has_category(ctx, BuildingCategory::EmpireFoundry) {
             inter_module::send_inter_module_message(
                 ctx,
-                crate::messages::inter_module::MessageContentsV4::EmpireCreateBuilding(EmpireCreateBuildingMsg {
+                crate::messages::inter_module::MessageContentsV2::EmpireCreateBuilding(EmpireCreateBuildingMsg {
                     player_entity_id,
                     building_entity_id,
                     location: location.into(),
@@ -238,14 +251,18 @@ impl BuildingState {
         claim_entity_id: u64,
         building_desc: &BuildingDesc,
         coordinates: SmallHexTileMessage,
-    ) {
+    ) -> Result<(), String> {
         if building_desc.has_category(ctx, BuildingCategory::Bank) {
+            if ctx.db.bank_state().claim_entity_id().filter(claim_entity_id).next().is_some() {
+                return Err("Claims can only have one bank".into());
+            }
             ctx.db.bank_state().insert(BankState {
                 building_entity_id: building_entity_id,
                 claim_entity_id: claim_entity_id,
                 coordinates: coordinates,
             });
         }
+        Ok(())
     }
 
     pub fn create_marketplace(
@@ -254,14 +271,25 @@ impl BuildingState {
         claim_entity_id: u64,
         building_desc: &BuildingDesc,
         coordinates: SmallHexTileMessage,
-    ) {
+    ) -> Result<(), String> {
         if building_desc.has_category(ctx, BuildingCategory::TownMarket) {
+            if ctx
+                .db
+                .marketplace_state()
+                .claim_entity_id()
+                .filter(claim_entity_id)
+                .next()
+                .is_some()
+            {
+                return Err("Claims can only have one market".into());
+            }
             ctx.db.marketplace_state().insert(MarketplaceState {
                 building_entity_id: building_entity_id,
                 claim_entity_id: claim_entity_id,
                 coordinates: coordinates,
             });
         }
+        Ok(())
     }
 
     pub fn ensure_claim_tech(&self, ctx: &ReducerContext) -> Result<(), String> {
@@ -274,7 +302,7 @@ impl BuildingState {
 
         if let Some(recipe) = ctx
             .db
-            .construction_recipe_desc_v2()
+            .construction_recipe_desc()
             .building_description_id()
             .filter(self.building_description_id)
             .next()

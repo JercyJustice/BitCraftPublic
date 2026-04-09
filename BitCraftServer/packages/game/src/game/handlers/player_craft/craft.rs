@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use std::time::Duration;
 
 use spacetimedb::{ReducerContext, Table};
@@ -29,6 +30,7 @@ pub fn event_delay(recipe: &CraftingRecipeDesc, stats: &CharacterStatsState) -> 
 }
 
 #[spacetimedb::reducer]
+#[feature_gate("craft")]
 pub fn craft_initiate_start(ctx: &ReducerContext, request: PlayerCraftInitiateRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -89,6 +91,7 @@ pub fn craft_initiate_start(ctx: &ReducerContext, request: PlayerCraftInitiateRe
 }
 
 #[spacetimedb::reducer]
+#[feature_gate("craft")]
 pub fn craft_initiate(ctx: &ReducerContext, request: PlayerCraftInitiateRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -127,6 +130,7 @@ pub fn craft_initiate(ctx: &ReducerContext, request: PlayerCraftInitiateRequest)
 }
 
 #[spacetimedb::reducer]
+#[feature_gate("craft")]
 pub fn craft_continue_start(ctx: &ReducerContext, request: PlayerCraftContinueRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -180,6 +184,7 @@ pub fn craft_continue_start(ctx: &ReducerContext, request: PlayerCraftContinueRe
 }
 
 #[spacetimedb::reducer]
+#[feature_gate("craft")]
 pub fn craft_continue(ctx: &ReducerContext, request: PlayerCraftContinueRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -224,6 +229,11 @@ pub fn reduce(
 ) -> Result<(), String> {
     HealthState::check_incapacitated(ctx, actor_id, true)?;
 
+    if new_craft_count.is_some() && new_craft_count.unwrap() <= 0 {
+        return Err("Invalid quantity".into());
+    }
+
+    PlayerActionState::validate_timestamp_basic(ctx, actor_id, PlayerActionType::Craft, timestamp)?;
     if !dry_run {
         // Make sure target and timestamp and action fit
         PlayerActionState::validate(ctx, actor_id, PlayerActionType::Craft, Some(building_entity_id))?;
@@ -366,22 +376,24 @@ pub fn reduce(
         };
     }
 
-    // Limit to 1 lock per building per player if not a member of the claim
-    if building.claim_entity_id != 0 {
-        if ProgressiveActionState::get_active_locks_on_building(ctx, actor_id, building.entity_id)
-            .any(|action| action.entity_id != progressive_action.entity_id)
-        {
-            if let Some(claim) = ctx.db.claim_state().entity_id().find(&building.claim_entity_id) {
-                if claim.owner_player_entity_id != 0 {
-                    if !claim.get_member(ctx, actor_id).is_some() {
-                        return Err("Non claim members can only have 1 ongoing craft per building".into());
+    // Limit to 1 lock per building per player if not a member of the claim, but only when working on our own craft
+    if progressive_action.owner_entity_id == actor_id {
+        if building.claim_entity_id != 0 {
+            if ProgressiveActionState::get_active_locks_on_building(ctx, actor_id, building.entity_id)
+                .any(|action| action.entity_id != progressive_action.entity_id)
+            {
+                if let Some(claim) = ctx.db.claim_state().entity_id().find(&building.claim_entity_id) {
+                    if claim.owner_player_entity_id != 0 {
+                        if !claim.get_member(ctx, actor_id).is_some() {
+                            return Err("Non claim members can only have 1 ongoing craft per building".into());
+                        }
+                    } else {
+                        // If there is no owner, this must be a neutral claim
+                        return Err("You can only have 1 ongoing craft per shared building".into());
                     }
                 } else {
-                    // If there is no owner, this must be a neutral claim
-                    return Err("You can only have 1 ongoing craft per shared building".into());
+                    return Err("Invalid claim".into());
                 }
-            } else {
-                return Err("Invalid claim".into());
             }
         }
     }
@@ -422,22 +434,35 @@ pub fn reduce(
 
     if meets_tool_requirements && meets_level_requirements {
         if !dry_run {
-            let crit_outcome = player_action_helpers::roll_crit_outcome(player_level, recipe_desired_skill_level);
-            let skill_power = match recipe.get_skill_type() {
-                Some(skill) => stats.get_skill_power(skill),
-                None => 0.0,
-            };
-            let tool_power = if let Some(tool) = tool { tool.power as f32 } else { 1.0 } + skill_power;
-            let damage = (tool_power * crit_outcome).round() as i32;
-            let actions_count = i32::min(
-                recipe.actions_required * progressive_action.craft_count - progressive_action.progress,
-                damage,
-            );
+            let skill = recipe.get_skill_type();
 
-            if crit_outcome >= 1.0 {
+            let mut actions_count = 0;
+            let mut crit_multiplier = 1.0;
+
+            if player_level >= recipe_desired_skill_level {
+                let skill_power = match skill {
+                    Some(s) => stats.get_skill_power(s),
+                    None => 0.0,
+                };
+                let tool_power = if let Some(tool) = tool { tool.power as f32 } else { 1.0 } + skill_power;
+
+                crit_multiplier = stats.get_final_crit_multiplier(ctx, skill);
+
+                let base_damage = tool_power.round() as i32;
+                let damage = (tool_power * crit_multiplier).round() as i32;
+
+                let experience_actions_count = i32::min(
+                    recipe.actions_required * progressive_action.craft_count - progressive_action.progress,
+                    base_damage,
+                );
+                actions_count = i32::min(
+                    recipe.actions_required * progressive_action.craft_count - progressive_action.progress,
+                    damage,
+                );
+
                 let experience_per_progress = recipe.experience_per_progress.get(0);
                 if let Some(experience_per_progress) = experience_per_progress {
-                    let quantity = f32::ceil(experience_per_progress.quantity * actions_count as f32) as i32;
+                    let quantity = f32::ceil(experience_per_progress.quantity * experience_actions_count as f32) as i32;
                     ExperienceState::add_experience(ctx, actor_id, experience_per_progress.skill_id, quantity);
 
                     if building.claim_entity_id != 0 {
@@ -445,7 +470,7 @@ pub fn reduce(
                     }
                 }
             }
-            progressive_action.last_crit_outcome = crit_outcome.ceil() as i32;
+            progressive_action.last_crit_outcome = crit_multiplier.ceil() as i32;
             progressive_action.progress += actions_count;
             if progressive_action.progress >= recipe.actions_required * progressive_action.craft_count {
                 PlayerActionState::success(
@@ -463,6 +488,8 @@ pub fn reduce(
             if recipe.tool_durability_lost > 0 {
                 InventoryState::reduce_tool_durability(ctx, actor_id, recipe.tool_requirements[0].tool_type, recipe.tool_durability_lost);
             }
+
+            PlayerActionState::mark_as_consumed(ctx, actor_id)?;
         }
     } else {
         PlayerActionState::clear_by_entity_id(ctx, actor_id)?;

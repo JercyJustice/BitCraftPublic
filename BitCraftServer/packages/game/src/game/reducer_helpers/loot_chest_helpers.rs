@@ -7,7 +7,7 @@ use crate::game::handlers::server::loot_chest_despawn::loot_chest_despawn_timer;
 use crate::messages::components::{FootprintTileState, LootChestState};
 use crate::{
     chest_rarity_desc, footprint_tile_state, interior_collapse_trigger_state, location_state, loot_chest_desc, loot_chest_state,
-    parameters_desc_v2,
+    parameters_desc,
 };
 use crate::{
     game::{
@@ -109,7 +109,7 @@ pub fn on_item_taken_from_loot_chest(ctx: &ReducerContext, owner_entity_id: u64,
         // if this item was removed from a loot chest, then start a timer to re-roll it
         if from_inventory_empty {
             let loot_chest = ctx.db.loot_chest_state().entity_id().find(&owner_entity_id).unwrap();
-            let despawn_time = ctx.db.parameters_desc_v2().version().find(&0).unwrap().loot_chest_despawn_time_seconds;
+            let despawn_time = ctx.db.parameters_desc().version().find(&0).unwrap().loot_chest_despawn_time_seconds;
             ctx.db
                 .loot_chest_despawn_timer()
                 .try_insert(LootChestDespawnTimer {

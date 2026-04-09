@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use crate::game::game_state::{self, game_state_filters};
 use crate::game::handlers::inventory::inventory_helper;
 use crate::game::permission_helper;
@@ -5,10 +6,11 @@ use crate::game::reducer_helpers::player_action_helpers;
 use crate::messages::action_request::PlayerProjectSiteAddMaterialsRequest;
 use crate::messages::components::*;
 use crate::messages::game_util::{InputItemStack, ItemStack, ItemType};
-use crate::{construction_recipe_desc_v2, resource_placement_recipe_desc_v2, unwrap_or_err};
+use crate::{construction_recipe_desc, resource_placement_recipe_desc, unwrap_or_err};
 use spacetimedb::ReducerContext;
 
 #[spacetimedb::reducer]
+#[feature_gate("build")]
 pub fn project_site_add_materials(ctx: &ReducerContext, request: PlayerProjectSiteAddMaterialsRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -39,10 +41,11 @@ pub fn project_site_add_materials(ctx: &ReducerContext, request: PlayerProjectSi
         return Err("Too far".into());
     }
 
-    let construction_recipe = ctx.db.construction_recipe_desc_v2().id().find(&project_site.construction_recipe_id);
+    let construction_recipe = ctx.db.construction_recipe_desc().id().find(&project_site.construction_recipe_id);
+
     let resource_placement_recipe = ctx
         .db
-        .resource_placement_recipe_desc_v2()
+        .resource_placement_recipe_desc()
         .id()
         .find(&project_site.resource_placement_recipe_id);
 

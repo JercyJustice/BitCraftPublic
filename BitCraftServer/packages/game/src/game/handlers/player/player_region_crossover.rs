@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use crate::game::coordinates::hex_coordinates::HexCoordinates;
 use crate::game::coordinates::offset_coordinates::OffsetCoordinates;
 use crate::game::coordinates::region_coordinates::RegionCoordinates;
@@ -12,6 +13,7 @@ use crate::{
 use spacetimedb::{ReducerContext, Table};
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn player_region_crossover(ctx: &ReducerContext) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     HealthState::check_incapacitated(ctx, actor_id, true)?;
@@ -77,7 +79,7 @@ pub fn player_region_crossover(ctx: &ReducerContext) -> Result<(), String> {
     };
 
     let teleport_location = FloatHexTile::from(LargeHexTile::from(HexCoordinates::from(target_coord)).center_small_tile());
-    crate::inter_module::transfer_player::send_message(ctx, actor_id, teleport_location.into(), true, 0.0);
+    crate::inter_module::transfer_player::send_message(ctx, actor_id, teleport_location.into(), true, 0.0)?;
 
     Ok(())
 }

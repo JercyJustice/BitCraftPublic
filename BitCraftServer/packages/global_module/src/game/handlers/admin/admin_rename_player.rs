@@ -5,8 +5,11 @@ use crate::{
     inter_module::{send_inter_module_message, InterModuleDestination},
     messages::{
         authentication::Role,
-        components::{player_lowercase_username_state, player_username_state, PlayerLowercaseUsernameState, PlayerUsernameState},
-        inter_module::{MessageContentsV3, OnPlayerNameSetMsg},
+        components::{
+            player_lowercase_username_state, player_username_state, previous_player_username_state, user_state,
+            PlayerLowercaseUsernameState, PlayerUsernameState,
+        },
+        inter_module::{MessageContentsV2, OnPlayerNameSetMsg},
     },
     unwrap_or_err,
 };
@@ -35,6 +38,23 @@ pub fn admin_rename_player_entity(ctx: &ReducerContext, entity_id: u64, new_name
         return Err("Unauthorized".into());
     }
 
+    let user = ctx.db.user_state().entity_id().find(entity_id).unwrap();
+
+    // Prevent the player from using a name assigned to a different player
+    if let Some(previous_entry) = ctx
+        .db
+        .previous_player_username_state()
+        .lower_case_name()
+        .find(new_name.to_lowercase())
+    {
+        if previous_entry.identity != user.identity {
+            return Err("This name is unavailable".into());
+        }
+    }
+
+    // Clear player's reserved name, if any, whether it used the previous name or not
+    ctx.db.previous_player_username_state().identity().delete(user.identity);
+
     ctx.db
         .player_lowercase_username_state()
         .entity_id()
@@ -54,7 +74,7 @@ pub fn admin_rename_player_entity(ctx: &ReducerContext, entity_id: u64, new_name
     let player_region = game_state::player_region(ctx, entity_id)?;
     send_inter_module_message(
         ctx,
-        MessageContentsV3::OnPlayerNameSetRequest(msg),
+        MessageContentsV2::OnPlayerNameSetRequest(msg),
         InterModuleDestination::Region(player_region),
     );
 

@@ -10,7 +10,7 @@ use crate::{
         components::{building_state, player_housing_state, ClaimLocalState},
         static_data::{building_desc, BuildingFunction},
     },
-    parameters_desc_v2,
+    parameters_desc,
 };
 
 const SECONDS_IN_A_DAY: i32 = 24 * 60 * 60;
@@ -27,7 +27,7 @@ pub struct PlayerHousingIncomeLoopTimer {
 pub fn schedule_first_tick(ctx: &ReducerContext) {
     let tick_time_of_day = ctx
         .db
-        .parameters_desc_v2()
+        .parameters_desc()
         .version()
         .find(&0)
         .unwrap()

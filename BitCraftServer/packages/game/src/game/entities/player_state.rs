@@ -60,7 +60,7 @@ impl PlayerState {
         start_coordinates: &FloatHexTile,
         target_coordinates: &FloatHexTile,
         stamina_delta: f32,
-        is_running: bool,
+        is_walking: bool,
         timestamp: Option<u64>,
     ) -> Result<(), String> {
         let start_large = start_coordinates.parent_large_tile();
@@ -124,7 +124,7 @@ impl PlayerState {
             start_coordinates,
             target_coordinates,
             stamina_delta,
-            is_running,
+            is_walking,
             timestamp,
         );
     }
@@ -135,7 +135,7 @@ impl PlayerState {
         start_coordinates: &FloatHexTile,
         target_coordinates: &FloatHexTile,
         stamina_delta: f32,
-        is_running: bool,
+        is_walking: bool,
         timestamp: Option<u64>,
     ) -> Result<(), String> {
         let start_large = start_coordinates.parent_large_tile();
@@ -178,7 +178,7 @@ impl PlayerState {
             destination_x: target_offset_coordinates.x.clamp(1, i32::MAX),
             destination_z: target_offset_coordinates.z.clamp(1, i32::MAX),
             dimension: target_offset_coordinates.dimension,
-            is_running,
+            is_walking,
             _pad1: 0,
             _pad2: 0,
             _pad3: 0,
@@ -262,7 +262,7 @@ impl PlayerState {
     }
 
     pub fn collect_deployable_stats(ctx: &ReducerContext, deployable_desc_id: i32, bonuses: &mut HashMap<CharacterStatType, (f32, f32)>) {
-        let deployable_desc = ctx.db.deployable_desc_v4().id().find(&deployable_desc_id).unwrap();
+        let deployable_desc = ctx.db.deployable_desc().id().find(&deployable_desc_id).unwrap();
         for stat_delta in &deployable_desc.stats {
             let entry = bonuses.entry(stat_delta.id).or_insert((0.0, 0.0));
             if stat_delta.is_pct {
@@ -326,7 +326,7 @@ impl PlayerState {
     }
 
     pub fn get_combat_weapon_type(ctx: &ReducerContext) -> i32 {
-        ctx.db.parameters_desc_v2().version().find(0).unwrap().default_num_toolbelt_pockets
+        ToolTypeDesc::get_combat_weapon_slot(ctx) + 1
     }
 
     pub fn get_hunting_weapon(ctx: &ReducerContext, actor_id: u64) -> Option<ItemStack> {
@@ -352,7 +352,7 @@ impl PlayerState {
                 PlayerState::collect_stats(ctx, actor_id);
 
                 let mut i = 1;
-                for combat_action in ctx.db.combat_action_desc_v3().iter() {
+                for combat_action in ctx.db.combat_action_desc().iter() {
                     if combat_action.learned_by_player
                         && combat_action.weapon_type_requirements.contains(&weapon_type.id)
                         && !combat_action.auto_cast
@@ -409,7 +409,7 @@ impl PlayerState {
             if let Some(weapon_type) = ctx.db.weapon_type_desc().id().find(&weapon.weapon_type) {
                 PlayerState::collect_stats(ctx, actor_id);
 
-                for combat_action in ctx.db.combat_action_desc_v3().iter() {
+                for combat_action in ctx.db.combat_action_desc().iter() {
                     if combat_action.learned_by_player
                         && combat_action.weapon_type_requirements.contains(&weapon_type.id)
                         && combat_action.auto_cast
@@ -430,7 +430,7 @@ impl PlayerState {
                 for mut ability in ctx.db.ability_state().owner_entity_id().filter(actor_id) {
                     match ability.ability {
                         AbilityType::CombatAction(id) => {
-                            let combat_action = ctx.db.combat_action_desc_v3().id().find(id).unwrap();
+                            let combat_action = ctx.db.combat_action_desc().id().find(id).unwrap();
 
                             // Default is combat weapon, unless it's a huntable enemy
                             let is_huntable = weapon_type.hunting;
@@ -569,7 +569,7 @@ impl PlayerState {
         TravelerTaskState::delete_all_for_player(ctx, self.entity_id);
         // Need to create new tasks for the player
         let requests = TravelerTaskState::generate_npc_requests_hashmap(ctx);
-        let tasks_per_npc = ctx.db.parameters_desc_v2().version().find(0).unwrap().traveler_tasks_per_npc;
+        let tasks_per_npc = ctx.db.parameters_desc().version().find(0).unwrap().traveler_tasks_per_npc;
         TravelerTaskState::generate_all_for_player(ctx, self.entity_id, &requests, tasks_per_npc, next_task_refresh);
     }
 }

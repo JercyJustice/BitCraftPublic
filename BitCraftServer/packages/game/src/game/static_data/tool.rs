@@ -8,7 +8,7 @@ impl ToolDesc {
     pub fn get_required_tool(ctx: &ReducerContext, player_entity_id: u64, tool_requirement: &ToolRequirement) -> Result<ToolDesc, String> {
         let toolbelt_inventory = InventoryState::get_player_toolbelt(ctx, player_entity_id).unwrap();
         let toolbelt = &toolbelt_inventory.pockets;
-        let toolbelt_pocket = (tool_requirement.tool_type - 1) as usize;
+        let toolbelt_pocket = ToolTypeDesc::get_slot_from_tool_type_id(ctx, tool_requirement.tool_type) as usize;
 
         if let Some(pocket) = toolbelt.get(toolbelt_pocket) {
             if let Some(contents) = pocket.contents {
@@ -45,7 +45,7 @@ impl ToolDesc {
     pub fn get_equipped_tool(ctx: &ReducerContext, player_entity_id: u64, tool_requirement: &ToolRequirement) -> Option<ToolDesc> {
         let toolbelt_inventory = InventoryState::get_player_toolbelt(ctx, player_entity_id).unwrap();
         let toolbelt = &toolbelt_inventory.pockets;
-        let toolbelt_pocket = (tool_requirement.tool_type - 1) as usize;
+        let toolbelt_pocket = ToolTypeDesc::get_slot_from_tool_type_id(ctx, tool_requirement.tool_type) as usize;
 
         if let Some(pocket) = toolbelt.get(toolbelt_pocket) {
             if let Some(contents) = pocket.contents {
@@ -75,14 +75,30 @@ impl ToolDesc {
         }
 
         // calculate time factor
-        let log_f = ctx.db.parameters_desc_v2().version().find(&0).unwrap().tech_time_log_base.ln();
+        let log_f = ctx.db.parameters_desc().version().find(&0).unwrap().tech_time_log_base.ln();
         // transform to float range of [0, 2]
         let modified_tech_power_delta = 1.0 + tech_power_delta as f32 / 100.0;
         let speed_factor = if tech_power_delta < 0 {
-            modified_tech_power_delta.powf(ctx.db.parameters_desc_v2().version().find(&0).unwrap().tech_time_power_exponent)
+            modified_tech_power_delta.powf(ctx.db.parameters_desc().version().find(&0).unwrap().tech_time_power_exponent)
         } else {
             modified_tech_power_delta.ln() / log_f + 1.0
         };
         1.0 / speed_factor
+    }
+}
+
+impl ToolTypeDesc {
+    pub fn get_combat_weapon_slot(ctx: &ReducerContext) -> i32 {
+        // Using Slayer skill to recognize weapons from tool type even if it's not technically the ase
+        ctx.db.tool_type_desc().skill_id().find(SkillType::Slayer as i32).unwrap().id - 1
+    }
+
+    pub fn get_slot_from_skill_id(ctx: &ReducerContext, skill_id: i32) -> i32 {
+        // Using Slayer skill to recognize weapons from tool type even if it's not technically the ase
+        ctx.db.tool_type_desc().skill_id().find(skill_id).unwrap().id - 1
+    }
+
+    pub fn get_slot_from_tool_type_id(ctx: &ReducerContext, tool_type_id: i32) -> i32 {
+        ctx.db.tool_type_desc().id().find(tool_type_id).unwrap().id - 1
     }
 }

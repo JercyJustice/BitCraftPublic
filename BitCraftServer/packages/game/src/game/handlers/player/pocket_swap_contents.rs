@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use crate::game::discovery::Discovery;
 use crate::game::entities::building_state::InventoryState;
 use crate::game::entities::inventory_type;
@@ -7,13 +8,15 @@ use crate::game::reducer_helpers::{loot_chest_helpers, player_action_helpers};
 use crate::messages::action_request::PlayerPocketSwapContentsRequest;
 use crate::messages::components::*;
 use crate::messages::game_util::*;
+use crate::messages::static_data::ToolTypeDesc;
 use crate::{
-    building_desc, cargo_desc, equipment_desc, item_desc, parameters_desc_v2, skill_desc, tool_desc, unwrap_or_err, weapon_desc,
-    weapon_type_desc, AchievementDesc, BuildingFunction,
+    building_desc, cargo_desc, equipment_desc, item_desc, skill_desc, tool_desc, unwrap_or_err, weapon_desc, weapon_type_desc,
+    AchievementDesc, BuildingFunction,
 };
 use spacetimedb::ReducerContext;
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn pocket_swap_contents(ctx: &ReducerContext, request: PlayerPocketSwapContentsRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -97,7 +100,7 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, from_pocket: &PocketKey, to_p
             return Err("Only tools or weapons are allowed on the toolbelt".into());
         }
         // Weapon always goes on last pocket
-        if to_pocket.pocket_index == ctx.db.parameters_desc_v2().version().find(&0).unwrap().default_num_toolbelt_pockets - 1 {
+        if to_pocket.pocket_index == ToolTypeDesc::get_combat_weapon_slot(ctx) {
             if let Some(info) = weapon_info {
                 let weapon_type = ctx.db.weapon_type_desc().id().find(&info.weapon_type).unwrap();
                 if weapon_type.hunting {
@@ -107,7 +110,7 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, from_pocket: &PocketKey, to_p
                 return Err("Only weapons go on this pocket.".into());
             }
         } else {
-            if to_pocket.pocket_index != tool_info.unwrap().tool_type - 1 {
+            if to_pocket.pocket_index != ToolTypeDesc::get_slot_from_tool_type_id(ctx, tool_info.unwrap().tool_type) {
                 return Err("This tool doesn't go on this pocket.".into());
             }
         }
@@ -117,17 +120,25 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, from_pocket: &PocketKey, to_p
 
     let to_pocket = to_inventory.pockets[to_index].clone();
 
-    //only allow hex coins in wallet
-    if to_inventory.inventory_index == 2 && item_id != 1 {
-        return Err("Only hex coins are allowed in the wallet.".into());
+    // only allow the right item ids in wallet
+    if to_inventory.inventory_index == 2 {
+        if let Some(wallet_pocket) = to_inventory.wallet_pocket_target(ctx, &from_contents) {
+            if wallet_pocket != to_index {
+                return Err("Not allowed in that wallet slot".into());
+            }
+        } else {
+            return Err("Not allowed in the wallet.".into());
+        }
     }
 
-    //only allow hex coins in wallet
+    // only allow swapping back the right item id in the right wallet pocket
     if from_inventory.inventory_index == 2 && !to_empty {
-        if let Some(to_pocket_contents) = to_pocket.contents {
-            if to_pocket_contents.item_id != 1 {
-                return Err("Only hex coins are allowed in the wallet.".into());
+        if let Some(wallet_pocket) = from_inventory.wallet_pocket_target(ctx, &to_pocket.contents.unwrap()) {
+            if wallet_pocket != from_pocket.pocket_index as usize {
+                return Err("Not allowed in that wallet slot".into());
             }
+        } else {
+            return Err("Not allowed in the wallet.".into());
         }
     }
 
@@ -431,7 +442,7 @@ fn validate_equip_on_toolbelt(ctx: &ReducerContext, actor_id: u64, item_id: i32,
     }
 
     // Validate item ending on the pocket (in case it was a swap)
-    if to_index == ctx.db.parameters_desc_v2().version().find(&0).unwrap().default_num_toolbelt_pockets - 1 {
+    if to_index == ToolTypeDesc::get_combat_weapon_slot(ctx) {
         let weapon_info = ctx.db.weapon_desc().item_id().find(item_id);
         if let Some(info) = weapon_info {
             let weapon_type = ctx.db.weapon_type_desc().id().find(info.weapon_type).unwrap();
@@ -443,7 +454,7 @@ fn validate_equip_on_toolbelt(ctx: &ReducerContext, actor_id: u64, item_id: i32,
         }
     } else {
         let tool_info = ctx.db.tool_desc().item_id().filter(item_id).next();
-        if to_index != tool_info.unwrap().tool_type - 1 {
+        if to_index != ToolTypeDesc::get_slot_from_tool_type_id(ctx, tool_info.unwrap().tool_type) {
             return Err("This tool doesn't go on this pocket.".into());
         }
     }

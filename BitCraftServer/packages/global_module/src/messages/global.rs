@@ -240,7 +240,7 @@ pub struct PremiumPurchaseState {
     #[auto_inc]
     pub entity_id: u64,
     pub identity: Identity,
-    pub collectible_desc_id: Option<i32>,
+    pub collectible_desc_ids: Option<Vec<i32>>,
     pub price: u32,
     pub timestamp: Timestamp,
     pub processed: bool,

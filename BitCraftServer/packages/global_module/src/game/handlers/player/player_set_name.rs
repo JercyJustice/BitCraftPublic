@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use regex::Regex;
 use spacetimedb::{ReducerContext, Table};
 
@@ -10,13 +11,14 @@ use crate::{
         authentication::Role,
         components::*,
         global::user_region_state,
-        inter_module::{MessageContentsV4, OnPlayerNameSetMsg},
+        inter_module::{MessageContentsV2, OnPlayerNameSetMsg},
         static_data::reserved_name_desc,
     },
     unwrap_or_err,
 };
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn player_set_name(ctx: &ReducerContext, request: PlayerSetNameRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
 
@@ -38,12 +40,22 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, username: String) -> Result<
         if lowercase_name.contains("clockwork") || lowercase_name.contains("spacetime") || lowercase_name.contains("bitcraft") {
             return Err("This name is unavailable".into());
         }
-        if ctx.db.reserved_name_desc().name().find(lowercase_name).is_some() {
+        if ctx.db.reserved_name_desc().name().find(&lowercase_name).is_some() {
             return Err("This name is unavailable".into());
         }
     }
 
     let identity = unwrap_or_err!(ctx.db.user_state().entity_id().find(entity_id), "Player not found").identity;
+
+    // Prevent the player from using a name assigned to a different player
+    if let Some(previous_entry) = ctx.db.previous_player_username_state().lower_case_name().find(lowercase_name) {
+        if previous_entry.identity != identity {
+            return Err("This name is unavailable".into());
+        }
+    }
+
+    // Clear player's reserved name, if any, whether it used the previous name or not
+    ctx.db.previous_player_username_state().identity().delete(identity);
 
     let player_region = unwrap_or_err!(ctx.db.user_region_state().identity().find(&identity), "Player region not found").region_id;
 
@@ -65,7 +77,7 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, username: String) -> Result<
     };
     send_inter_module_message(
         ctx,
-        MessageContentsV4::OnPlayerNameSetRequest(msg),
+        MessageContentsV2::OnPlayerNameSetRequest(msg),
         InterModuleDestination::Region(player_region),
     );
 

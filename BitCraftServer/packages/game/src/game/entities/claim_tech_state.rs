@@ -2,13 +2,13 @@ use std::u32;
 
 use spacetimedb::ReducerContext;
 
-use crate::{claim_tech_desc_v2, messages::components::ClaimTechState};
+use crate::{claim_tech_desc, messages::components::ClaimTechState};
 
 impl ClaimTechState {
     pub fn max_supplies(&self, ctx: &ReducerContext) -> f32 {
         self.learned
             .iter()
-            .map(|id| ctx.db.claim_tech_desc_v2().id().find(id).unwrap().supplies)
+            .map(|id| ctx.db.claim_tech_desc().id().find(id).unwrap().supplies)
             .max()
             .unwrap() as f32
     }
@@ -16,7 +16,7 @@ impl ClaimTechState {
     pub fn max_members(&self, ctx: &ReducerContext) -> i32 {
         self.learned
             .iter()
-            .map(|id| ctx.db.claim_tech_desc_v2().id().find(id).unwrap().members)
+            .map(|id| ctx.db.claim_tech_desc().id().find(id).unwrap().members)
             .max()
             .unwrap()
     }
@@ -24,7 +24,7 @@ impl ClaimTechState {
     pub fn max_tiles(&self, ctx: &ReducerContext) -> i32 {
         self.learned
             .iter()
-            .map(|id| ctx.db.claim_tech_desc_v2().id().find(id).unwrap().area)
+            .map(|id| ctx.db.claim_tech_desc().id().find(id).unwrap().area)
             .max()
             .unwrap()
     }
@@ -34,9 +34,9 @@ impl ClaimTechState {
             .learned
             .iter()
             .filter_map(|id| {
-                if let Some(claim_tech_desc_v2) = ctx.db.claim_tech_desc_v2().id().find(id) {
-                    if claim_tech_desc_v2.xp_to_mint_hex_coin > 0 {
-                        return Some(claim_tech_desc_v2.xp_to_mint_hex_coin);
+                if let Some(claim_tech_desc) = ctx.db.claim_tech_desc().id().find(id) {
+                    if claim_tech_desc.xp_to_mint_hex_coin > 0 {
+                        return Some(claim_tech_desc.xp_to_mint_hex_coin);
                     }
                 }
                 return Some(u32::MAX);

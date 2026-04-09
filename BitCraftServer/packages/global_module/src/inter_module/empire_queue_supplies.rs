@@ -5,13 +5,13 @@ use crate::{
         handlers::empires::empires::{empire_craft_supplies_timer, EmpireCraftSuppliesTimer},
         reducer_helpers::timer_helpers::now_plus_secs,
     },
-    messages::{empire_schema::empire_foundry_state, empire_shared::*, inter_module::*, static_data::parameters_desc_v2},
+    messages::{empire_schema::empire_foundry_state, empire_shared::*, inter_module::*, static_data::parameters_desc},
     unwrap_or_err,
 };
 
 pub fn process_message_on_destination(ctx: &ReducerContext, request: EmpireQueueSuppliesMsg) -> Result<(), String> {
-    let params = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
-    let shard_cost = params.hexite_capsule_shard_cost as u32;
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
+    let empire_currency_cost = params.hexite_capsule_currency_cost as u32;
 
     let mut empire = unwrap_or_err!(
         ctx.db
@@ -21,10 +21,10 @@ pub fn process_message_on_destination(ctx: &ReducerContext, request: EmpireQueue
         "The foundry can only be used in the capital city"
     );
 
-    if empire.shard_treasury < shard_cost {
-        return Err("You don't have enough shards in treasury to craft a hexite capsule".into());
+    if empire.empire_currency_treasury < empire_currency_cost {
+        return Err("Insufficient treasury to craft a hexite capsule".into());
     }
-    empire.shard_treasury -= shard_cost;
+    empire.empire_currency_treasury -= empire_currency_cost;
 
     EmpireState::update_shared(ctx, empire, crate::inter_module::InterModuleDestination::AllOtherRegions);
 

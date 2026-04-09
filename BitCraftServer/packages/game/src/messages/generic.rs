@@ -72,13 +72,25 @@ pub struct ResourceCount {
 }
 
 #[spacetimedb::table(name = region_connection_info, public)]
-#[shared_table]
+#[shared_table] //Owned by global module, replicated to regions
 #[derive(Clone, Debug)]
 pub struct RegionConnectionInfo {
     #[primary_key]
     pub id: u8,
     pub host: String,
     pub module: String,
+}
+
+#[spacetimedb::table(name = region_control_info, public)]
+#[shared_table] //Owned by regions, replicated to global
+#[derive(Clone, Debug)]
+pub struct RegionControlInfo {
+    //Created after terrain is uploaded. `allow_players` and `allow_player_spawns` default to `true` in dev and `false` otherwise
+    #[primary_key]
+    pub region_id: u8,
+    pub initialized: bool, //Has uploaded terrain, allows GMs to log in
+    pub allow_players: bool,
+    pub allow_player_spawns: bool,
 }
 
 #[spacetimedb::table(name = region_population_info, public)]
@@ -97,6 +109,7 @@ pub struct RegionPopulationInfo {
 pub enum HubItemType {
     HexiteShards,
     Collectible,
+    PremiumItem,
 }
 
 #[spacetimedb::table(name = region_sign_in_parameters, public)]
@@ -110,6 +123,12 @@ pub struct RegionSignInParameters {
     pub max_queue_length: u64,
     pub queue_length_tolerance: u32,
     pub grace_period_seconds: u64,
+}
+
+#[spacetimedb::table(name = gated_features)]
+pub struct GatedFeature {
+    #[primary_key]
+    pub feature: String,
 }
 
 #[derive(spacetimedb::SpacetimeType, Clone, Copy, PartialEq, Debug)]

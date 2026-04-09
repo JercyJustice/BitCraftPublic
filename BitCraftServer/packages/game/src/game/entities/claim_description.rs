@@ -13,7 +13,7 @@ use crate::{
         },
         static_data::{AlertType, ClaimTileCost},
     },
-    parameters_desc_v2, params, rent_state, unwrap_or_err, PlayerState,
+    parameters_desc, params, rent_state, unwrap_or_err, PlayerState,
 };
 
 impl ClaimState {
@@ -134,7 +134,7 @@ impl ClaimState {
     }
 
     fn refresh_end_timestamp(ctx: &ReducerContext, mut alert: AlertState, supplies: f32, decay: f32) {
-        let tick_length = ctx.db.parameters_desc_v2().version().find(&0).unwrap().building_decay_tick_millis as u64;
+        let tick_length = ctx.db.parameters_desc().version().find(&0).unwrap().building_decay_tick_millis as u64;
         let milliseconds_elapsed = game_state::unix_ms(ctx.timestamp);
         let next_tick = ((tick_length - (milliseconds_elapsed % tick_length)) / 1000) as f32;
         let duration = Duration::from_secs_f32(next_tick + supplies / decay * ((tick_length / 1000) as f32));
@@ -438,9 +438,9 @@ impl ClaimLocalState {
     }
 
     pub fn get_upkeep_multiplier(&self, ctx: &ReducerContext) -> f32 {
-        let parameters_desc_v2 = ctx.db.parameters_desc_v2().version().find(&0).unwrap();
-        let param_m = parameters_desc_v2.claim_stability_param_m;
-        let param_b = parameters_desc_v2.claim_stability_param_b;
+        let parameters_desc = ctx.db.parameters_desc().version().find(&0).unwrap();
+        let param_m = parameters_desc.claim_stability_param_m;
+        let param_b = parameters_desc.claim_stability_param_b;
         let stability = self.num_tile_neighbors as f32 / self.num_tiles as f32;
 
         return (param_m * stability + param_b).max(1f32);

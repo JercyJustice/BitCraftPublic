@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use bitcraft_macro::shared_table_reducer;
 use spacetimedb::ReducerContext;
 use std::time::Duration;
@@ -7,7 +8,7 @@ use crate::{
         game_state::{self, game_state_filters},
         reducer_helpers::player_action_helpers,
     },
-    messages::{action_request::*, components::*, static_data::parameters_desc_v2},
+    messages::{action_request::*, components::*, static_data::parameters_desc},
     params, player_state, unwrap_or_err, SmallHexTile,
 };
 
@@ -19,6 +20,7 @@ pub fn event_delay(ctx: &ReducerContext, _actor_id: u64, _request: &PlayerTelepo
 
 #[spacetimedb::reducer]
 #[shared_table_reducer]
+#[feature_gate]
 pub fn player_teleport_home_start(ctx: &ReducerContext, request: PlayerTeleportHomeRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -37,6 +39,7 @@ pub fn player_teleport_home_start(ctx: &ReducerContext, request: PlayerTeleportH
 
 #[spacetimedb::reducer]
 #[shared_table_reducer]
+#[feature_gate]
 pub fn player_teleport_home(ctx: &ReducerContext, _request: PlayerTeleportHomeRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);

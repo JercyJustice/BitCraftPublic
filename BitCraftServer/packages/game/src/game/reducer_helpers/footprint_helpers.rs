@@ -122,7 +122,7 @@ pub fn create_footprint(
     }
 }
 
-pub fn clear_resources_under_footprint(ctx: &ReducerContext, footprint: &Vec<(SmallHexTile, FootprintType)>, clear_all: bool) {
+pub fn clear_resources_under_footprint(ctx: &ReducerContext, footprint: &[(SmallHexTile, FootprintType)], clear_all: bool) {
     for (coords, _) in footprint {
         // destroy resources under footprint
         if let Some(resource) = ResourceState::get_at_location(ctx, &coords) {
@@ -142,9 +142,9 @@ pub fn delete_footprint(ctx: &ReducerContext, entity_id: u64) {
     }
 }
 
-pub fn clear_and_flatten_terrain_under_footprint(ctx: &ReducerContext, footprint: Vec<(SmallHexTile, FootprintType)>) {
+pub fn clear_and_flatten_terrain_under_footprint(ctx: &ReducerContext, footprint: &[(SmallHexTile, FootprintType)]) {
     //Remove resources
-    clear_resources_under_footprint(ctx, &footprint, true);
+    clear_resources_under_footprint(ctx, footprint, true);
 
     //Compute unique large coords
     let mut large_tiles: Vec<LargeHexTile> = Vec::with_capacity(footprint.len());

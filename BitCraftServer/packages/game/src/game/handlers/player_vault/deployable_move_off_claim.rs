@@ -1,3 +1,4 @@
+use bitcraft_macro::feature_gate;
 use spacetimedb::ReducerContext;
 
 use crate::{
@@ -7,6 +8,7 @@ use crate::{
 };
 
 #[spacetimedb::reducer]
+#[feature_gate]
 pub fn deployable_move_off_claim(ctx: &ReducerContext, deployable_entity_id: u64) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
@@ -77,13 +79,13 @@ pub fn deployable_move_off_claim(ctx: &ReducerContext, deployable_entity_id: u64
     // update icon on map
     let mut deployable_collectible = ctx
         .db
-        .deployable_collectible_state_v2()
+        .deployable_collectible_state()
         .deployable_entity_id()
         .find(&deployable.entity_id)
         .unwrap();
     deployable_collectible.location = Some(offset);
     ctx.db
-        .deployable_collectible_state_v2()
+        .deployable_collectible_state()
         .deployable_entity_id()
         .update(deployable_collectible);
 
