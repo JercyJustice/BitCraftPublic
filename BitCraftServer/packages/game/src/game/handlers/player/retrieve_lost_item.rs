@@ -3,6 +3,7 @@ use spacetimedb::ReducerContext;
 
 use crate::game::coordinates::*;
 use crate::game::game_state::game_state_filters;
+use crate::game::handlers::inventory::inventory_helper;
 use crate::game::reducer_helpers::player_action_helpers;
 use crate::messages::action_request::PlayerRetrieveLostItemRequest;
 use crate::messages::components::*;
@@ -46,7 +47,7 @@ pub fn retrieve_lost_item(ctx: &ReducerContext, request: PlayerRetrieveLostItemR
 
         if target_inventory.owner_entity_id != actor_id {
             let target_deployable = unwrap_or_err!(
-                ctx.db.deployable_state().entity_id().find(target_inventory.owner_entity_id),
+                ctx.db.deployable_state_v2().entity_id().find(target_inventory.owner_entity_id),
                 "Invalid transfer destination"
             );
             if target_deployable.owner_id != actor_id {
@@ -59,6 +60,15 @@ pub fn retrieve_lost_item(ctx: &ReducerContext, request: PlayerRetrieveLostItemR
                 return Err("Target inventory is too far".into());
             }
         }
+
+        let target_inventory_type = inventory_helper::validate_interact(
+            ctx,
+            actor_id,
+            player_coordinates.into(),
+            target_inventory.owner_entity_id,
+            target_inventory.player_owner_entity_id,
+        )?;
+        inventory_helper::validate_move(&target_inventory_type)?;
     }
 
     let building_coord: SmallHexTile = game_state_filters::coordinates_try_get(ctx, request.building_entity_id)?.into();
@@ -80,17 +90,18 @@ pub fn retrieve_lost_item(ctx: &ReducerContext, request: PlayerRetrieveLostItemR
                     if item_stack.item_id == request.item_id && request.is_cargo == (item_stack.item_type == ItemType::Cargo) {
                         if let Some(durability) = item_stack.durability {
                             // durability items are only picked one by one if the durability matches the query
-                            if durability == request.durability {
-                                if request.target_inventory_entity_id != 0 {
-                                    let mut target_inventory = ctx
-                                        .db
-                                        .inventory_state()
-                                        .entity_id()
-                                        .find(request.target_inventory_entity_id)
-                                        .unwrap();
-                                    if !target_inventory.add(ctx, *item_stack) {
-                                        return Err("Not enough room in inventory".into());
-                                    }
+                                if durability == request.durability {
+                                    if request.target_inventory_entity_id != 0 {
+                                        let mut target_inventory = ctx
+                                            .db
+                                            .inventory_state()
+                                            .entity_id()
+                                            .find(request.target_inventory_entity_id)
+                                            .unwrap();
+                                        inventory_helper::validate_cargo_target(ctx, &target_inventory, item_stack)?;
+                                        if !target_inventory.add(ctx, *item_stack) {
+                                            return Err("Not enough room in inventory".into());
+                                        }
                                     ctx.db.inventory_state().entity_id().update(target_inventory);
                                 } else {
                                     InventoryState::deposit_to_player_inventory_and_nearby_deployables(
@@ -118,6 +129,7 @@ pub fn retrieve_lost_item(ctx: &ReducerContext, request: PlayerRetrieveLostItemR
                                 .entity_id()
                                 .find(request.target_inventory_entity_id)
                                 .unwrap();
+                            inventory_helper::validate_cargo_target(ctx, &target_inventory, item_stack)?;
                             if let Some(i) = request.target_inventory_index {
                                 updated_inventory = target_inventory.add_partial_at(ctx, item_stack, i as usize);
                             } else {

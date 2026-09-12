@@ -65,7 +65,6 @@ impl EmpireState {
         .entity_id;
 
         let mut vault = unwrap_or_err!(ctx.db.vault_state().entity_id().find(&emperor_entity_id), "Missing VaultState");
-
         let mut highest_crown_collectible_id = 0;
         let mut crowns: Vec<EmpireTerritoryDesc> = ctx
             .db
@@ -74,6 +73,12 @@ impl EmpireState {
             .filter(|x| x.crown_collectible_id != 0)
             .collect();
         crowns.sort_by_key(|entry| entry.chunks);
+        let previous_crown_activated = vault
+            .collectibles
+            .iter()
+            .find(|c| crowns.iter().any(|entry| entry.crown_collectible_id == c.id))
+            .map(|c| c.activated)
+            .unwrap_or(true);
 
         for crown in crowns {
             if let Some(index) = vault.collectibles.iter().position(|c| c.id == crown.crown_collectible_id) {
@@ -88,7 +93,7 @@ impl EmpireState {
         if highest_crown_collectible_id != 0 {
             vault.collectibles.push(VaultCollectible {
                 id: highest_crown_collectible_id,
-                activated: true,
+                activated: previous_crown_activated,
                 count: 1,
             });
         }
@@ -196,7 +201,7 @@ impl EmpireNodeSiegeState {
 
         send_inter_module_message(
             ctx,
-            crate::messages::inter_module::MessageContentsV2::EmpireSiegeAddSupplies(EmpireSiegeAddSuppliesMsg {
+            crate::messages::inter_module::MessageContentsV5::EmpireSiegeAddSupplies(EmpireSiegeAddSuppliesMsg {
                 siege_entity_id: siege.unwrap().entity_id,
                 player_entity_id: actor_id,
                 supplies,

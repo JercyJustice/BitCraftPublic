@@ -17,7 +17,7 @@ use crate::{
         components::*,
         empire_shared::{empire_player_data_state, EmpireState},
         generic::{region_control_info, world_region_state},
-        inter_module::{MessageContentsV2, TransferPlayerMsgV2},
+        inter_module::{MessageContentsV5, TransferPlayerMsgV5},
         static_data::BuffCategory,
     },
     unwrap_or_err, unwrap_or_return,
@@ -98,10 +98,10 @@ fn transfer_player_delayed(ctx: &ReducerContext, timer: TransferPlayerTimer) {
         if let Some(mount) = ctx.db.mounting_state().entity_id().find(entity_id) {
             if mount.deployable_slot == 0 {
                 deployable_helpers::expel_passengers(ctx, mount.deployable_entity_id, true, false);
-                vehicle = ctx.db.deployable_state().entity_id().find(mount.deployable_entity_id);
+                vehicle = ctx.db.deployable_state_v2().entity_id().find(mount.deployable_entity_id);
                 vehicle_inventory = ctx.db.inventory_state().owner_entity_id().filter(mount.deployable_entity_id).next();
 
-                ctx.db.deployable_state().delete(vehicle.clone().unwrap());
+                ctx.db.deployable_state_v2().delete(vehicle.clone().unwrap());
                 ctx.db.inventory_state().delete(vehicle_inventory.clone().unwrap());
                 ctx.db.mobile_entity_state().entity_id().delete(mount.deployable_entity_id);
                 ctx.db.mounting_state().delete(mount);
@@ -161,7 +161,7 @@ fn transfer_player_delayed(ctx: &ReducerContext, timer: TransferPlayerTimer) {
     let ability_state = ctx.db.ability_state().owner_entity_id().filter(entity_id).collect();
     let attack_outcome_state = ctx.db.attack_outcome_state().entity_id().find(entity_id).unwrap();
     let vault_state = ctx.db.vault_state().entity_id().find(entity_id).unwrap();
-    let exploration_chunks_state = ctx.db.exploration_chunks_state().entity_id().find(entity_id).unwrap();
+    let exploration_chunks_state = ctx.db.exploration_chunks_state_v2().entity_id().find(entity_id).unwrap();
     let satiation_state = ctx.db.satiation_state().entity_id().find(entity_id).unwrap();
     let player_prefs_state = ctx.db.player_prefs_state().entity_id().find(entity_id).unwrap();
     let onboarding_state = ctx.db.onboarding_state().entity_id().find(entity_id).unwrap();
@@ -169,9 +169,10 @@ fn transfer_player_delayed(ctx: &ReducerContext, timer: TransferPlayerTimer) {
     let teleportation_energy_state = ctx.db.teleportation_energy_state().entity_id().find(entity_id).unwrap();
     //let player_housing_state = ctx.db.player_housing_state().entity_id().find(entity_id);
     let traveler_task_states = ctx.db.traveler_task_state().player_entity_id().filter(entity_id).collect();
+    let traveler_task_credit_states = ctx.db.traveler_task_credit_state().player_entity_id().filter(entity_id).collect();
     let undeployed_deployable_states = ctx
         .db
-        .deployable_state()
+        .deployable_state_v2()
         .owner_id()
         .filter(entity_id)
         .filter(|d| ctx.db.mobile_entity_state().entity_id().find(d.entity_id).is_none())
@@ -180,7 +181,7 @@ fn transfer_player_delayed(ctx: &ReducerContext, timer: TransferPlayerTimer) {
     let quest_chain_states = ctx.db.quest_chain_state().player_entity_id().filter(entity_id).collect();
     //Don't forget to delete these components below
 
-    let msg = TransferPlayerMsgV2 {
+    let msg = TransferPlayerMsgV5 {
         original_location: mes.coordinates_float(),
         destination_location: destination,
         allow_cancel,
@@ -238,13 +239,14 @@ fn transfer_player_delayed(ctx: &ReducerContext, timer: TransferPlayerTimer) {
         teleportation_energy_state,
         player_housing_state: None, //Housing is replicated to global module now
         traveler_task_states,
+        traveler_task_credit_states,
         undeployed_deployable_states,
         player_settings_state,
         quest_chain_states,
     };
     send_inter_module_message(
         ctx,
-        MessageContentsV2::TransferPlayerRequest(msg),
+        MessageContentsV5::TransferPlayerRequest(msg),
         super::InterModuleDestination::Region(new_region_index),
     );
 
@@ -304,7 +306,7 @@ fn transfer_player_delayed(ctx: &ReducerContext, timer: TransferPlayerTimer) {
     ctx.db.action_bar_state().player_entity_id().delete(entity_id);
     ctx.db.attack_outcome_state().entity_id().delete(entity_id);
     ctx.db.vault_state().entity_id().delete(entity_id);
-    ctx.db.exploration_chunks_state().entity_id().delete(entity_id);
+    ctx.db.exploration_chunks_state_v2().entity_id().delete(entity_id);
     ctx.db.satiation_state().entity_id().delete(entity_id);
     ctx.db.player_prefs_state().entity_id().delete(entity_id);
     ctx.db.onboarding_state().entity_id().delete(entity_id);
@@ -313,15 +315,16 @@ fn transfer_player_delayed(ctx: &ReducerContext, timer: TransferPlayerTimer) {
     ctx.db.teleportation_energy_state().entity_id().delete(entity_id);
     //ctx.db.player_housing_state().entity_id().delete(entity_id);
     ctx.db.traveler_task_state().player_entity_id().delete(entity_id);
+    ctx.db.traveler_task_credit_state().player_entity_id().delete(entity_id);
     ctx.db.extract_outcome_state().entity_id().delete(entity_id);
     for d in ctx
         .db
-        .deployable_state()
+        .deployable_state_v2()
         .owner_id()
         .filter(entity_id)
         .filter(|d| ctx.db.mobile_entity_state().entity_id().find(d.entity_id).is_none())
     {
-        ctx.db.deployable_state().entity_id().delete(d.entity_id);
+        ctx.db.deployable_state_v2().entity_id().delete(d.entity_id);
     }
     ctx.db.rez_sick_long_term_state().entity_id().delete(entity_id);
     ctx.db.player_settings_state().entity_id().delete(entity_id);
@@ -330,16 +333,14 @@ fn transfer_player_delayed(ctx: &ReducerContext, timer: TransferPlayerTimer) {
     player_queue::process_queue(ctx);
 }
 
-pub fn process_message_on_destination(ctx: &ReducerContext, _sender: u8, mut msg: TransferPlayerMsgV2) -> Result<(), String> {
+pub fn process_message_on_destination(ctx: &ReducerContext, _sender: u8, mut msg: TransferPlayerMsgV5) -> Result<(), String> {
     let loc = msg.destination_location.clone();
     let prev_loc = msg.original_location.clone();
     let identity = msg.user_state.identity;
     let allow_cancel = msg.allow_cancel;
     let with_vehicle = msg.vehicle.is_some();
     let teleport_energy_cost = msg.teleport_energy_cost;
-    if teleport_energy_cost > 0.0 {
-        msg.teleportation_energy_state.expend_energy(teleport_energy_cost, false);
-    }
+    msg.teleportation_energy_state.expend_energy(teleport_energy_cost, true);
 
     insert_player(ctx, msg, loc, prev_loc);
 
@@ -359,14 +360,14 @@ pub fn process_message_on_destination(ctx: &ReducerContext, _sender: u8, mut msg
     return user_update_region::send_message(ctx, identity);
 }
 
-pub fn handle_destination_result_on_sender(ctx: &ReducerContext, request: TransferPlayerMsgV2, error: Option<String>) {
+pub fn handle_destination_result_on_sender(ctx: &ReducerContext, request: TransferPlayerMsgV5, error: Option<String>) {
     if error.is_some() {
         let loc = request.original_location.clone();
         insert_player(ctx, request, loc.clone(), loc);
     }
 }
 
-fn insert_player(ctx: &ReducerContext, req: TransferPlayerMsgV2, location: FloatHexTile, previous_location: FloatHexTile) {
+fn insert_player(ctx: &ReducerContext, req: TransferPlayerMsgV5, location: FloatHexTile, previous_location: FloatHexTile) {
     let entity_id = req.user_state.entity_id;
     let name = req.player_username_state.username.clone();
     let satiation = req.satiation_state.satiation;
@@ -440,7 +441,7 @@ fn insert_player(ctx: &ReducerContext, req: TransferPlayerMsgV2, location: Float
 
     ctx.db.attack_outcome_state().insert(req.attack_outcome_state);
     ctx.db.vault_state().insert(req.vault_state);
-    ctx.db.exploration_chunks_state().insert(req.exploration_chunks_state);
+    ctx.db.exploration_chunks_state_v2().insert(req.exploration_chunks_state);
     ctx.db.satiation_state().insert(req.satiation_state);
     ctx.db.player_prefs_state().insert(req.player_prefs_state);
     ctx.db.onboarding_state().insert(req.onboarding_state);
@@ -454,7 +455,7 @@ fn insert_player(ctx: &ReducerContext, req: TransferPlayerMsgV2, location: Float
 
     if let Some(vehicle) = req.vehicle {
         let deployable_entity_id = vehicle.entity_id;
-        ctx.db.deployable_state().insert(vehicle);
+        ctx.db.deployable_state_v2().insert(vehicle);
         if let Some(inv) = req.vehicle_inventory {
             ctx.db.inventory_state().insert(inv);
         }
@@ -473,8 +474,11 @@ fn insert_player(ctx: &ReducerContext, req: TransferPlayerMsgV2, location: Float
     for i in req.traveler_task_states {
         ctx.db.traveler_task_state().insert(i);
     }
+    for i in req.traveler_task_credit_states {
+        ctx.db.traveler_task_credit_state().insert(i);
+    }
     for i in req.undeployed_deployable_states {
-        ctx.db.deployable_state().insert(i);
+        ctx.db.deployable_state_v2().insert(i);
     }
 
     if let Some(player_settings_state) = req.player_settings_state {

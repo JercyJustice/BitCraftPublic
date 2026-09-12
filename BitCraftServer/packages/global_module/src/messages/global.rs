@@ -93,7 +93,7 @@ pub struct PlayerDeveloperNotificationState {
     index(name = sender_entity_id, btree(columns = [sender_entity_id])),
     index(name = receiver_entity_id, btree(columns = [receiver_entity_id])))]
 #[derive(Clone, Debug)]
-// NOT USED ANYMORE.
+// TODO: We can get rid of this once we fix RLS (or use Views) and use ChatMessageState for DMs
 pub struct DirectMessageState {
     #[primary_key]
     pub entity_id: u64,

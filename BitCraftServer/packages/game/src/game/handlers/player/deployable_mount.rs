@@ -23,7 +23,7 @@ pub fn deployable_mount(ctx: &ReducerContext, request: PlayerDeployableMountRequ
     }
 
     let deployable = unwrap_or_err!(
-        ctx.db.deployable_state().entity_id().find(&deployable_entity_id),
+        ctx.db.deployable_state_v2().entity_id().find(&deployable_entity_id),
         "Deployable not found!"
     );
     let deployable_desc = unwrap_or_err!(
@@ -65,7 +65,7 @@ pub fn deployable_mount(ctx: &ReducerContext, request: PlayerDeployableMountRequ
     // Owner is always the driver
     if !is_owner {
         // Non owner will take a passenger seat if available. Never the driver slot in this version.
-        let free_slots = DeployableState::free_slots(ctx, deployable_entity_id);
+        let free_slots = DeployableStateV2::free_slots(ctx, deployable_entity_id);
         if let Some(passenger_slot) = free_slots.iter().find(|s| **s != 0) {
             selected_slot = *passenger_slot;
         } else {

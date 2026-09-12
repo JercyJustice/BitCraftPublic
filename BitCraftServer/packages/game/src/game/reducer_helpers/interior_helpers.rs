@@ -17,7 +17,7 @@ use crate::{
     interior_shape_desc, interior_spawn_desc, loot_chest_state,
     messages::{
         components::{
-            combat_dimension_state, deployable_state, dungeon_state, CombatDimensionState, DungeonState, InteriorPlayerCountState,
+            combat_dimension_state, deployable_state_v2, dungeon_state, CombatDimensionState, DungeonState, InteriorPlayerCountState,
             LostItemsState, MobileEntityState,
         },
         game_util::DimensionType,
@@ -153,7 +153,7 @@ pub fn delete_dimension_network(
         // Interior deployables are subject to "lost and found"
         let overworld_location: OffsetCoordinatesSmall = interior_teleport_destination.unwrap().into();
         for mobile_entity in MobileEntityState::select_all_in_interior_dimension_iter(ctx, dimension.0) {
-            if let Some(deployable) = ctx.db.deployable_state().entity_id().find(mobile_entity.entity_id) {
+            if let Some(deployable) = ctx.db.deployable_state_v2().entity_id().find(mobile_entity.entity_id) {
                 LostItemsState::generate_lost_items_for_deployable(ctx, &deployable, overworld_location.into());
             }
         }
@@ -621,6 +621,10 @@ fn create_building_interior_internal(
         return Err("Failed to insert dimension network description".into());
     }
 
+    if interior_desc.start_collapsing {
+        interior_trigger_collapse(ctx, dimension_network_descriptor_id)?;
+    }
+
     Ok(())
 }
 
@@ -643,7 +647,7 @@ fn spawn_interior_building(ctx: &ReducerContext, spawn: &InteriorSpawnDesc, loca
     entity_id
 }
 
-fn spawn_interior_resource(
+pub(crate) fn spawn_interior_resource(
     ctx: &ReducerContext,
     spawn: &InteriorSpawnDesc,
     location: OffsetCoordinatesSmall,

@@ -1,14 +1,17 @@
 use std::collections::HashSet;
-use std::time::Duration;
 
+use crate::agents::{crumb_trail_clean_up_agent, resources_regen};
 use crate::game::autogen::_delete_entity::delete_entity;
+use crate::game::entities::growth_timer::{delete_resource_growth_timer, insert_resource_growth_timer, resource_growth_timer};
 use crate::game::handlers::resource::respawn_resource_in_chunk::{respawn_resource_in_chunk_timer, RespawnResourceInChunkTimer};
+use crate::game::reducer_helpers::building_helpers::create_building_unsafe;
 use crate::game::reducer_helpers::timer_helpers::now_plus_secs_f32;
 use crate::game::reducer_helpers::{footprint_helpers, footprint_helpers::delete_footprint};
-use crate::game::{coordinates::*, dimensions, game_state};
+use crate::game::{coordinates::*, dimensions, game_state, terrain_chunk::TerrainChunkCache};
 use crate::messages::authentication::ServerIdentity;
 use crate::messages::components::{
-    distant_visible_entity, location_state, DistantVisibleEntity, FootprintTileState, GrowthState, LocationState, ResourceState,
+    deployable_state_v2, distant_visible_entity, light_source_state, location_state, DistantVisibleEntity, FootprintTileState,
+    LightSourceState, LocationState, ResourceState,
 };
 use crate::messages::generic::{resource_count, ResourceCount};
 use crate::messages::static_data::*;
@@ -192,9 +195,12 @@ impl ResourceState {
         // Despawn the resource right away. Falling resources on client will be purely cosmetic and will be handled on client.
         // As far as server is concerned, the falling tree no longer exists.
 
-        // If the deposit has a GrowthState on it, simply delete it - it's player made, not part of the eco-system.
-        if ctx.db.growth_state().entity_id().find(&deposit_entity_id).is_some() {
+        // Growing resources are player made and are not part of the eco-system.
+        if ctx.db.growth_state().entity_id().find(&deposit_entity_id).is_some()
+            || ctx.db.resource_growth_timer().entity_id().find(&deposit_entity_id).is_some()
+        {
             ctx.db.resource_state().entity_id().delete(&deposit_entity_id);
+            delete_resource_growth_timer(ctx, deposit_entity_id);
         } else if deposit_resource_id != 0 && !Self::delete_one_by_entity_id_with_type(ctx, &deposit_entity_id, deposit_resource_id) {
             log::error!(
                 "Resource {} of type {} was deleted but didn't exist.",
@@ -203,9 +209,26 @@ impl ResourceState {
             );
             return false;
         }
+
+        crumb_trail_clean_up_agent::clean_up_if_final_prize_resource_deleted(ctx, deposit_entity_id);
+        ctx.db.light_source_state().entity_id().delete(&deposit_entity_id);
         delete_footprint(ctx, deposit_entity_id);
         AttachedHerdsState::delete(ctx, deposit_entity_id);
         delete_entity(ctx, deposit_entity_id);
+        true
+    }
+
+    pub fn despawn_growing(&self, ctx: &ReducerContext) -> bool {
+        if !ctx.db.resource_state().entity_id().delete(&self.entity_id) {
+            return false;
+        }
+        ctx.db.light_source_state().entity_id().delete(&self.entity_id);
+        delete_footprint(ctx, self.entity_id);
+        AttachedHerdsState::delete(ctx, self.entity_id);
+        ctx.db.distant_visible_entity().entity_id().delete(&self.entity_id);
+        ctx.db.growth_state().entity_id().delete(&self.entity_id);
+        ctx.db.resource_health_state().entity_id().delete(&self.entity_id);
+        ctx.db.location_state().entity_id().delete(&self.entity_id);
         true
     }
 
@@ -223,8 +246,249 @@ impl ResourceState {
         };
 
         if respawn_resource_id != 0 && should_spawn {
-            Self::schedule_resource_spawn(ctx, respawn_resource_id, coord, deposit_direction);
+            let _ = Self::spawn_in_radius_band_with_fallback(
+                ctx,
+                respawn_resource_id,
+                coord,
+                deposit_direction,
+                resource_desc.on_destroy_yield_resource_min_radius,
+                resource_desc.on_destroy_yield_resource_max_radius,
+            );
         }
+
+        if let Some(outcome) = Self::pick_destroy_building_outcome(ctx, resource_desc.on_destroy_building_outcomes) {
+            let _ = Self::spawn_building_in_radius_band_with_fallback(
+                ctx,
+                outcome.building_id,
+                coord,
+                deposit_direction,
+                outcome.radius_min,
+                outcome.radius_max,
+            );
+        }
+    }
+
+    pub fn pick_destroy_building_outcome(
+        ctx: &ReducerContext,
+        outcomes: Option<Vec<ResourceDestroyBuildingOutcome>>,
+    ) -> Option<ResourceDestroyBuildingOutcome> {
+        let outcomes = outcomes?;
+        if outcomes.is_empty() {
+            return None;
+        }
+
+        let mut sum = 0.0;
+        for outcome in &outcomes {
+            sum += outcome.probability;
+        }
+
+        if sum <= 0.0 {
+            return None;
+        }
+
+        let mut rnd = ctx.rng().gen_range(0.0..=sum);
+        for outcome in outcomes {
+            rnd -= outcome.probability;
+            if rnd <= 0.0 {
+                return Some(outcome);
+            }
+        }
+
+        None
+    }
+
+    pub fn spawn_building_in_radius_band_with_fallback(
+        ctx: &ReducerContext,
+        building_id: i32,
+        center: SmallHexTile,
+        direction_index: i32,
+        min_radius: i32,
+        max_radius: i32,
+    ) -> bool {
+        if building_id == 0 {
+            return false;
+        }
+
+        let building_desc = match ctx.db.building_desc().id().find(&building_id) {
+            Some(desc) => desc,
+            None => return false,
+        };
+        let min_radius = min_radius.max(0);
+        let max_radius = max_radius.max(min_radius);
+        let mut terrain_cache = TerrainChunkCache::empty();
+
+        if min_radius == 0 && max_radius == 0 {
+            return Self::try_spawn_building_at(ctx, &mut terrain_cache, &building_desc, center, direction_index);
+        }
+
+        let mut sampled = HashSet::new();
+        for _ in 0..SmallHexTile::tile_count_between_radius(min_radius, max_radius) {
+            let candidate = SmallHexTile::random_tile_between_radius(ctx, center, min_radius, max_radius, &mut sampled);
+            if Self::try_spawn_building_at(ctx, &mut terrain_cache, &building_desc, candidate, direction_index) {
+                return true;
+            }
+        }
+
+        Self::try_spawn_building_at(ctx, &mut terrain_cache, &building_desc, center, direction_index)
+    }
+
+    fn try_spawn_building_at(
+        ctx: &ReducerContext,
+        terrain_cache: &mut TerrainChunkCache,
+        building_desc: &BuildingDesc,
+        coordinates: SmallHexTile,
+        direction_index: i32,
+    ) -> bool {
+        if !Self::is_resource_spawn_safe_building(ctx, building_desc) {
+            return false;
+        }
+
+        let footprint = building_desc.get_footprint(&coordinates, direction_index);
+        if !Self::is_valid_resource_spawn_footprint(ctx, terrain_cache, coordinates, &footprint) {
+            return false;
+        }
+
+        if create_building_unsafe(ctx, 0, None, coordinates, direction_index, building_desc.id, None).is_err() {
+            return false;
+        }
+
+        true
+    }
+
+    fn is_resource_spawn_safe_building(ctx: &ReducerContext, building_desc: &BuildingDesc) -> bool {
+        if ctx.db.building_claim_desc().building_id().find(&building_desc.id).is_some() {
+            return false;
+        }
+
+        if building_desc.has_category(ctx, BuildingCategory::Waystone) {
+            return false;
+        }
+
+        if building_desc.has_category(ctx, BuildingCategory::EmpireFoundry) {
+            return false;
+        }
+
+        true
+    }
+
+    fn is_valid_resource_spawn_footprint(
+        ctx: &ReducerContext,
+        terrain_cache: &mut TerrainChunkCache,
+        coordinates: SmallHexTile,
+        footprint: &Vec<(SmallHexTile, FootprintType)>,
+    ) -> bool {
+        let close_enemies: Vec<SmallHexTile> = game_state::game_state_filters::enemies_in_radius(ctx, coordinates, 5)
+            .map(|(_, coord)| coord)
+            .collect();
+
+        let main_elevation = match terrain_cache.get_terrain_cell(ctx, &coordinates.parent_large_tile()) {
+            Some(cell) => cell.elevation,
+            None => return false,
+        };
+
+        for (coords, footprint_type) in footprint {
+            let existing_footprints = FootprintTileState::get_at_location(ctx, coords);
+            for existing in existing_footprints {
+                let resource = ctx.db.resource_state().entity_id().find(&existing.owner_entity_id);
+                if resource.is_none() && !FootprintTile::is_compatible(&existing.footprint_type, footprint_type) {
+                    return false;
+                }
+
+                if let Some(deposit) = resource {
+                    let Some(resource_desc) = ctx.db.resource_desc().id().find(&deposit.resource_id) else {
+                        return false;
+                    };
+
+                    if !resource_desc.flattenable {
+                        return false;
+                    }
+                }
+            }
+
+            let Some(terrain_target) = terrain_cache.get_terrain_cell(ctx, &coords.parent_large_tile()) else {
+                return false;
+            };
+
+            if *footprint_type != FootprintType::Perimeter {
+                if !game_state::game_state_filters::is_interior_tile_walkable(ctx, *coords) {
+                    return false;
+                }
+
+                if coords.is_corner() && !game_state::game_state_filters::is_flat_corner(ctx, terrain_cache, *coords) {
+                    return false;
+                }
+
+                if terrain_target.elevation != main_elevation {
+                    return false;
+                }
+
+                if game_state::game_state_filters::is_submerged(ctx, terrain_cache, *coords) {
+                    return false;
+                }
+            }
+
+            if close_enemies.contains(coords) {
+                return false;
+            }
+
+            if LocationState::select_all(ctx, coords)
+                .any(|location| ctx.db.deployable_state_v2().entity_id().find(&location.entity_id).is_some())
+            {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn spawn_in_radius_band_with_fallback(
+        ctx: &ReducerContext,
+        resource_id: i32,
+        center: SmallHexTile,
+        direction_index: i32,
+        min_radius: i32,
+        max_radius: i32,
+    ) -> bool {
+        if resource_id == 0 {
+            return false;
+        }
+
+        let resource_desc = ctx.db.resource_desc().id().find(&resource_id).unwrap();
+        let resource_health = resource_desc.max_health;
+        let min_radius = min_radius.max(0);
+        let max_radius = max_radius.max(min_radius);
+        let max_attempts = ctx
+            .db
+            .parameters_desc()
+            .version()
+            .find(&0)
+            .map(|params| params.auto_respawn_attempts.max(0) as usize);
+        let mut terrain_cache = TerrainChunkCache::empty();
+
+        if min_radius == 0 && max_radius == 0 {
+            return Self::spawn(ctx, None, resource_id, center, direction_index, resource_health, false, false).is_ok();
+        }
+
+        let mut attempts = SmallHexTile::tile_count_between_radius(min_radius, max_radius);
+        if let Some(max_attempts) = max_attempts {
+            attempts = attempts.min(max_attempts as u64);
+        }
+        let mut sampled = HashSet::new();
+
+        for _ in 0..attempts {
+            let candidate = SmallHexTile::random_tile_between_radius(ctx, center, min_radius, max_radius, &mut sampled);
+            if candidate != center
+                && !resources_regen::is_valid_single_resource_spawn(ctx, &mut terrain_cache, &resource_desc, candidate, direction_index)
+            {
+                continue;
+            }
+
+            if Self::spawn(ctx, None, resource_id, candidate, direction_index, resource_health, false, false).is_ok() {
+                return true;
+            }
+        }
+
+        Self::spawn(ctx, None, resource_id, center, direction_index, resource_health, false, false).is_ok()
     }
 
     pub fn schedule_resource_spawn(ctx: &ReducerContext, resource_id: i32, coordinates: SmallHexTileMessage, direction_index: i32) {
@@ -259,6 +523,7 @@ impl ResourceState {
         // We do not want to use insert_one so that type of resource isn't added to the eco-system
         // and considered for the resources regen
         ctx.db.resource_state().try_insert(deposit_state)?;
+        Self::insert_light_source_state(ctx, entity_id, resource.light_radius);
 
         let health_state = ResourceHealthState { entity_id, health };
 
@@ -267,7 +532,7 @@ impl ResourceState {
         // Location and footprints already exist
         footprint_helpers::update_footprint_after_resource_completion(ctx, entity_id, coordinates, direction_index, resource);
 
-        Self::add_growth_state(ctx, entity_id, resource.id);
+        Self::add_growth_timer(ctx, entity_id, resource.id);
         Self::create_distant_visibile_resource(ctx, &resource, entity_id, coordinates);
 
         Ok(())
@@ -338,15 +603,16 @@ impl ResourceState {
             }
         }
 
-        Self::insert_one(ctx, deposit_state)?;
+        game_state::insert_location(ctx, entity_id, offset);
 
-        Self::add_growth_state(ctx, entity_id, resource_id);
+        Self::insert_one(ctx, deposit_state)?;
+        Self::insert_light_source_state(ctx, entity_id, resource_desc.light_radius);
+
+        Self::add_growth_timer(ctx, entity_id, resource_id);
 
         let health_state = ResourceHealthState { entity_id, health };
 
         ctx.db.resource_health_state().try_insert(health_state)?;
-
-        game_state::insert_location(ctx, entity_id, offset);
         Self::create_distant_visibile_resource(ctx, &resource_desc, entity_id, coordinates);
 
         if resource_desc.footprint.is_empty() {
@@ -362,23 +628,12 @@ impl ResourceState {
         return Ok(entity_id);
     }
 
-    fn add_growth_state(ctx: &ReducerContext, entity_id: u64, resource_id: i32) {
-        // Add Growth component if required.
+    fn add_growth_timer(ctx: &ReducerContext, entity_id: u64, resource_id: i32) {
+        // Schedule growth if required.
         let growth = ctx.db.resource_growth_recipe_desc().resource_id().filter(resource_id).next();
         // For now we assume only 1 entry per resource. Will add some logic if multiple recipes can target the same resource id.
         if let Some(growth) = growth {
-            let duration = if growth.time.len() == 1 {
-                growth.time[0]
-            } else {
-                ctx.rng().gen_range(growth.time[0]..=growth.time[1])
-            };
-
-            let growth_state = GrowthState {
-                entity_id,
-                end_timestamp: ctx.timestamp + Duration::from_secs_f32(duration),
-                growth_recipe_id: growth.id,
-            };
-            ctx.db.growth_state().try_insert(growth_state).unwrap();
+            insert_resource_growth_timer(ctx, entity_id, &growth).unwrap();
         }
     }
 
@@ -393,6 +648,15 @@ impl ResourceState {
             ctx.db.distant_visible_entity().insert(DistantVisibleEntity {
                 entity_id: entity_id,
                 chunk_index: coordinates.chunk_coordinates().chunk_index(),
+            });
+        }
+    }
+
+    fn insert_light_source_state(ctx: &ReducerContext, entity_id: u64, light_radius: i32) {
+        if light_radius > 0 {
+            ctx.db.light_source_state().insert(LightSourceState {
+                entity_id,
+                radius: light_radius as f32,
             });
         }
     }

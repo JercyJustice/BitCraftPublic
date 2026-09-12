@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use spacetimedb::{log, ReducerContext, Table};
 
-use crate::agents::traveler_task_agent;
 use crate::game::coordinates::{ChunkCoordinates, FloatHexTile, OffsetCoordinatesFloat};
 use crate::game::discovery::Discovery;
 use crate::game::game_state::{self, unix_ms};
@@ -11,13 +10,12 @@ use crate::game::{claim_helper, coordinates::*, dimensions};
 use crate::messages::components::{
     ability_state, building_state, rez_sick_long_term_state, AbilityState, AbilityType, ActionCooldown, ActiveBuffState,
     CharacterStatsState, InteriorPlayerCountState, InventoryState, MobileEntityState, PlayerActionState, PlayerState, StaminaState,
-    TravelerTaskState,
 };
 use crate::messages::game_util::{ActiveBuff, ExperienceStack, ItemStack, LevelRequirement};
 use crate::messages::static_data::*;
 use crate::{
-    active_buff_state, character_stats_state, claim_state, deployable_state, dimension_description_state, equipment_state,
-    experience_state, exploration_chunks_state, knowledge_secondary_state, location_cache, mobile_entity_state, mounting_state,
+    active_buff_state, character_stats_state, claim_state, deployable_state_v2, dimension_description_state, equipment_state,
+    experience_state, exploration_chunks_state_v2, knowledge_secondary_state, location_cache, mobile_entity_state, mounting_state,
     player_username_state, toolbar_state, unwrap_or_err, unwrap_or_return, KnowledgeState,
 };
 
@@ -148,12 +146,12 @@ impl PlayerState {
         let in_overworld = target_coordinates.dimension == dimensions::OVERWORLD;
         if in_overworld & ((previous_chunk.x != entered_chunk.x) | (previous_chunk.z != entered_chunk.z)) {
             let mut exploration_chunks = unwrap_or_err!(
-                ctx.db.exploration_chunks_state().entity_id().find(&entity_id),
+                ctx.db.exploration_chunks_state_v2().entity_id().find(&entity_id),
                 "Missing exploration_chunks_state in move_player_and_explore"
             );
             if exploration_chunks.explore_chunk(ctx, &entered_chunk, None) {
                 PlayerState::discover_ruins_in_chunk(ctx, entity_id, entered_chunk);
-                ctx.db.exploration_chunks_state().entity_id().update(exploration_chunks);
+                ctx.db.exploration_chunks_state_v2().entity_id().update(exploration_chunks);
             }
         }
 
@@ -505,7 +503,7 @@ impl PlayerState {
         */
         // Collect stats from deployable
         if let Some(mounting) = ctx.db.mounting_state().entity_id().find(&player_entity_id) {
-            if let Some(deployable) = ctx.db.deployable_state().entity_id().find(&mounting.deployable_entity_id) {
+            if let Some(deployable) = ctx.db.deployable_state_v2().entity_id().find(&mounting.deployable_entity_id) {
                 Self::collect_deployable_stats(ctx, deployable.deployable_description_id, &mut bonuses);
             }
         }
@@ -556,20 +554,5 @@ impl PlayerState {
             .entity_id()
             .find(&player_entity_id)
             .map(|u| u.username);
-    }
-
-    pub fn refresh_traveler_tasks(&mut self, ctx: &ReducerContext) {
-        let next_task_refresh = traveler_task_agent::next_tick(ctx);
-        if self.traveler_tasks_expiration >= next_task_refresh {
-            // The current tasks are still active; nothing to refresh
-            return;
-        }
-        self.traveler_tasks_expiration = next_task_refresh;
-
-        TravelerTaskState::delete_all_for_player(ctx, self.entity_id);
-        // Need to create new tasks for the player
-        let requests = TravelerTaskState::generate_npc_requests_hashmap(ctx);
-        let tasks_per_npc = ctx.db.parameters_desc().version().find(0).unwrap().traveler_tasks_per_npc;
-        TravelerTaskState::generate_all_for_player(ctx, self.entity_id, &requests, tasks_per_npc, next_task_refresh);
     }
 }

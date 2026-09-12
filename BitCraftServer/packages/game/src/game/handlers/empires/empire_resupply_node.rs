@@ -68,6 +68,12 @@ pub fn empire_resupply_node_reduce(
 ) -> Result<(), String> {
     empire_resupply_node_validate(ctx, actor_id, building_entity_id)?;
 
+    let player_location = game_state_filters::coordinates_any(ctx, actor_id);
+    let watchtower_location = game_state_filters::coordinates(ctx, building_entity_id);
+    if player_location.distance_to(watchtower_location) > 2 {
+        return Err("Too far".into());
+    }
+
     if !EmpirePlayerDataState::has_permission(ctx, actor_id, EmpirePermission::SupplyNode) {
         return Err("You don't have the permissions to resupply a node".into());
     }
@@ -77,8 +83,6 @@ pub fn empire_resupply_node_reduce(
         ctx.db.inventory_state().entity_id().find(from_pocket.inventory_entity_id),
         "Missing inventory"
     );
-
-    let player_location = game_state_filters::coordinates_any(ctx, actor_id);
 
     inventory_helper::validate_interact(
         ctx,
@@ -112,7 +116,7 @@ pub fn empire_resupply_node_reduce(
     let supplies_count = ctx.db.empire_supplies_desc().cargo_id().find(&cargo_id).unwrap().energy;
     send_inter_module_message(
         ctx,
-        crate::messages::inter_module::MessageContentsV2::EmpireResupplyNode(EmpireResupplyNodeMsg {
+        crate::messages::inter_module::MessageContentsV5::EmpireResupplyNode(EmpireResupplyNodeMsg {
             building_entity_id,
             supplies_count,
             player_entity_id: actor_id,

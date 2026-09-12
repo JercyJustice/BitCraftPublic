@@ -14,7 +14,7 @@ pub fn cheat_deployable_store(ctx: &ReducerContext, deployable_entity_id: u64) -
         return Err("Deployable is already stored".into());
     }
 
-    if let Some(deployable_state) = ctx.db.deployable_state().entity_id().find(&deployable_entity_id) {
+    if let Some(deployable_state) = ctx.db.deployable_state_v2().entity_id().find(&deployable_entity_id) {
         let actor_id = deployable_state.owner_id;
         return store_deployable(ctx, actor_id, deployable_entity_id, false);
     } else if let Some(mut deployable_collectible) = ctx

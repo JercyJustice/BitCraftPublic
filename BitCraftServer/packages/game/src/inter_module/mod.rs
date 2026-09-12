@@ -1,8 +1,8 @@
 use crate::messages::{
     generic::world_region_state,
-    inter_module::{inter_module_message_v2, InterModuleMessageV2, MessageContentsV2},
+    inter_module::{inter_module_message_v5, InterModuleMessageV5, MessageContentsV5},
 };
-use _autogen::InterModuleTableUpdates;
+use _autogen::InterModuleTableUpdatesV2;
 use spacetimedb::{ReducerContext, Table};
 use std::cell::RefCell;
 
@@ -27,6 +27,7 @@ pub mod recover_deployable;
 pub mod region_destroy_siege_engine;
 pub mod replace_identity;
 pub mod restore_skills;
+pub mod system_chat_broadcast;
 pub mod transfer_player;
 pub mod transfer_player_housing;
 pub mod user_update_region;
@@ -45,13 +46,13 @@ impl Drop for SharedTransactionAccumulator<'_> {
 enum InterModuleAccumulator {
     None,                                 //This is not a shared reducer
     Uninitialized,                        //This is a shared reducer, but no shared operations have been performed yet
-    Initialized(InterModuleTableUpdates), //List of performed shared operations
+    Initialized(InterModuleTableUpdatesV2), //List of performed shared operations
 }
 
 thread_local! {
     static TABLE_UPDATES_GLOBAL: RefCell<InterModuleAccumulator> = RefCell::new(InterModuleAccumulator::None);
     static TABLE_UPDATES_OTHER_REGIONS: RefCell<InterModuleAccumulator> = RefCell::new(InterModuleAccumulator::None);
-    static DELAYED_MESSAGES: RefCell<Vec<(crate::messages::inter_module::MessageContentsV2, crate::inter_module::InterModuleDestination)>> = RefCell::new(Vec::new());
+    static DELAYED_MESSAGES: RefCell<Vec<(crate::messages::inter_module::MessageContentsV5, crate::inter_module::InterModuleDestination)>> = RefCell::new(Vec::new());
     static TIMESTAMP: RefCell<i64> = RefCell::new(0);
 }
 
@@ -116,10 +117,10 @@ impl SharedTransactionAccumulator<'_> {
     pub fn send_shared_transaction(&self) {
         TABLE_UPDATES_GLOBAL.with_borrow_mut(|t| {
             if let InterModuleAccumulator::Initialized(a) = t {
-                self.ctx.db.inter_module_message_v2().insert(InterModuleMessageV2 {
+                self.ctx.db.inter_module_message_v5().insert(InterModuleMessageV5 {
                     id: 0,
                     to: 0,
-                    contents: MessageContentsV2::TableUpdate(a.clone()),
+                    contents: MessageContentsV5::TableUpdate(a.clone()),
                 });
             }
             *t = InterModuleAccumulator::None;
@@ -133,10 +134,10 @@ impl SharedTransactionAccumulator<'_> {
                     if i == cur_region {
                         continue;
                     }
-                    self.ctx.db.inter_module_message_v2().insert(InterModuleMessageV2 {
+                    self.ctx.db.inter_module_message_v5().insert(InterModuleMessageV5 {
                         id: 0,
                         to: i,
-                        contents: MessageContentsV2::TableUpdate(a.clone()),
+                        contents: MessageContentsV5::TableUpdate(a.clone()),
                     });
                 }
             }
@@ -156,14 +157,14 @@ impl SharedTransactionAccumulator<'_> {
 
 pub fn add_global_table_update<F>(callback: F)
 where
-    F: FnOnce(&mut InterModuleTableUpdates),
+    F: FnOnce(&mut InterModuleTableUpdatesV2),
 {
     TABLE_UPDATES_GLOBAL.with_borrow_mut(|t| {
         if let InterModuleAccumulator::None = t {
             panic!("Shared operations require reducers decorated with `#[shared_table_reducer]` attribute");
         }
         if let InterModuleAccumulator::Uninitialized = t {
-            *t = InterModuleAccumulator::Initialized(InterModuleTableUpdates::new());
+            *t = InterModuleAccumulator::Initialized(InterModuleTableUpdatesV2::new());
         }
         if let InterModuleAccumulator::Initialized(a) = t {
             callback(a);
@@ -173,14 +174,14 @@ where
 
 pub fn add_region_table_update<F>(callback: F)
 where
-    F: FnOnce(&mut InterModuleTableUpdates),
+    F: FnOnce(&mut InterModuleTableUpdatesV2),
 {
     TABLE_UPDATES_OTHER_REGIONS.with_borrow_mut(|t| {
         if let InterModuleAccumulator::None = t {
             panic!("Shared operations require reducers decorated with `#[shared_table_reducer]` attribute");
         }
         if let InterModuleAccumulator::Uninitialized = t {
-            *t = InterModuleAccumulator::Initialized(InterModuleTableUpdates::new());
+            *t = InterModuleAccumulator::Initialized(InterModuleTableUpdatesV2::new());
         }
         if let InterModuleAccumulator::Initialized(a) = t {
             callback(a);
@@ -188,11 +189,11 @@ where
     });
 }
 
-pub fn send_inter_module_message(
-    ctx: &ReducerContext,
-    contents: crate::messages::inter_module::MessageContentsV2,
-    dst: crate::inter_module::InterModuleDestination,
-) {
+pub fn send_inter_module_message<T>(ctx: &ReducerContext, contents: T, dst: crate::inter_module::InterModuleDestination)
+where
+    T: Into<crate::messages::inter_module::MessageContentsV5>,
+{
+    let contents = contents.into();
     let is_none = TABLE_UPDATES_OTHER_REGIONS.with_borrow(|t| if let InterModuleAccumulator::None = t { true } else { false });
     if !is_none {
         DELAYED_MESSAGES.with_borrow_mut(|v| v.push((contents, dst)));
@@ -202,8 +203,8 @@ pub fn send_inter_module_message(
     match dst {
         crate::inter_module::InterModuleDestination::Global | crate::inter_module::InterModuleDestination::GlobalAndAllOtherRegions => {
             ctx.db
-                .inter_module_message_v2()
-                .insert(crate::messages::inter_module::InterModuleMessageV2 {
+                .inter_module_message_v5()
+                .insert(crate::messages::inter_module::InterModuleMessageV5 {
                     id: 0,
                     to: 0,
                     contents: contents.clone(),
@@ -223,7 +224,7 @@ pub fn send_inter_module_message(
                 if i == cur_region {
                     continue;
                 }
-                ctx.db.inter_module_message_v2().insert(InterModuleMessageV2 {
+                ctx.db.inter_module_message_v5().insert(InterModuleMessageV5 {
                     id: 0,
                     to: i,
                     contents: contents.clone(),
@@ -249,8 +250,8 @@ pub fn send_inter_module_message(
         }
 
         ctx.db
-            .inter_module_message_v2()
-            .insert(crate::messages::inter_module::InterModuleMessageV2 {
+            .inter_module_message_v5()
+            .insert(crate::messages::inter_module::InterModuleMessageV5 {
                 id: 0,
                 to: region_id,
                 contents: contents,

@@ -1,10 +1,11 @@
 use spacetimedb::ReducerContext;
 
 use crate::{
-    game::{coordinates::SmallHexTile, dimensions},
+    game::{coordinates::SmallHexTile, dimensions, game_state::game_state_filters},
     messages::{
         components::{building_state, claim_state},
         empire_shared::*,
+        static_data::parameters_desc,
     },
     unwrap_or_err,
 };
@@ -165,6 +166,25 @@ pub fn empire_resupply_node_validate(ctx: &ReducerContext, actor_id: u64, buildi
 
     if EmpireNodeSiegeState::get(ctx, building_entity_id, empire_node.empire_entity_id).is_some() {
         return Err("Cannot resupply watchtower directly when it's under siege".into());
+    }
+
+    Ok(())
+}
+
+pub fn validate_siege_distance(
+    ctx: &ReducerContext,
+    building_entity_id: u64,
+    coord: SmallHexTile,
+    error_message: &str,
+    padding: i32,
+) -> Result<(), String> {
+    let watchtower_location = game_state_filters::coordinates(ctx, building_entity_id);
+    let distance = watchtower_location.distance_to(coord);
+    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
+    let min = params.empire_min_siege_distance - padding;
+    let max = params.empire_max_siege_distance + padding;
+    if distance < min || distance > max {
+        return Err(format!("{{0}} within {{1}} and {{2}} tiles from the target watchtower|~{error_message}|~{min}|~{max}"));
     }
 
     Ok(())

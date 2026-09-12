@@ -2,7 +2,8 @@ use spacetimedb::ReducerContext;
 
 use crate::{
     game::handlers::authentication::has_role,
-    messages::{authentication::Role, generic::admin_broadcast},
+    inter_module::send_inter_module_message,
+    messages::authentication::Role,
 };
 
 #[spacetimedb::reducer]
@@ -15,10 +16,11 @@ pub fn admin_broadcast_msg_region(ctx: &ReducerContext, title: String, message: 
 }
 
 pub fn reduce(ctx: &ReducerContext, title: String, message: String, sign_out: bool) {
-    let mut broadcast = ctx.db.admin_broadcast().version().find(&0).unwrap();
-    broadcast.title = title;
-    broadcast.message = message;
-    broadcast.sign_out = sign_out;
-    broadcast.timestamp = ctx.timestamp;
-    ctx.db.admin_broadcast().version().update(broadcast);
+    send_inter_module_message(
+        ctx,
+        crate::messages::inter_module::MessageContentsV5::AdminBroadcastMessage(
+            crate::messages::inter_module::AdminBroadcastMessageMsg { title, message, sign_out },
+        ),
+        crate::inter_module::InterModuleDestination::Global,
+    );
 }

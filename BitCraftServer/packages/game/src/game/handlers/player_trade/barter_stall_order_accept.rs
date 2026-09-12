@@ -9,6 +9,7 @@ use crate::{
     game::{
         entities::building_state::{BuildingState, InventoryState},
         game_state,
+        handlers::inventory::inventory_helper,
         reducer_helpers::player_action_helpers,
     },
     messages::{
@@ -25,14 +26,18 @@ pub fn barter_stall_order_accept(ctx: &ReducerContext, request: PlayerBarterStal
     let actor_id = game_state::actor_id(&ctx, true)?;
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
 
-    reduce(ctx, actor_id, request.shop_entity_id, request.trade_order_entity_id)
+    reduce(ctx, actor_id, request.shop_entity_id, request.trade_order_entity_id, request.amount)
 }
 
-pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_order_entity_id: u64) -> Result<(), String> {
+pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_order_entity_id: u64, amount: i32) -> Result<(), String> {
     HealthState::check_incapacitated(ctx, entity_id, true)?;
 
     if ThreatState::in_combat(ctx, entity_id) {
         return Err("Cannot execute a trade order while in combat".into());
+    }
+
+    if amount <= 0 {
+        return Err("Invalid amount".into());
     }
 
     let coordinates = ctx.db.mobile_entity_state().entity_id().find(&entity_id).unwrap().coordinates();
@@ -64,7 +69,7 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
             .iter()
             .filter(|f| f.storage_slots > 0 || f.cargo_slots > 0)
             .position(|f| f.cargo_slots > 0);
-    } else if let Some(deployable) = ctx.db.deployable_state().entity_id().find(&shop_entity_id) {
+    } else if let Some(deployable) = ctx.db.deployable_state_v2().entity_id().find(&shop_entity_id) {
         if deployable.hidden {
             return Err("Cannot interact with a hidden deployable.".into());
         }
@@ -101,7 +106,7 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
     }
 
     // Is this out of stock?
-    if trade_order.remaining_stock <= 0 {
+    if trade_order.remaining_stock != i32::MAX && trade_order.remaining_stock < amount {
         return Err("No more stock available for this trade order!".into());
     }
 
@@ -178,11 +183,15 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
             for offered_item in &traveler_trade_order.offer_items {
                 let mut item_stack = ItemStack::new(ctx, offered_item.item_id, offered_item.item_type, 1);
                 if item_stack.durability.is_some() {
-                    for _ in 0..offered_item.quantity {
+                    if amount > 1000 {
+                        // Adding a check to prevent allocating an insane amount of durability item copies; this is obviously an attempt at sabotage or cheat
+                        return Err("Irrealistic amount involving items with durability".into());
+                    }
+                    for _ in 0..offered_item.quantity * amount {
                         offered_item_stacks.push(item_stack.clone());
                     }
                 } else {
-                    item_stack.quantity = offered_item.quantity;
+                    item_stack.quantity = offered_item.quantity * amount;
                     offered_item_stacks.push(item_stack);
                 }
             }
@@ -190,11 +199,15 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
             for required_item in &traveler_trade_order.required_items {
                 let mut item_stack = ItemStack::new(ctx, required_item.item_id, required_item.item_type, 1);
                 if item_stack.durability.is_some() {
-                    for _ in 0..required_item.quantity {
+                    if amount > 1000 {
+                        // Adding a check to prevent allocating an insane amount of durability item copies; this is obviously an attempt at sabotage or cheat
+                        return Err("Irrealistic amount involving items with durability".into());
+                    }
+                    for _ in 0..required_item.quantity * amount {
                         required_item_stacks.push(item_stack.clone());
                     }
                 } else {
-                    item_stack.quantity = required_item.quantity;
+                    item_stack.quantity = required_item.quantity * amount;
                     required_item_stacks.push(item_stack);
                 }
             }
@@ -205,15 +218,33 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
         for offered_item in &trade_order.offer_items {
             let mut item_stack = ItemStack::new(ctx, offered_item.item_id, offered_item.item_type, 1);
             if item_stack.durability.is_some() {
-                for _ in 0..offered_item.quantity {
+                for _ in 0..offered_item.quantity * amount {
+                    if amount > 1000 {
+                        // Adding a check to prevent allocating an insane amount of durability item copies; this is obviously an attempt at sabotage or cheat
+                        return Err("Irrealistic amount involving items with durability".into());
+                    }
                     offered_item_stacks.push(item_stack.clone());
                 }
             } else {
-                item_stack.quantity = offered_item.quantity;
+                item_stack.quantity = offered_item.quantity * amount;
                 offered_item_stacks.push(item_stack);
             }
         }
-        required_item_stacks = trade_order.required_items.clone();
+        for required_item in &trade_order.required_items {
+            let mut item_stack = ItemStack::new(ctx, required_item.item_id, required_item.item_type, 1);
+            if item_stack.durability.is_some() {
+                if amount > 1000 {
+                    // Adding a check to prevent allocating an insane amount of durability item copies; this is obviously an attempt at sabotage or cheat
+                    return Err("Irrealistic amount involving items with durability".into());
+                }
+                for _ in 0..required_item.quantity * amount {
+                    required_item_stacks.push(item_stack.clone());
+                }
+            } else {
+                item_stack.quantity = required_item.quantity * amount;
+                required_item_stacks.push(item_stack);
+            }
+        }
     }
 
     // Prevent accepting trade orders offering only known auto-collect items
@@ -248,12 +279,16 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
         if let Some(item_inventory) = InventoryState::get_by_owner_with_index(ctx, shop_entity_id, item_index as i32) {
             let mut item_inventory = item_inventory;
 
-            let mut removed_items: Vec<ItemStack> = trade_order
-                .offer_items
-                .iter()
-                .filter(|i| i.item_type == ItemType::Item)
-                .map(|i| i.clone())
-                .collect();
+            let mut removed_items = scale_item_stacks(
+                ctx,
+                &trade_order
+                    .offer_items
+                    .iter()
+                    .filter(|i| i.item_type == ItemType::Item)
+                    .cloned()
+                    .collect(),
+                amount,
+            )?;
             if claim.is_none() {
                 // Everything is removed from the stall
                 if !item_inventory.remove(&removed_items) {
@@ -289,22 +324,26 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
 
                     if removed_from_treasury > 0 {
                         let mut claim_local = claim.as_ref().unwrap().local_state(ctx);
-                        if claim_local.treasury < removed_coins as u32 {
+                        if claim_local.treasury < removed_from_treasury {
                             return Err("Vendor does not have enough funds for this transaction".into());
                         }
                         // pay from the treasury
-                        claim_local.treasury -= removed_coins as u32;
+                        claim_local.treasury -= removed_from_treasury;
                         ctx.db.claim_local_state().entity_id().update(claim_local);
                     }
                 }
             }
 
-            let mut gained_items: Vec<ItemStack> = trade_order
-                .required_items
-                .iter()
-                .filter(|i| i.item_type == ItemType::Item)
-                .map(|i| i.clone())
-                .collect();
+            let mut gained_items = scale_item_stacks(
+                ctx,
+                &trade_order
+                    .required_items
+                    .iter()
+                    .filter(|i| i.item_type == ItemType::Item)
+                    .cloned()
+                    .collect(),
+                amount,
+            )?;
             if claim.is_none() {
                 // Everything is added in the stall
                 if !item_inventory.add_multiple(ctx, &gained_items) {
@@ -335,22 +374,33 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
             let mut cargo_inventory = cargo_inventory;
 
             // Remove offered cargos
-            let cargo_itemstacks: Vec<ItemStack> = trade_order
-                .offer_items
-                .iter()
-                .filter(|i| i.item_type == ItemType::Cargo)
-                .map(|i| i.clone())
-                .collect();
+            let cargo_itemstacks = scale_item_stacks(
+                ctx,
+                &trade_order
+                    .offer_items
+                    .iter()
+                    .filter(|i| i.item_type == ItemType::Cargo)
+                    .cloned()
+                    .collect(),
+                amount,
+            )?;
             if !cargo_inventory.remove(&cargo_itemstacks) {
                 return Err("Building inventory lacks goods".into());
             }
             // Add requested cargos
-            let cargo_itemstacks: Vec<ItemStack> = trade_order
-                .required_items
-                .iter()
-                .filter(|i| i.item_type == ItemType::Cargo)
-                .map(|i| i.clone())
-                .collect();
+            let cargo_itemstacks = scale_item_stacks(
+                ctx,
+                &trade_order
+                    .required_items
+                    .iter()
+                    .filter(|i| i.item_type == ItemType::Cargo)
+                    .cloned()
+                    .collect(),
+                amount,
+            )?;
+            for cargo_itemstack in &cargo_itemstacks {
+                inventory_helper::validate_cargo_target(ctx, &cargo_inventory, cargo_itemstack)?;
+            }
             if !cargo_inventory.add_multiple(ctx, &cargo_itemstacks) {
                 return Err("Building stockpile is full".into());
             }
@@ -361,13 +411,38 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
     }
 
     if trade_order.remaining_stock != i32::MAX {
-        trade_order.remaining_stock = trade_order.remaining_stock - 1;
+        trade_order.remaining_stock -= amount;
         ctx.db.trade_order_state().entity_id().update(trade_order);
     }
 
     player_action_helpers::post_reducer_update_cargo(ctx, entity_id);
 
     Ok(())
+}
+
+fn scale_item_stacks(ctx: &ReducerContext, item_stacks: &Vec<ItemStack>, amount: i32) -> Result<Vec<ItemStack>, String> {
+    let mut scaled_item_stacks = Vec::new();
+
+    for item_stack in item_stacks {
+        let mut scaled_item_stack = item_stack.clone();
+        scaled_item_stack.quantity = 1;
+
+        if scaled_item_stack.durability.is_some() || ItemStack::new(ctx, item_stack.item_id, item_stack.item_type, 1).durability.is_some() {
+            if amount > 1000 {
+                // Adding a check to prevent allocating an insane amount of durability item copies; this is obviously an attempt at sabotage or cheat
+                return Err("Irrealistic amount involving items with durability".into());
+            }
+
+            for _ in 0..item_stack.quantity * amount {
+                scaled_item_stacks.push(scaled_item_stack.clone());
+            }
+        } else {
+            scaled_item_stack.quantity = item_stack.quantity * amount;
+            scaled_item_stacks.push(scaled_item_stack);
+        }
+    }
+
+    Ok(scaled_item_stacks)
 }
 
 fn extract_coins(item_stacks: &mut Vec<ItemStack>) -> i32 {

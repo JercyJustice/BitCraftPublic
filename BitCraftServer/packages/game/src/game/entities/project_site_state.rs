@@ -5,7 +5,7 @@ pub use crate::game::coordinates::*;
 use crate::game::game_state;
 use crate::game::terrain_chunk::TerrainChunkCache;
 use crate::messages::components::dropped_inventory_state;
-use crate::{deployable_state, resource_state, unwrap_or_err, Biome};
+use crate::{deployable_state_v2, resource_state, unwrap_or_err, Biome};
 use crate::{
     game::{claim_helper, game_state::game_state_filters},
     messages::{
@@ -153,7 +153,7 @@ impl ProjectSiteState {
             let entities_on_tile = LocationState::select_all(ctx, coords)
                 .map(|a| {
                     (
-                        ctx.db.deployable_state().entity_id().find(&a.entity_id),
+                        ctx.db.deployable_state_v2().entity_id().find(&a.entity_id),
                         ctx.db.dropped_inventory_state().entity_id().find(&a.entity_id),
                     )
                 })

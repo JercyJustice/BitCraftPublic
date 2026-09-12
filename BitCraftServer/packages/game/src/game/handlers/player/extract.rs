@@ -8,7 +8,7 @@ use crate::{
         coordinates::*,
         dimensions,
         discovery::Discovery,
-        entities::{building_state::InventoryState, terrain_cell::TerrainCell},
+        entities::{buff, building_state::InventoryState, terrain_cell::TerrainCell},
         game_state::{
             self,
             game_state_filters::{self, coordinates_float, has_hitbox_footprint},
@@ -31,6 +31,37 @@ use crate::{
 };
 
 use spacetimedb::{log, ReducerContext, Table};
+
+fn apply_self_buffs(ctx: &ReducerContext, actor_id: u64, self_buffs: &[PlaceableSelfBuffChance]) -> Result<(), String> {
+    for self_buff in self_buffs {
+        if ctx.rng().gen_range(0.0..=1.0) <= self_buff.chance {
+            buff::activate(ctx, actor_id, self_buff.buff_id, self_buff.duration, None)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn format_missing_input_message(ctx: &ReducerContext, required_stack: &ItemStack) -> String {
+    let item_name = match required_stack.item_type {
+        ItemType::Item => ctx
+            .db
+            .item_desc()
+            .id()
+            .find(&required_stack.item_id)
+            .map(|item| item.name)
+            .unwrap_or_else(|| "Unknown item".into()),
+        ItemType::Cargo => ctx
+            .db
+            .cargo_desc()
+            .id()
+            .find(&required_stack.item_id)
+            .map(|cargo| cargo.name)
+            .unwrap_or_else(|| "Unknown cargo".into()),
+    };
+
+    format!("Requires {{0}} {{1}}|~{}|~{}", required_stack.quantity, item_name)
+}
 
 fn event_delay_recipe_id(ctx: &ReducerContext, request: &PlayerExtractRequest, stats: &CharacterStatsState) -> (Duration, Option<i32>) {
     let recipe = ctx.db.extraction_recipe_desc().id().find(&request.recipe_id);
@@ -225,7 +256,12 @@ fn reduce(
 
     let mut deployable_radius = 0.0;
     if let Some(mounting) = mounting {
-        let deployable = ctx.db.deployable_state().entity_id().find(mounting.deployable_entity_id).unwrap();
+        let deployable = ctx
+            .db
+            .deployable_state_v2()
+            .entity_id()
+            .find(mounting.deployable_entity_id)
+            .unwrap();
         let deployable_desc = ctx.db.deployable_desc().id().find(deployable.deployable_description_id).unwrap();
         deployable_radius = deployable_desc.radius;
         if !deployable_desc.allow_driver_extract {
@@ -354,16 +390,29 @@ fn reduce(
                 })
                 .collect();
 
-            InventoryState::withdraw_from_player_inventory_and_nearby_deployables(
-                ctx,
-                actor_id,
-                &consumed_item_stacks,
-                |x| get_distance(ctx, &deposit, coordinates, x),
-            )?;
+            if let Err(err) =
+                InventoryState::withdraw_from_player_inventory_and_nearby_deployables(ctx, actor_id, &consumed_item_stacks, |x| {
+                    get_distance(ctx, &deposit, coordinates, x)
+                })
+            {
+                if consumed_item_stacks.is_empty() {
+                    return Err(err);
+                }
+
+                return Err(format_missing_input_message(ctx, &consumed_item_stacks[0]));
+            }
         }
 
         if recipe.tool_durability_lost > 0 {
             InventoryState::reduce_tool_durability(ctx, actor_id, recipe.tool_requirements[0].tool_type, recipe.tool_durability_lost);
+        }
+
+        let resource = ctx.db.resource_desc().id().find(&deposit.resource_id).unwrap();
+        let mut deposit_health = ctx.db.resource_health_state().entity_id().find(&deposit_entity_id).unwrap();
+        if !resource.ignore_damage {
+            // Static data may lower max health while this resource still has its old health.
+            // Clamp first so this extraction's damage is applied to the new effective health.
+            deposit_health.health = i32::clamp(deposit_health.health, 0, resource.max_health);
         }
 
         // Check Extract Yield (factoring power of tool since it affect amount yielded)
@@ -376,7 +425,6 @@ fn reduce(
                 let base_damage = tool_power.round() as i32;
                 let damage = (tool_power * crit_multiplier).round() as i32;
 
-                let deposit_health = ctx.db.resource_health_state().entity_id().find(&deposit_entity_id).unwrap();
                 let experience_damage_output = i32::min(deposit_health.health, base_damage);
                 let damage_output = i32::min(deposit_health.health, damage);
                 (
@@ -433,9 +481,36 @@ fn reduce(
                 discovery.acquire_extract(ctx, recipe.id);
                 discovery.acquire_resource(ctx, recipe.resource_id);
             }
-        }
 
-        let resource = ctx.db.resource_desc().id().find(&deposit.resource_id).unwrap();
+            if !request.clear_from_claim && damage_output > 0 {
+                if let Some(spawned_placeables) = &recipe.spawned_placeables {
+                    for spawned_placeable in spawned_placeables {
+                        let scaled_spawn_chance = (spawned_placeable.chance * damage_output as f32).clamp(0.0, 1.0);
+                        if scaled_spawn_chance > 0.0
+                            && (scaled_spawn_chance >= 1.0 || ctx.rng().gen_range(0.0..=1.0) <= scaled_spawn_chance)
+                        {
+                            let _ = PlaceableState::spawn_in_radius_band(
+                                ctx,
+                                spawned_placeable.placeable_id,
+                                actor_id,
+                                coordinates,
+                                deposit.direction_index,
+                                spawned_placeable.radius_min,
+                                spawned_placeable.radius_max,
+                            );
+                        }
+                    }
+                }
+
+                if !request.clear_from_claim {
+                    if let Some(self_buffs) = &recipe.self_buffs {
+                        apply_self_buffs(ctx, actor_id, self_buffs)?;
+                    }
+                }
+
+                EquipmentState::try_activate_profession_hit_buffs(ctx, actor_id, recipe.get_skill_type())?;
+            }
+        }
 
         let mut extract_outcome: ExtractOutcomeStateV2 = ctx.db.extract_outcome_state().entity_id().find(&actor_id).unwrap();
         extract_outcome.target_entity_id = deposit_entity_id;
@@ -445,9 +520,7 @@ fn reduce(
         ctx.db.extract_outcome_state().entity_id().update(extract_outcome);
 
         if !resource.ignore_damage {
-            // make sure current health does not exceed maximum health or go below 0.0
-            let mut deposit_health = ctx.db.resource_health_state().entity_id().find(&deposit_entity_id).unwrap();
-            deposit_health.health = i32::clamp(deposit_health.health - damage_output, 0, resource.max_health);
+            deposit_health.health = i32::max(deposit_health.health - damage_output, 0);
 
             if deposit_health.health <= 0 {
                 // Give end of resource items (unless demolishing on claim)

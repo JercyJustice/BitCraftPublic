@@ -29,6 +29,14 @@ impl ClaimTechState {
             .unwrap()
     }
 
+    pub fn max_tier(&self, ctx: &ReducerContext) -> i32 {
+        self.learned
+            .iter()
+            .filter_map(|id| ctx.db.claim_tech_desc().id().find(id).map(|desc| desc.tier))
+            .max()
+            .unwrap_or(0)
+    }
+
     pub fn min_xp_to_mint_hex_coin(&self, ctx: &ReducerContext) -> u32 {
         return self
             .learned

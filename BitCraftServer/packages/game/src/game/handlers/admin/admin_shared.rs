@@ -4,7 +4,8 @@ use spacetimedb::{ReducerContext, Table};
 use crate::game::game_state::{create_entity, unix};
 use crate::messages::action_request::CreatePlayerReportRequest;
 use crate::messages::components::{
-    chat_message_state, player_report_state, player_username_state, ChatChannel, ChatMessageState, PlayerReportState,
+    chat_message_state, player_report_state, player_report_state_timestamp, player_username_state, ChatChannel, ChatMessageState,
+    PlayerReportState, PlayerReportStateTimestamp,
 };
 use crate::{game::handlers::authentication::has_role, messages::authentication::Role, unwrap_or_err};
 
@@ -108,6 +109,11 @@ pub fn admin_create_entity_name_report(
         chat_user_context: None,
         actioned: false,
     });
+
+    ctx.db.player_report_state_timestamp().try_insert(PlayerReportStateTimestamp {
+        entity_id: report_entity_id,
+        timestamp: unix(ctx.timestamp),
+    })?;
 
     Ok(())
 }

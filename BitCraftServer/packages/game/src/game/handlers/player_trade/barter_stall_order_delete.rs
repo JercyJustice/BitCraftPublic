@@ -30,7 +30,7 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64, shop_entity_id: u64, trade_o
             return Err("Too far".into());
         }
         game_state_filters::validate_barter_permissions(ctx, entity_id, &building, coordinates.dimension)?;
-    } else if let Some(deployable) = ctx.db.deployable_state().entity_id().find(&shop_entity_id) {
+    } else if let Some(deployable) = ctx.db.deployable_state_v2().entity_id().find(&shop_entity_id) {
         let deployable_location = ctx
             .db
             .mobile_entity_state()

@@ -1,5 +1,5 @@
 use crate::{
-    barter_stall_state, collectible_desc, deployable_collectible_state, deployable_desc, deployable_state,
+    barter_stall_state, collectible_desc, deployable_collectible_state, deployable_desc, deployable_state_v2,
     game::{
         claim_helper,
         coordinates::*,
@@ -17,7 +17,7 @@ use crate::{
         components::{dimension_description_state, dimension_network_state, portal_state, PlayerHousingState},
         empire_shared::{empire_player_data_state, empire_state},
         game_util::ItemStack,
-        static_data::{DeployableDesc, DeployableType},
+        static_data::{CollectibleType, DeployableAppearanceOverrideDesc, DeployableDesc, DeployableType},
     },
     mobile_entity_state, mounting_state, pathfinding_desc, unwrap_or_err, vault_state, BarterStallState, DroppedInventoryState,
     FootprintTileState, FootprintType, InventoryState, MobileEntityState, MovementType, PlayerActionState, PlayerActionType,
@@ -25,7 +25,64 @@ use crate::{
 };
 use spacetimedb::{ReducerContext, Table};
 
-use crate::messages::components::{DeployableState, HealthState, PlayerState};
+use crate::messages::components::{DeployableStateV2, HealthState, PlayerState};
+use crate::messages::static_data::deployable_appearance_override_desc;
+
+pub fn get_active_deployable_appearance_override(
+    ctx: &ReducerContext,
+    actor_id: u64,
+    model_address: String,
+) -> Option<DeployableAppearanceOverrideDesc> {
+    let vault = ctx.db.vault_state().entity_id().find(&actor_id)?;
+    for collectible in vault.collectibles {
+        if !collectible.activated {
+            continue;
+        }
+
+        let collectible_desc = ctx.db.collectible_desc().id().find(&collectible.id)?;
+        if collectible_desc.collectible_type != CollectibleType::DeployableAppearanceOverride {
+            continue;
+        }
+
+        let appearance_override = ctx
+            .db
+            .deployable_appearance_override_desc()
+            .collectible_id()
+            .find(&collectible.id)?;
+        if appearance_override.affected_model_address == model_address {
+            return Some(appearance_override);
+        }
+    }
+
+    None
+}
+
+pub fn has_deployed_deployable_with_model_address(ctx: &ReducerContext, actor_id: u64, model_address: &str) -> bool {
+    for deployable in ctx.db.deployable_state_v2().owner_id().filter(actor_id) {
+        let Some(deployable_collectible) = ctx
+            .db
+            .deployable_collectible_state()
+            .deployable_entity_id()
+            .find(&deployable.entity_id)
+        else {
+            continue;
+        };
+
+        if deployable_collectible.location.is_none() {
+            continue;
+        }
+
+        let Some(deployable_desc) = ctx.db.deployable_desc().id().find(&deployable.deployable_description_id) else {
+            continue;
+        };
+
+        if deployable_desc.model_address == model_address {
+            return true;
+        }
+    }
+
+    false
+}
 
 pub fn deploy_deployable(
     ctx: &ReducerContext,
@@ -169,13 +226,17 @@ pub fn deploy_deployable(
     if !dry_run {
         let offset = OffsetCoordinatesSmall::from(target_coordinates);
         let deployable_entity_id = deployable_collectible.deployable_entity_id;
+        let appearance_override_id = get_active_deployable_appearance_override(ctx, actor_id, deployable_description.model_address)
+            .map(|appearance_override| appearance_override.id)
+            .unwrap_or(0);
 
-        let mut deployable = ctx.db.deployable_state().entity_id().find(&deployable_entity_id).unwrap();
+        let mut deployable = ctx.db.deployable_state_v2().entity_id().find(&deployable_entity_id).unwrap();
         deployable.direction = direction;
         deployable.claim_entity_id = claim_helper::get_claim_on_tile(ctx, target_coordinates)
             .map(|x| x.claim_id)
             .unwrap_or(0);
-        ctx.db.deployable_state().entity_id().update(deployable);
+        deployable.appearance_override_id = appearance_override_id;
+        ctx.db.deployable_state_v2().entity_id().update(deployable);
 
         deployable_collectible.location = Some(offset);
         ctx.db
@@ -283,7 +344,7 @@ pub fn deploy_standalone_deployable(
 
     let deployable_description_id = deployable_description.id;
     let entity_id = deployable_entity_id;
-    let deployable_state = DeployableState {
+    let deployable_state = DeployableStateV2 {
         entity_id,
         deployable_description_id,
         owner_id: 0,
@@ -291,12 +352,13 @@ pub fn deploy_standalone_deployable(
             .map(|x| x.claim_id)
             .unwrap_or(0),
         direction,
+        appearance_override_id: 0,
         nickname: format!("{}'s {}", empire.name, deployable_description.name),
         hidden: false,
     };
 
     if !dry_run {
-        if ctx.db.deployable_state().try_insert(deployable_state).is_err() {
+        if ctx.db.deployable_state_v2().try_insert(deployable_state).is_err() {
             return Err("Failed to insert deployable".into());
         }
 
@@ -428,7 +490,7 @@ pub fn expel_passengers(ctx: &ReducerContext, deployable_entity_id: u64, skip_de
 
 pub fn store_deployable(ctx: &ReducerContext, actor_id: u64, deployable_entity_id: u64, dry_run: bool) -> Result<(), String> {
     let deployable_state = unwrap_or_err!(
-        ctx.db.deployable_state().entity_id().find(&deployable_entity_id),
+        ctx.db.deployable_state_v2().entity_id().find(&deployable_entity_id),
         "Deployable doesn't exist."
     );
 
@@ -526,10 +588,10 @@ pub fn despawn(ctx: &ReducerContext, deployable_entity_id: u64) {
         }
     }
 
-    if let Some(mut deployable_state) = ctx.db.deployable_state().entity_id().find(&deployable_entity_id) {
+    if let Some(mut deployable_state) = ctx.db.deployable_state_v2().entity_id().find(&deployable_entity_id) {
         if deployable_state.claim_entity_id != 0 {
             deployable_state.claim_entity_id = 0;
-            ctx.db.deployable_state().entity_id().update(deployable_state);
+            ctx.db.deployable_state_v2().entity_id().update(deployable_state);
         }
     }
 }
@@ -574,7 +636,7 @@ pub fn move_deployable(
         PlayerActionType::DeployableMove
     };
     let duration = (duration * 1000.0) as u64;
-    for passenger_id in DeployableState::passengers_iter(ctx, deployable_entity_id) {
+    for passenger_id in DeployableStateV2::passengers_iter(ctx, deployable_entity_id) {
         PlayerTimestampState::refresh(ctx, passenger_id, ctx.timestamp);
         PlayerState::move_player_and_explore(
             ctx,

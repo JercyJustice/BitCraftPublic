@@ -2,10 +2,12 @@ use bitcraft_macro::feature_gate;
 use spacetimedb::ReducerContext;
 
 use crate::{
-    game::game_state,
+    game::game_state::{self, game_state_filters},
     messages::{components::*, empire_shared::*, game_util::ItemStack, inter_module::*},
     unwrap_or_return,
 };
+
+use super::empires_shared::validate_siege_distance;
 
 #[spacetimedb::reducer]
 #[feature_gate("empire")]
@@ -13,6 +15,14 @@ pub fn empire_add_siege_supplies(ctx: &ReducerContext, request: EmpireAddSiegeSu
     let actor_id = game_state::actor_id(&ctx, true)?;
 
     HealthState::check_incapacitated(ctx, actor_id, true)?;
+    let player_location = game_state_filters::coordinates_any(ctx, actor_id);
+    validate_siege_distance(
+        ctx,
+        request.building_entity_id,
+        player_location,
+        "You need to stand",
+        2,
+    )?;
 
     EmpireNodeSiegeState::add_supplies(ctx, actor_id, request.building_entity_id, request.proxy_empire_entity_id)
 }

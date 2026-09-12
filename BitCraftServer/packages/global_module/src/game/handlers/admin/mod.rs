@@ -25,4 +25,5 @@ pub mod admin_sign_out_all;
 pub mod admin_skip_queue;
 pub mod admin_update_empire_ranks;
 pub mod admin_update_granted_hub_items;
+pub mod admin_update_region_exploration_info;
 pub mod admin_update_sign_in_parameters;

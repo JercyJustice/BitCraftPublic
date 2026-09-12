@@ -93,7 +93,7 @@ impl PlayerActionState {
             "Player doesn't have Base PlayerActionState"
         );
         a.was_consumed = true;
-        a.start_time = a.start_time + (a.duration * 9 / 10);
+        a.start_time = a.start_time.saturating_add(a.duration - a.duration / 10);
         ctx.db.player_action_state().auto_id().update(a);
 
         let mut a = unwrap_or_err!(
@@ -101,7 +101,7 @@ impl PlayerActionState {
             "Player doesn't have UpperBody PlayerActionState"
         );
         a.was_consumed = true;
-        a.start_time = a.start_time + (a.duration * 9 / 10);
+        a.start_time = a.start_time.saturating_add(a.duration - a.duration / 10);
         ctx.db.player_action_state().auto_id().update(a);
 
         Ok(())
@@ -121,6 +121,10 @@ impl PlayerActionState {
         }
 
         move_validation_helpers::validate_move_timestamp(player_action.start_time, timestamp, ctx.timestamp)?;
+
+        if player_action.duration == 0 {
+            return Ok(());
+        }
 
         let elapsed_normalized = (timestamp - player_action.start_time) as f32 / player_action.duration as f32;
         if elapsed_normalized >= 0.95f32 {

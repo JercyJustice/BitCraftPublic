@@ -1,4 +1,3 @@
-use bitcraft_macro::feature_gate;
 use crate::building_desc;
 use crate::cargo_desc;
 use crate::game::discovery::Discovery;
@@ -13,6 +12,7 @@ use crate::messages::game_util::*;
 use crate::unwrap_or_err;
 use crate::BuildingCategory;
 use crate::BuildingFunction;
+use bitcraft_macro::feature_gate;
 use spacetimedb::ReducerContext;
 
 use super::inventory_helper;
@@ -97,6 +97,8 @@ pub fn item_stack_move(ctx: &ReducerContext, request: PlayerItemStackMoveRequest
     let mut id_per_slot = Vec::new();
 
     if item_stack.item_type == ItemType::Cargo {
+        inventory_helper::validate_cargo_target(ctx, &target_inventory, &deposit_stack)?;
+
         if let Some(building) = ctx.db.building_state().entity_id().find(&target_inventory.owner_entity_id) {
             let building_desc = ctx.db.building_desc().id().find(&building.building_description_id).unwrap();
             if let Some(function) = BuildingFunction::from_inventory_index(&building_desc, target_inventory.inventory_index) {

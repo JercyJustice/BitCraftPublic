@@ -3,8 +3,8 @@ use spacetimedb::ReducerContext;
 use crate::{
     game::reducer_helpers::deployable_helpers,
     messages::{
-        components::{deployable_state, trade_order_state, PlayerNotificationEvent, TradeOrderState},
-        inter_module::RecoverDeployableMsg,
+        components::{deployable_state_v2, trade_order_state, PlayerNotificationEvent, TradeOrderState},
+        inter_module::{OnDeployableRecoveredMsgV2, RecoverDeployableMsg},
         static_data::deployable_desc,
     },
     unwrap_or_err,
@@ -17,12 +17,12 @@ pub fn process_message_on_destination(ctx: &ReducerContext, sender: u8, msg: Rec
         0 => {
             // find deployable state to recover by player entity_id and deployable_desc_id
             ctx.db
-                .deployable_state()
+                .deployable_state_v2()
                 .owner_id()
                 .filter(msg.player_entity_id)
                 .find(|d| d.deployable_description_id == msg.deployable_desc_id)
         }
-        _ => ctx.db.deployable_state().entity_id().find(msg.deployable_entity_id),
+        _ => ctx.db.deployable_state_v2().entity_id().find(msg.deployable_entity_id),
     };
 
     if let Some(mut deployable) = deployable {
@@ -40,7 +40,7 @@ pub fn process_message_on_destination(ctx: &ReducerContext, sender: u8, msg: Rec
         );
 
         deployable_helpers::expel_and_despawn(ctx, msg.player_entity_id, deployable.entity_id, desc)?;
-        ctx.db.deployable_state().entity_id().delete(deployable.entity_id);
+        ctx.db.deployable_state_v2().entity_id().delete(deployable.entity_id);
         deployable.hidden = false;
         let trade_orders: Vec<TradeOrderState> = ctx.db.trade_order_state().shop_entity_id().filter(deployable.entity_id).collect();
         ctx.db.trade_order_state().shop_entity_id().delete(deployable.entity_id);
@@ -50,8 +50,8 @@ pub fn process_message_on_destination(ctx: &ReducerContext, sender: u8, msg: Rec
         if msg.deployable_entity_id != 0 {
             send_inter_module_message(
                 ctx,
-                crate::messages::inter_module::MessageContentsV2::OnDeployableRecovered(
-                    crate::messages::inter_module::OnDeployableRecoveredMsg {
+                crate::messages::inter_module::MessageContentsV5::OnDeployableRecovered(
+                    OnDeployableRecoveredMsgV2 {
                         player_entity_id: msg.player_entity_id,
                         deployable_entity_id: deployable.entity_id,
                         deployable_desc_id: msg.deployable_desc_id,

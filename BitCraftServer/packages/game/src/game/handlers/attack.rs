@@ -80,7 +80,7 @@ pub fn attack_start(ctx: &ReducerContext, request: EntityAttackRequest) -> Resul
 
         if let Some(ms) = ctx.db.mounting_state().entity_id().find(attacker_id) {
             let deployable_state = unwrap_or_err!(
-                ctx.db.deployable_state().entity_id().find(ms.deployable_entity_id),
+                ctx.db.deployable_state_v2().entity_id().find(ms.deployable_entity_id),
                 "Deployable doesn't exist"
             );
             let deployable_desc = unwrap_or_err!(
@@ -652,10 +652,29 @@ fn attack_impact_reduce(
                             .unwrap();
                         let max_nodes = crumb_trail.crumb_radiuses.len();
                         let prospecting_desc = ctx.db.prospecting_desc().id().find(prospecting.prospecting_id).unwrap();
-                        let max_contribution_nodes = (prospecting_desc.pct_nodes_for_max_contribution * max_nodes as f32).round() as i32;
-                        exp_contribution_multiplier = (prospecting.completed_steps as f32 / max_contribution_nodes as f32).min(1.0);
+                        if max_nodes == 0 {
+                            exp_contribution_multiplier = 1.0;
+                        } else {
+                            let max_contribution_nodes =
+                                (prospecting_desc.pct_nodes_for_max_contribution * max_nodes as f32).round() as i32;
+                            if max_contribution_nodes <= 0 {
+                                exp_contribution_multiplier = 1.0;
+                            } else {
+                                exp_contribution_multiplier =
+                                    (prospecting.completed_steps as f32 / max_contribution_nodes as f32).min(1.0);
+                            }
+                        }
                         if prospecting.completed_steps != prospecting.total_steps - 1 {
                             prospecting.ongoing_step = prospecting.total_steps - 1;
+                        }
+                        if prospecting_desc.single_contribution_only {
+                            prospecting.contribution -= 1;
+                            if prospecting.contribution <= 0 {
+                                ctx.db.prospecting_state().entity_id().delete(prospecting.entity_id);
+                            } else {
+                                ctx.db.prospecting_state().entity_id().update(prospecting);
+                            }
+                        } else if prospecting.completed_steps != prospecting.total_steps - 1 {
                             ctx.db.prospecting_state().entity_id().update(prospecting);
                         }
                     }

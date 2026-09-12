@@ -82,6 +82,10 @@ impl ChunkCoordinates {
     }
 
     pub fn chunk_index(self) -> u64 {
+        if self.x < 0 || self.z < 0 || self.dimension == 0 {
+            return 0;
+        }
+
         (self.dimension as u64 - 1) * 1000000 + self.z as u64 * 1000 + self.x as u64 + 1
         // 1000 is over the maximum chunk size and will skip a table access at runtime
     }

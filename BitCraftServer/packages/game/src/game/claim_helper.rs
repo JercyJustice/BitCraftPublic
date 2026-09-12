@@ -172,7 +172,7 @@ pub fn claim_tile(
     for mut deployable in game_state_filters::deployables_at_coordinates(ctx, coord) {
         deployable.claim_entity_id = claim_entity_id;
 
-        ctx.db.deployable_state().entity_id().update(deployable);
+        ctx.db.deployable_state_v2().entity_id().update(deployable);
     }
 }
 
@@ -241,7 +241,7 @@ pub fn delete_all_claim_tiles(ctx: &ReducerContext, claim_entity_id: u64) {
         unclaim_building(ctx, building, false);
     }
 
-    for deployable in ctx.db.deployable_state().claim_entity_id().filter(claim_entity_id) {
+    for deployable in ctx.db.deployable_state_v2().claim_entity_id().filter(claim_entity_id) {
         unclaim_deployable(ctx, deployable);
     }
 
@@ -265,9 +265,9 @@ fn unclaim_building(ctx: &ReducerContext, building: BuildingState, from_destruct
     }
 }
 
-fn unclaim_deployable(ctx: &ReducerContext, mut deployable: DeployableState) {
+fn unclaim_deployable(ctx: &ReducerContext, mut deployable: DeployableStateV2) {
     deployable.claim_entity_id = 0;
-    ctx.db.deployable_state().entity_id().update(deployable);
+    ctx.db.deployable_state_v2().entity_id().update(deployable);
 }
 
 pub fn claim_area_around_totem(ctx: &ReducerContext, claim_entity_id: u64, radius: i32, ignore_neutral_claims: bool) -> bool {

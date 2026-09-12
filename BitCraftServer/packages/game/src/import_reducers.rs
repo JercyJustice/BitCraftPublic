@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::agents;
 use crate::game::autogen::_static_data::{clear_staged_static_data, validate_staged_data};
 use crate::game::handlers::admin::admin_update_light_source_states::admin_update_light_source_states;
+use crate::game::handlers::admin::admin_update_resource_light_source_states::update_resource_light_source_states;
 use crate::game::handlers::authentication::has_role;
 use crate::game::handlers::migration::migrate_achievements::migrate_achievements;
 use crate::game::world_gen::resources_log::{resources_log, ResourcesLog};
@@ -339,6 +340,32 @@ fn import_building_desc_internal(ctx: &ReducerContext, records: Vec<BuildingDesc
     }
     crate::game::handlers::migration::migration_static_data::migrate_health_of_existing_buildings(ctx, old_descs)?;
     log::info!("Inserted {} records of type BuildingDesc", len);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn import_building_map_icon_desc(ctx: &ReducerContext, records: Vec<BuildingMapIconDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    import_building_map_icon_desc_internal(ctx, records)?;
+    Ok(())
+}
+fn import_building_map_icon_desc_internal(ctx: &ReducerContext, records: Vec<BuildingMapIconDesc>) -> Result<(), String> {
+    for id in ctx.db.building_map_icon_desc().iter().map(|item| item.building_id) {
+        ctx.db.building_map_icon_desc().building_id().delete(&id);
+    }
+    let len: usize = records.len();
+    log::info!("Will insert {} records of type BuildingMapIconDesc", len);
+    for record in records {
+        let id = record.building_id;
+        if let Err(err) = ctx.db.building_map_icon_desc().try_insert(record) {
+            return Err(format!(
+                "Couldn't insert BuildingMapIconDesc record with building_id {id}. Error message: {err}"
+            ));
+        }
+    }
+    log::info!("Inserted {} records of type BuildingMapIconDesc", len);
     Ok(())
 }
 
@@ -1217,17 +1244,17 @@ pub fn import_experience_state(ctx: &ReducerContext, records: Vec<ExperienceStat
 }
 
 #[spacetimedb::reducer]
-pub fn import_exploration_chunks_state(ctx: &ReducerContext, records: Vec<ExplorationChunksState>) {
+pub fn import_exploration_chunks_state(ctx: &ReducerContext, records: Vec<ExplorationChunksStateV2>) {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         log::error!("Invalid permissions");
         return ();
     }
-    log::info!("Will insert {} records of type ExplorationChunksState", records.len());
+    log::info!("Will insert {} records of type ExplorationChunksStateV2", records.len());
     let len = records.len();
     for record in records {
-        ctx.db.exploration_chunks_state().try_insert(record).unwrap();
+        ctx.db.exploration_chunks_state_v2().try_insert(record).unwrap();
     }
-    log::info!("Inserted {} records of type ExplorationChunksState", len);
+    log::info!("Inserted {} records of type ExplorationChunksStateV2", len);
 }
 
 #[spacetimedb::reducer]
@@ -2820,6 +2847,33 @@ fn import_secondary_knowledge_desc_internal(ctx: &ReducerContext, records: Vec<S
 }
 
 #[spacetimedb::reducer]
+pub fn import_skill_level_knowledge_desc(ctx: &ReducerContext, records: Vec<SkillLevelKnowledgeDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    import_skill_level_knowledge_desc_internal(ctx, records)?;
+    Ok(())
+}
+
+fn import_skill_level_knowledge_desc_internal(ctx: &ReducerContext, records: Vec<SkillLevelKnowledgeDesc>) -> Result<(), String> {
+    for id in ctx.db.skill_level_knowledge_desc().iter().map(|item| item.id) {
+        ctx.db.skill_level_knowledge_desc().id().delete(&id);
+    }
+    let len: usize = records.len();
+    log::info!("Will insert {} records of type SkillLevelKnowledgeDesc", len);
+    for record in records {
+        let id = record.id;
+        if let Err(err) = ctx.db.skill_level_knowledge_desc().try_insert(record) {
+            return Err(format!(
+                "Couldn't insert SkillLevelKnowledgeDesc record with id {id}. Error message: {err}"
+            ));
+        }
+    }
+    log::info!("Inserted {} records of type SkillLevelKnowledgeDesc", len);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
 pub fn import_server_identity(ctx: &ReducerContext, records: Vec<ServerIdentity>) {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         log::error!("Invalid permissions");
@@ -3213,6 +3267,38 @@ fn import_deployable_desc_internal(ctx: &ReducerContext, records: Vec<Deployable
         }
     }
     log::info!("Inserted {} records of type DeployableDesc", len);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn import_deployable_appearance_override_desc(
+    ctx: &ReducerContext,
+    records: Vec<DeployableAppearanceOverrideDesc>,
+) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    import_deployable_appearance_override_desc_internal(ctx, records)?;
+    Ok(())
+}
+fn import_deployable_appearance_override_desc_internal(
+    ctx: &ReducerContext,
+    records: Vec<DeployableAppearanceOverrideDesc>,
+) -> Result<(), String> {
+    for id in ctx.db.deployable_appearance_override_desc().iter().map(|item| item.id) {
+        ctx.db.deployable_appearance_override_desc().id().delete(&id);
+    }
+    let len: usize = records.len();
+    log::info!("Will insert {} records of type DeployableAppearanceOverrideDesc", len);
+    for record in records {
+        let id = record.id;
+        if let Err(err) = ctx.db.deployable_appearance_override_desc().try_insert(record) {
+            return Err(format!(
+                "Couldn't insert DeployableAppearanceOverrideDesc record with id {id}. Error message: {err}"
+            ));
+        }
+    }
+    log::info!("Inserted {} records of type DeployableAppearanceOverrideDesc", len);
     Ok(())
 }
 
@@ -4080,8 +4166,155 @@ fn import_quest_drop_desc_internal(ctx: &ReducerContext, records: Vec<QuestDropD
     Ok(())
 }
 
+#[spacetimedb::reducer]
+pub fn import_placeable_desc(ctx: &ReducerContext, records: Vec<PlaceableDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    import_placeable_desc_internal(ctx, records)?;
+    Ok(())
+}
+fn import_placeable_desc_internal(ctx: &ReducerContext, records: Vec<PlaceableDesc>) -> Result<(), String> {
+    for id in ctx.db.placeable_desc().iter().map(|item| item.id) {
+        ctx.db.placeable_desc().id().delete(&id);
+    }
+    let len: usize = records.len();
+    log::info!("Will insert {} records of type PlaceableDesc", len);
+    for record in records {
+        let id = record.id;
+        if let Err(err) = ctx.db.placeable_desc().try_insert(record) {
+            return Err(format!("Couldn't insert PlaceableDesc record with id {id}. Error message: {err}"));
+        }
+    }
+    log::info!("Inserted {} records of type PlaceableDesc", len);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn import_placeable_group_desc(ctx: &ReducerContext, records: Vec<PlaceableGroupDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    import_placeable_group_desc_internal(ctx, records)?;
+    Ok(())
+}
+fn import_placeable_group_desc_internal(ctx: &ReducerContext, records: Vec<PlaceableGroupDesc>) -> Result<(), String> {
+    for id in ctx.db.placeable_group_desc().iter().map(|item| item.id) {
+        ctx.db.placeable_group_desc().id().delete(&id);
+    }
+    let len: usize = records.len();
+    log::info!("Will insert {} records of type PlaceableGroupDesc", len);
+    for record in records {
+        let id = record.id;
+        if let Err(err) = ctx.db.placeable_group_desc().try_insert(record) {
+            return Err(format!(
+                "Couldn't insert PlaceableGroupDesc record with id {id}. Error message: {err}"
+            ));
+        }
+    }
+    log::info!("Inserted {} records of type PlaceableGroupDesc", len);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn import_placeable_growth_desc(ctx: &ReducerContext, records: Vec<PlaceableGrowthDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    import_placeable_growth_desc_internal(ctx, records)?;
+    Ok(())
+}
+fn import_placeable_growth_desc_internal(ctx: &ReducerContext, records: Vec<PlaceableGrowthDesc>) -> Result<(), String> {
+    for id in ctx.db.placeable_growth_desc().iter().map(|item| item.id) {
+        ctx.db.placeable_growth_desc().id().delete(&id);
+    }
+
+    let len: usize = records.len();
+    log::info!("Will insert {} records of type PlaceableGrowthDesc", len);
+    for record in records {
+        let id = record.id;
+        if let Err(err) = ctx.db.placeable_growth_desc().try_insert(record) {
+            return Err(format!(
+                "Couldn't insert PlaceableGrowthDesc record with id {id}. Error message: {err}"
+            ));
+        }
+    }
+    log::info!("Inserted {} records of type PlaceableGrowthDesc", len);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn import_placeable_placement_desc(ctx: &ReducerContext, records: Vec<PlaceablePlacementDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    import_placeable_placement_desc_internal(ctx, records)?;
+    Ok(())
+}
+fn import_placeable_placement_desc_internal(ctx: &ReducerContext, records: Vec<PlaceablePlacementDesc>) -> Result<(), String> {
+    for id in ctx.db.placeable_placement_desc().iter().map(|item| item.id) {
+        ctx.db.placeable_placement_desc().id().delete(&id);
+    }
+
+    let len: usize = records.len();
+    log::info!("Will insert {} records of type PlaceablePlacementDesc", len);
+    for record in records {
+        let id = record.id;
+        if let Err(err) = ctx.db.placeable_placement_desc().try_insert(record) {
+            return Err(format!(
+                "Couldn't insert PlaceablePlacementDesc record with id {id}. Error message: {err}"
+            ));
+        }
+    }
+    log::info!("Inserted {} records of type PlaceablePlacementDesc", len);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn import_placeable_interaction_desc(ctx: &ReducerContext, records: Vec<PlaceableInteractionDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    import_placeable_interaction_desc_internal(ctx, records)?;
+    Ok(())
+}
+fn import_placeable_interaction_desc_internal(ctx: &ReducerContext, records: Vec<PlaceableInteractionDesc>) -> Result<(), String> {
+    for id in ctx.db.placeable_interaction_desc().iter().map(|item| item.id) {
+        ctx.db.placeable_interaction_desc().id().delete(&id);
+    }
+
+    let len: usize = records.len();
+    log::info!("Will insert {} records of type PlaceableInteractionDesc", len);
+    for record in records {
+        let id = record.id;
+        if let Err(err) = ctx.db.placeable_interaction_desc().try_insert(record) {
+            return Err(format!(
+                "Couldn't insert PlaceableInteractionDesc record with id {id}. Error message: {err}"
+            ));
+        }
+    }
+    log::info!("Inserted {} records of type PlaceableInteractionDesc", len);
+    Ok(())
+}
+
 fn collect_table<T: spacetimedb::Table>(table: &T) -> Vec<T::Row> {
     return table.iter().collect();
+}
+
+fn refresh_traveler_trade_orders_if_changed(
+    ctx: &ReducerContext,
+    old_orders: Vec<TravelerTradeOrderDesc>,
+    new_orders: Vec<TravelerTradeOrderDesc>,
+) {
+    let old_orders_by_id: HashMap<i32, TravelerTradeOrderDesc> = old_orders.into_iter().map(|order| (order.id, order)).collect();
+    let new_orders_by_id: HashMap<i32, TravelerTradeOrderDesc> = new_orders.into_iter().map(|order| (order.id, order)).collect();
+
+    if old_orders_by_id == new_orders_by_id {
+        return;
+    }
+
+    log::info!("TravelerTradeOrderDesc changed, refreshing traveler trade orders...");
+    NpcState::refresh_all_traveler_trade_orders(ctx);
 }
 
 #[spacetimedb::reducer]
@@ -4095,10 +4328,12 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     validate_staged_data(ctx)?;
 
     let old_achievements = collect_table(ctx.db.achievement_desc());
+    let old_traveler_trade_orders = collect_table(ctx.db.traveler_trade_order_desc());
 
     import_parameters_desc_internal(ctx, collect_table(ctx.db.staged_parameters_desc()))?;
     import_private_parameters_desc_internal(ctx, collect_table(ctx.db.staged_private_parameters_desc()))?;
     import_secondary_knowledge_desc_internal(ctx, collect_table(ctx.db.staged_secondary_knowledge_desc()))?;
+    import_skill_level_knowledge_desc_internal(ctx, collect_table(ctx.db.staged_skill_level_knowledge_desc()))?;
     import_weapon_type_desc_internal(ctx, collect_table(ctx.db.staged_weapon_type_desc()))?;
     import_skill_desc_internal(ctx, collect_table(ctx.db.staged_skill_desc()))?;
     import_targeting_matrix_desc_internal(ctx, collect_table(ctx.db.staged_targeting_matrix_desc()))?;
@@ -4132,6 +4367,7 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     import_building_portal_desc_internal(ctx, collect_table(ctx.db.staged_building_portal_desc()))?;
     import_interior_portal_connections_desc_internal(ctx, collect_table(ctx.db.staged_interior_portal_connections_desc()))?;
     import_interior_network_desc_internal(ctx, collect_table(ctx.db.staged_interior_network_desc()))?;
+    import_building_map_icon_desc_internal(ctx, collect_table(ctx.db.staged_building_map_icon_desc()))?;
     import_building_claim_desc_internal(ctx, collect_table(ctx.db.staged_building_claim_desc()))?;
     import_building_repairs_desc_internal(ctx, collect_table(ctx.db.staged_building_repairs_desc()))?;
     import_building_spawn_desc_internal(ctx, collect_table(ctx.db.staged_building_spawn_desc()))?;
@@ -4164,6 +4400,7 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     import_traveler_task_knowledge_requirement_desc_internal(ctx, collect_table(ctx.db.staged_traveler_task_knowledge_requirement_desc()))?;
     import_traveler_trade_order_desc_internal(ctx, collect_table(ctx.db.staged_traveler_trade_order_desc()))?;
     import_deployable_desc_internal(ctx, collect_table(ctx.db.staged_deployable_desc()))?;
+    import_deployable_appearance_override_desc_internal(ctx, collect_table(ctx.db.staged_deployable_appearance_override_desc()))?;
     import_weapon_desc_internal(ctx, collect_table(ctx.db.staged_weapon_desc()))?;
     import_onboarding_reward_desc_internal(ctx, collect_table(ctx.db.staged_onboarding_reward_desc()))?;
     import_terraform_recipe_desc_internal(ctx, collect_table(ctx.db.staged_terraform_recipe_desc()))?;
@@ -4193,6 +4430,11 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     import_building_buff_desc_internal(ctx, collect_table(ctx.db.staged_building_buff_desc()))?;
     import_equipment_preset_knowledge_desc_internal(ctx, collect_table(ctx.db.staged_equipment_preset_knowledge_desc()))?;
     import_quest_drop_desc_internal(ctx, collect_table(ctx.db.staged_quest_drop_desc()))?;
+    import_placeable_desc_internal(ctx, collect_table(ctx.db.staged_placeable_desc()))?;
+    import_placeable_group_desc_internal(ctx, collect_table(ctx.db.staged_placeable_group_desc()))?;
+    import_placeable_growth_desc_internal(ctx, collect_table(ctx.db.staged_placeable_growth_desc()))?;
+    import_placeable_placement_desc_internal(ctx, collect_table(ctx.db.staged_placeable_placement_desc()))?;
+    import_placeable_interaction_desc_internal(ctx, collect_table(ctx.db.staged_placeable_interaction_desc()))?;
 
     import_static_data_post_processing(ctx)?;
     generate_building_function_mappings(ctx)?;
@@ -4202,7 +4444,9 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     }
 
     admin_update_light_source_states(ctx)?;
+    update_resource_light_source_states(ctx);
     migrate_achievements(ctx, &old_achievements)?;
+    refresh_traveler_trade_orders_if_changed(ctx, old_traveler_trade_orders, collect_table(ctx.db.traveler_trade_order_desc()));
     crate::game::discovery::Discovery::refresh_all_players_knowledges(ctx);
 
     clear_staged_static_data(ctx)?;

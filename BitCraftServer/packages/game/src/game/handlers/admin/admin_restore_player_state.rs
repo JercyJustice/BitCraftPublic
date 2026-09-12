@@ -3,7 +3,7 @@ use spacetimedb::{log, ReducerContext, Table};
 
 use crate::game::game_state;
 use crate::{
-    deployable_state,
+    deployable_state_v2,
     game::{
         handlers::{authentication::has_role, player::sign_out::sign_out_internal},
         reducer_helpers::{
@@ -106,7 +106,7 @@ pub fn admin_restore_player_state(
     if store_deployables || restore_all_deployables_positions {
         let player_mobile_entity_state = ctx.db.mobile_entity_state().entity_id().find(&entity_id).unwrap();
 
-        for deployable_state in ctx.db.deployable_state().owner_id().filter(entity_id) {
+        for deployable_state in ctx.db.deployable_state_v2().owner_id().filter(entity_id) {
             let mut deployable_mobile_entity_state = ctx.db.mobile_entity_state().entity_id().find(&deployable_state.entity_id).unwrap();
             deployable_mobile_entity_state.set_location(player_mobile_entity_state.offset_coordinates_float());
             deployable_mobile_entity_state.set_destination(player_mobile_entity_state.offset_destination_float());
@@ -114,7 +114,7 @@ pub fn admin_restore_player_state(
         }
 
         if store_deployables {
-            for deployable_state in ctx.db.deployable_state().owner_id().filter(entity_id) {
+            for deployable_state in ctx.db.deployable_state_v2().owner_id().filter(entity_id) {
                 if ctx.db.mobile_entity_state().entity_id().find(deployable_state.entity_id).is_some() {
                     let _ = store_deployable(ctx, entity_id, deployable_state.entity_id, false);
                 }

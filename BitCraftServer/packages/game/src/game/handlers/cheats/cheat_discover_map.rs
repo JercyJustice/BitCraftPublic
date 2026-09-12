@@ -2,9 +2,9 @@ use crate::game::coordinates::ChunkCoordinates;
 use crate::game::dimensions;
 use crate::game::handlers::cheats::cheat_type::{can_run_cheat, CheatType};
 use crate::messages::action_request::CheatDiscoverMapRequest;
-use crate::messages::generic::world_region_state;
+use crate::messages::generic::{world_region_state, RegionExplorationInfo};
 use crate::{
-    exploration_chunks_state, knowledge_ruins_state, location_cache, unwrap_or_err, KnowledgeLocationEntry, KnowledgeState,
+    exploration_chunks_state_v2, knowledge_ruins_state, location_cache, unwrap_or_err, KnowledgeLocationEntry, KnowledgeState,
     OffsetCoordinatesSmall,
 };
 use spacetimedb::ReducerContext;
@@ -21,13 +21,14 @@ fn cheat_discover_map(ctx: &ReducerContext, request: CheatDiscoverMapRequest) ->
 
 pub fn reduce(ctx: &ReducerContext, entity_id: u64) -> Result<(), String> {
     let mut explored_chunks = unwrap_or_err!(
-        ctx.db.exploration_chunks_state().entity_id().find(&entity_id),
+        ctx.db.exploration_chunks_state_v2().entity_id().find(&entity_id),
         "Player has no exploration state"
     );
     let region = ctx.db.world_region_state().id().find(&0).unwrap();
 
     //Explore all chunks
     let old_count = explored_chunks.explored_chunks_count;
+    let mut achievement_chunks_count = 0;
     let world_width = region.world_width_chunks();
     let world_height = region.world_height_chunks();
     for x in 0..world_width {
@@ -37,12 +38,20 @@ pub fn reduce(ctx: &ReducerContext, entity_id: u64) -> Result<(), String> {
                 z: y as i32,
                 dimension: dimensions::OVERWORLD,
             };
-            explored_chunks.explore_chunk(ctx, &chunk, Some(world_width));
+            if explored_chunks.explore_chunk(ctx, &chunk, Some(world_width)) {
+                let region_x = x / region.region_width_chunks as i32;
+                let region_z = y / region.region_height_chunks as i32;
+                let region_id = (region_z * region.region_count_sqrt as i32 + region_x + 1) as u8;
+                if RegionExplorationInfo::counts_toward_achievements(ctx, region_id) {
+                    achievement_chunks_count += 1;
+                }
+            }
         }
     }
+    explored_chunks.achievement_explored_chunks_count = achievement_chunks_count;
 
     spacetimedb::log::info!("Discovered {} chunks", explored_chunks.explored_chunks_count - old_count);
-    ctx.db.exploration_chunks_state().entity_id().update(explored_chunks);
+    ctx.db.exploration_chunks_state_v2().entity_id().update(explored_chunks);
 
     //Discover all ruins
     let ruins = ctx.db.location_cache().version().find(&0).unwrap().all_ruins;
@@ -71,7 +80,7 @@ fn cheat_undiscover_map(ctx: &ReducerContext, player_entity_id: u64) -> Result<(
 
     let entity_id = player_entity_id;
     let mut explored_chunks = unwrap_or_err!(
-        ctx.db.exploration_chunks_state().entity_id().find(&entity_id),
+        ctx.db.exploration_chunks_state_v2().entity_id().find(&entity_id),
         "Player has no exploration state"
     );
 
@@ -79,7 +88,8 @@ fn cheat_undiscover_map(ctx: &ReducerContext, player_entity_id: u64) -> Result<(
         *val = 0;
     }
     explored_chunks.explored_chunks_count = 0;
-    ctx.db.exploration_chunks_state().entity_id().update(explored_chunks);
+    explored_chunks.achievement_explored_chunks_count = 0;
+    ctx.db.exploration_chunks_state_v2().entity_id().update(explored_chunks);
 
     spacetimedb::log::info!("Player {} undiscovered all chunks", entity_id);
 

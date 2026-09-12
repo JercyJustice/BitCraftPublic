@@ -887,21 +887,18 @@ impl InventoryState {
             //handle item list items
             if let Some(item_desc) = ctx.db.item_desc().id().find(&item_stack.item_id) {
                 if item_desc.item_list_id != 0 {
-                    let converted_item_stacks = ItemListDesc::extract_item_stacks(ctx, item_desc.item_list_id, Some(player_entity_id));
+                    let converted_item_stacks = ItemListDesc::extract_item_stacks_from_item(ctx, item_stack, Some(player_entity_id));
 
                     // Attempt adding the extra converted items wherever you can in the inventory
                     if !dry_run {
-                        for i in 0..converted_item_stacks.len() {
-                            let mut item_stack = converted_item_stacks[i].clone();
+                        for mut item_stack in converted_item_stacks {
                             discovery.acquire_item_stack(ctx, &item_stack);
                             item_stack.auto_collect(ctx, discovery, player_entity_id);
                             if item_stack.quantity > 0 {
-                                for _ in 0..item_stack.quantity {
-                                    if let Some(wallet_pocket_index) = wallet_pocket.as_ref() {
-                                        inventory.add_at(ctx, *wallet_pocket_index, item_stack);
-                                    } else {
-                                        inventory.add_multiple_with_overflow(ctx, &vec![item_stack]);
-                                    }
+                                if let Some(wallet_pocket_index) = wallet_pocket.as_ref() {
+                                    inventory.add_at(ctx, *wallet_pocket_index, item_stack);
+                                } else {
+                                    inventory.add_multiple_with_overflow(ctx, &vec![item_stack]);
                                 }
                             }
                         }
@@ -1110,16 +1107,13 @@ impl InventoryState {
             //handle item list items
             if let Some(item_desc) = ctx.db.item_desc().id().find(&item_stack.item_id) {
                 if item_desc.item_list_id != 0 {
-                    let converted_item_stacks = ItemListDesc::extract_item_stacks(ctx, item_desc.item_list_id, Some(player_entity_id));
+                    let converted_item_stacks = ItemListDesc::extract_item_stacks_from_item(ctx, *item_stack, Some(player_entity_id));
 
-                    for _ in 0..item_stack.quantity {
-                        for i in 0..converted_item_stacks.len() {
-                            let mut item_stack = converted_item_stacks[i].clone();
-                            item_stack.auto_collect(ctx, discovery, player_entity_id);
-                            inventory.add_multiple_with_overflow(ctx, &vec![item_stack]);
-                            if do_discover {
-                                discovery.acquire_item_stack(ctx, &item_stack);
-                            }
+                    for mut item_stack in converted_item_stacks {
+                        item_stack.auto_collect(ctx, discovery, player_entity_id);
+                        inventory.add_multiple_with_overflow(ctx, &vec![item_stack]);
+                        if do_discover {
+                            discovery.acquire_item_stack(ctx, &item_stack);
                         }
                     }
 
@@ -1166,19 +1160,17 @@ impl InventoryState {
                     //handle item list items
                     if let Some(item_desc) = ctx.db.item_desc().id().find(&item_stack.item_id) {
                         if item_desc.item_list_id != 0 {
-                            let converted_item_stacks = ItemListDesc::extract_item_stacks(ctx, item_desc.item_list_id, Some(discovery.player_entity_id));
+                            let converted_item_stacks =
+                                ItemListDesc::extract_item_stacks_from_item(ctx, item_stack, Some(discovery.player_entity_id));
 
-                            for _ in 0..item_stack.quantity {
-                                // Attempt adding the extra converted items wherever you can in the inventory
-                                for i in 0..converted_item_stacks.len() {
-                                    let mut item_stack = converted_item_stacks[i].clone();
-                                    item_stack.auto_collect(ctx, discovery, discovery.player_entity_id);
-                                    inventory.add_multiple_with_overflow(ctx, &vec![item_stack]);
+                            // Attempt adding the extra converted items wherever you can in the inventory
+                            for mut item_stack in converted_item_stacks {
+                                item_stack.auto_collect(ctx, discovery, discovery.player_entity_id);
+                                inventory.add_multiple_with_overflow(ctx, &vec![item_stack]);
 
-                                    //discover
-                                    if do_discover {
-                                        discovery.acquire_item_stack(ctx, &item_stack);
-                                    }
+                                //discover
+                                if do_discover {
+                                    discovery.acquire_item_stack(ctx, &item_stack);
                                 }
                             }
 
@@ -1230,7 +1222,7 @@ impl InventoryState {
     {
         let mut inventories_with_distance: Vec<(InventoryState, i32)> = Vec::new();
 
-        for deployable in ctx.db.deployable_state().owner_id().filter(player_entity_id) {
+        for deployable in ctx.db.deployable_state_v2().owner_id().filter(player_entity_id) {
             if deployable.hidden {
                 continue;
             }
@@ -1391,9 +1383,7 @@ impl InventoryState {
                 continue;
             }
 
-            for _ in 0..item_stack.quantity {
-                output.extend(ItemListDesc::extract_item_stacks(ctx, item_list_id, Some(player_entity_id)));
-            }
+            output.extend(ItemListDesc::extract_item_stacks_from_item(ctx, *item_stack, Some(player_entity_id)));
 
             discovery.acquire_item_stack(ctx, &item_stack);
         }
@@ -1428,6 +1418,16 @@ impl InventoryState {
         //Partially add ItemStacks from the player's wallet, inventory, nearby deployables and keep track of changing inventories and overflowing items
         for item_stack_index in (0..output.len()).rev() {
             let item_stack = &mut output[item_stack_index];
+            let skip_deployables_for_cargo = if item_stack.item_type == ItemType::Cargo {
+                ctx.db
+                    .cargo_desc()
+                    .id()
+                    .find(&item_stack.item_id)
+                    .map(|cargo| cargo.cannot_store_in_deployables)
+                    .unwrap_or(false)
+            } else {
+                false
+            };
 
             for (inventory_index, inventory) in inventories.iter_mut().enumerate() {
                 //Ensure only wallet items go into the wallet
@@ -1439,6 +1439,12 @@ impl InventoryState {
                         break;
                     }
                 } else if inventory_index > 0 {
+                    if skip_deployables_for_cargo
+                        && ctx.db.deployable_state_v2().entity_id().find(&inventory.owner_entity_id).is_some()
+                    {
+                        continue;
+                    }
+
                     // non-wallet items go in non-wallet inventories
                     if inventory.add_partial(ctx, item_stack) {
                         changed_inventory_indices.insert(inventory_index);

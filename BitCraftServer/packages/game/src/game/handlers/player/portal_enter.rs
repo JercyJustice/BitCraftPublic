@@ -77,7 +77,7 @@ pub fn portal_enter(ctx: &ReducerContext, request: PlayerPortalEnterRequest) -> 
     let mut is_mounting_deployable = false;
 
     if let Some(mounting) = ctx.db.mounting_state().entity_id().find(actor_id) {
-        let deployable = ctx.db.deployable_state().entity_id().find(mounting.deployable_entity_id).unwrap();
+        let deployable = ctx.db.deployable_state_v2().entity_id().find(mounting.deployable_entity_id).unwrap();
         let deployable_desc = ctx.db.deployable_desc().id().find(deployable.deployable_description_id).unwrap();
         if !deployable_desc.can_enter_portals {
             return Err("This deployable cannot enter portals".into());

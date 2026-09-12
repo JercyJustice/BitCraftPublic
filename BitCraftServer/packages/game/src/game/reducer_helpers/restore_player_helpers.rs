@@ -1,7 +1,7 @@
 use spacetimedb::{log, ReducerContext, Table};
 
 use crate::{
-    deployable_state, dimension_description_state,
+    deployable_state_v2, dimension_description_state,
     game::{dimensions, entities::location::MobileEntityState, reducer_helpers::dimension_helpers::clamp_within_dimension_bounds},
     location_cache,
     messages::components::{claim_state, PlayerState},
@@ -16,7 +16,7 @@ pub fn auto_unstuck_player_and_deployable(ctx: &ReducerContext, player_entity_id
     let player_unstuck_location = get_player_unstuck_location(ctx, &player_mobile_entity_state);
 
     if let Some(mounting_state) = ctx.db.mounting_state().entity_id().find(player_entity_id) {
-        if let Some(deployable_state) = ctx.db.deployable_state().entity_id().find(&mounting_state.deployable_entity_id) {
+        if let Some(deployable_state) = ctx.db.deployable_state_v2().entity_id().find(&mounting_state.deployable_entity_id) {
             if deployable_state.owner_id == *player_entity_id {
                 let mut deployable_location = ctx
                     .db

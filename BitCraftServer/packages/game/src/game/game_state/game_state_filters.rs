@@ -3,9 +3,12 @@ use spacetimedb::{ReducerContext, Table};
 
 use crate::game::coordinates::region_coordinates::RegionCoordinates;
 use crate::game::{reducer_helpers, PLAYER_MIN_SWIM_DEPTH};
-use crate::messages::generic::world_region_state;
 use crate::messages::static_data::BuildingCategory::Waystone;
 use crate::messages::util::MovementSpeed;
+use crate::messages::{
+    authentication::Role,
+    generic::{region_control_info, world_region_state},
+};
 use crate::utils::from_ctx::FromCtx;
 use crate::{
     game::{
@@ -102,8 +105,14 @@ pub fn project_site_at_coordinates(ctx: &ReducerContext, coordinates: &SmallHexT
     None
 }
 
-pub fn deployables_at_coordinates<'a>(ctx: &'a ReducerContext, coordinates: SmallHexTile) -> impl Iterator<Item = DeployableState> + 'a {
-    MobileEntityState::select_all(ctx, coordinates).filter_map(|x| ctx.db.deployable_state().entity_id().find(x.entity_id))
+pub fn placeable_at_coordinates(ctx: &ReducerContext, coordinates: &SmallHexTile) -> Option<PlaceableState> {
+    LocationState::select_all(ctx, coordinates)
+        .filter_map(|location| ctx.db.placeable_state().entity_id().find(&location.entity_id))
+        .next()
+}
+
+pub fn deployables_at_coordinates<'a>(ctx: &'a ReducerContext, coordinates: SmallHexTile) -> impl Iterator<Item = DeployableStateV2> + 'a {
+    MobileEntityState::select_all(ctx, coordinates).filter_map(|x| ctx.db.deployable_state_v2().entity_id().find(x.entity_id))
 }
 
 pub fn paving_at_coordinates(ctx: &ReducerContext, coordinates: &SmallHexTile) -> Option<PavedTileState> {
@@ -117,6 +126,15 @@ pub fn has_hitbox_footprint(ctx: &ReducerContext, coordinates: SmallHexTile) -> 
         }
     }
     return false;
+}
+
+pub fn has_blocking_footprint(ctx: &ReducerContext, coordinates: SmallHexTile) -> bool {
+    for footprint in FootprintTileState::get_at_location(ctx, &coordinates) {
+        if footprint.footprint_type == FootprintType::Hitbox || footprint.footprint_type == FootprintType::Walkable {
+            return true;
+        }
+    }
+    false
 }
 
 pub fn get_hitbox_footprint(ctx: &ReducerContext, coordinates: SmallHexTile) -> Option<FootprintTileState> {
@@ -259,6 +277,20 @@ pub fn project_sites_in_radius(ctx: &ReducerContext, coord: SmallHexTile, radius
     sites
 }
 
+pub fn placeables_in_radius(ctx: &ReducerContext, coord: SmallHexTile, radius: i32) -> Vec<PlaceableState> {
+    ctx.db
+        .placeable_state()
+        .iter()
+        .filter(|placeable| {
+            if let Some(loc) = ctx.db.location_state().entity_id().find(&placeable.entity_id) {
+                loc.coordinates().distance_to(coord) <= radius
+            } else {
+                false
+            }
+        })
+        .collect()
+}
+
 pub fn get_location_for_entity(ctx: &ReducerContext, entity_id: u64) -> Option<SmallHexTile> {
     if let Some(loc) = ctx.db.location_state().entity_id().find(&entity_id) {
         return Some(loc.coordinates());
@@ -376,6 +408,23 @@ pub fn teleport_home(ctx: &ReducerContext, actor_id: u64, from_death: bool) -> R
     let teleport_location = player.teleport_location;
 
     let teleport_location_float = OffsetCoordinatesFloat::from(teleport_location.location);
+
+    if teleport_location_float.dimension == dimensions::OVERWORLD {
+        let region = ctx.db.world_region_state().iter().next().unwrap();
+        let destination_region =
+            RegionCoordinates::from_ctx(ctx, FloatHexTile::from(teleport_location_float)).to_region_index(region.region_count_sqrt);
+        let identity = ctx.db.user_state().entity_id().find(actor_id).unwrap().identity;
+        let region_initialized = match ctx.db.region_control_info().region_id().find(destination_region) {
+            Some(control) => {
+                control.initialized & (control.allow_players || crate::game::handlers::authentication::has_role(ctx, &identity, Role::Gm))
+            }
+            None => false,
+        };
+
+        if !region_initialized {
+            return Err("Cannot transfer to specified region".into());
+        }
+    }
 
     // Innerlight buff
     let mut active_buff_state = unwrap_or_err!(ctx.db.active_buff_state().entity_id().find(&actor_id), "Player has no buff state");

@@ -406,8 +406,15 @@ pub fn reduce(
         let consumed_stacks: Vec<ItemStack> = recipe
             .consumed_item_stacks
             .iter()
-            .map(|is| ItemStack::new(ctx, is.item_id, is.item_type, is.quantity * count))
-            .collect();
+            .map(|is| {
+                Ok(ItemStack::new(
+                    ctx,
+                    is.item_id,
+                    is.item_type,
+                    is.quantity.checked_mul(count).ok_or_else(|| "Quantity too large".to_string())?,
+                ))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
 
         InventoryState::withdraw_from_player_inventory_and_nearby_deployables(ctx, actor_id, &consumed_stacks, |x| {
             building.distance_to(ctx, &x)
@@ -468,6 +475,10 @@ pub fn reduce(
                     if building.claim_entity_id != 0 {
                         claim_helper::mint_hex_coins(ctx, building.claim_entity_id, quantity as u32);
                     }
+                }
+
+                if actions_count > 0 {
+                    EquipmentState::try_activate_profession_hit_buffs(ctx, actor_id, skill)?;
                 }
             }
             progressive_action.last_crit_outcome = crit_multiplier.ceil() as i32;

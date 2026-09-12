@@ -1,8 +1,8 @@
-use bitcraft_macro::feature_gate;
 use crate::game::game_state::{game_state_filters, wind_system};
 use crate::game::handlers::authentication::has_role_no_dev;
 use crate::game::reducer_helpers;
 use crate::messages::authentication::Role;
+use crate::messages::util::FloatHexTileMessage;
 use crate::{
     game::{
         coordinates::*, entities::location::MobileEntityState, game_state, reducer_helpers::move_validation_helpers,
@@ -11,7 +11,11 @@ use crate::{
     messages::{action_request::PlayerDeployableMoveRequest, components::*, static_data::*},
     unwrap_or_err,
 };
+use bitcraft_macro::feature_gate;
 use spacetimedb::ReducerContext;
+
+const FULL_WIND_BONUS_ANGLE_RAD: f32 = std::f32::consts::PI / 3.0;
+const PARTIAL_WIND_BONUS_ANGLE_RAD: f32 = std::f32::consts::PI * 2.0 / 3.0;
 
 #[spacetimedb::reducer]
 #[feature_gate]
@@ -63,7 +67,7 @@ pub fn deployable_move(ctx: &ReducerContext, request: PlayerDeployableMoveReques
     // Validate Boat Move. Note that this for the short term, ideally at some point
     // we will re-enable the above _validate_move that has more comprehensive checks
     let deployable = unwrap_or_err!(
-        ctx.db.deployable_state().entity_id().find(&deployable_entity_id),
+        ctx.db.deployable_state_v2().entity_id().find(&deployable_entity_id),
         "Deployable not found!"
     );
     let desc = unwrap_or_err!(
@@ -179,59 +183,22 @@ fn validate_move(
     let prev_origin = prev_mobile_entity.coordinates_float();
 
     if source_coordinates.x != prev_origin.x || source_coordinates.z != prev_origin.z {
-        let base_speed = if deployable_desc.use_player_speed_modifier {
-            speed as f32 * PlayerState::get_stat(ctx, actor_id, CharacterStatType::MovementMultiplier)
-        } else {
-            speed as f32
-        };
+        let move_speed = get_move_speed(
+            ctx,
+            actor_id,
+            speed,
+            prev_mobile_entity,
+            source_coordinates,
+            paving,
+            deployable_desc,
+            prev_origin,
+        );
 
-        let mut prev_speed = base_speed;
-        if let Some(paving) = paving {
-            prev_speed = paving.apply_stat_to_value_unclamped(prev_speed, crate::CharacterStatType::MovementMultiplier);
-        }
-
-        if deployable_desc.affected_by_wind.abs() > 0.01 {
-            let wind_angle = wind_system::sample_wind_float(ctx, &source_coordinates, Some(prev_mobile_entity.timestamp));
-            let direction = source_coordinates.to_world_position() - prev_origin.to_world_position();
-            let player_angle = f32::atan2(direction.y, direction.x);
-            let mut angle = (player_angle - wind_angle) % (std::f32::consts::PI * 2.0);
-            if angle > std::f32::consts::PI {
-                angle -= std::f32::consts::PI * 2.0;
-            } else if angle < -std::f32::consts::PI {
-                angle += std::f32::consts::PI * 2.0;
-            }
-
-            let angle = angle.abs();
-            if angle < std::f32::consts::PI / 4.0 {
-                //Speed *= 1 + (.5 + SailingLevel / 2)%
-                let sailing_lvl = ctx
-                    .db
-                    .experience_state()
-                    .entity_id()
-                    .find(actor_id)
-                    .expect("Player has no EpxerienceState")
-                    .get_level(SkillType::Sailing as i32);
-                prev_speed *= 1.0 + (0.4 + sailing_lvl as f32 / 100.0 * 0.4) * deployable_desc.affected_by_wind;
-            } else if angle < std::f32::consts::PI / 2.0 {
-                //Speed *= 1 + (.5 + SailingLevel / 4)%
-                let sailing_lvl = ctx
-                    .db
-                    .experience_state()
-                    .entity_id()
-                    .find(actor_id)
-                    .expect("Player has no EpxerienceState")
-                    .get_level(SkillType::Sailing as i32);
-                prev_speed *= 1.0 + (0.2 + sailing_lvl as f32 / 100.0 * 0.2) * deployable_desc.affected_by_wind;
-            }
-
-            // log::info!("Wind -> {wind_angle} Player -> {player_angle} Delta -> {angle} Speed -> {prev_speed}");
-        }
-
-        //let (cur_position, cur_distance) = prev_mobile_entity.cur_coord_and_distance_traveled(prev_speed);
+        //let (cur_position, cur_distance) = prev_mobile_entity.cur_coord_and_distance_traveled(move_speed);
 
         let timestamp_diff_ms = request.timestamp - prev_mobile_entity.timestamp;
         if let Err(error) =
-            move_validation_helpers::validate_move_origin(&prev_origin, &source_coordinates, timestamp_diff_ms, prev_speed, actor_id)
+            move_validation_helpers::validate_move_origin(&prev_origin, &source_coordinates, timestamp_diff_ms, move_speed, actor_id)
         {
             //Can return Err or Ok
             return move_validation_helpers::move_validation_strike(
@@ -261,4 +228,65 @@ fn validate_move(
     }
 
     Ok(())
+}
+
+fn get_move_speed(
+    ctx: &ReducerContext,
+    actor_id: u64,
+    base_speed: f32,
+    prev_mobile_entity: &MobileEntityState,
+    source_coordinates: FloatHexTileMessage,
+    paving: &Option<PavingTileDesc>,
+    deployable_desc: &DeployableDesc,
+    prev_origin: FloatHexTileMessage,
+) -> f32 {
+    let deployable_bonus = CharacterStatsState::get_deployable_speed_multiplier(ctx, actor_id, deployable_desc.deployable_type) - 1f32;
+    let mut player_bonus = 0f32;
+    let mut pavement_bonus = 0f32;
+    let mut wind_bonus = 0f32;
+
+    if deployable_desc.use_player_speed_modifier {
+        player_bonus = PlayerState::get_stat(ctx, actor_id, CharacterStatType::MovementMultiplier) - 1f32;
+    }
+
+    if let Some(paving) = paving {
+        pavement_bonus = paving.apply_stat_to_value_unclamped(1f32, crate::CharacterStatType::MovementMultiplier) - 1f32;
+    }
+
+    if deployable_desc.affected_by_wind.abs() > 0.01 {
+        let wind_angle = wind_system::sample_wind_float(ctx, &source_coordinates, Some(prev_mobile_entity.timestamp));
+        let direction = source_coordinates.to_world_position() - prev_origin.to_world_position();
+        let player_angle = f32::atan2(direction.y, direction.x);
+        let mut angle = (player_angle - wind_angle) % (std::f32::consts::PI * 2.0);
+        if angle > std::f32::consts::PI {
+            angle -= std::f32::consts::PI * 2.0;
+        } else if angle < -std::f32::consts::PI {
+            angle += std::f32::consts::PI * 2.0;
+        }
+
+        let angle = angle.abs();
+        if angle < FULL_WIND_BONUS_ANGLE_RAD {
+            //(.5 + SailingLevel / 2)%
+            let sailing_lvl = ctx
+                .db
+                .experience_state()
+                .entity_id()
+                .find(actor_id)
+                .expect("Player has no EpxerienceState")
+                .get_level(SkillType::Sailing as i32);
+            wind_bonus = (0.4 + sailing_lvl as f32 / 100.0 * 0.4) * deployable_desc.affected_by_wind;
+        } else if angle < PARTIAL_WIND_BONUS_ANGLE_RAD {
+            //(.5 + SailingLevel / 4)%
+            let sailing_lvl = ctx
+                .db
+                .experience_state()
+                .entity_id()
+                .find(actor_id)
+                .expect("Player has no EpxerienceState")
+                .get_level(SkillType::Sailing as i32);
+            wind_bonus = (0.2 + sailing_lvl as f32 / 100.0 * 0.2) * deployable_desc.affected_by_wind;
+        }
+    }
+
+    base_speed * (1f32 + deployable_bonus + player_bonus + pavement_bonus + wind_bonus)
 }

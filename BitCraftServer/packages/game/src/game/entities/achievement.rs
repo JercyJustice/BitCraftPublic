@@ -3,11 +3,20 @@ use spacetimedb::{ReducerContext, Table};
 use crate::{
     achievement_desc,
     game::discovery::Discovery,
-    messages::{components::*, generic::world_region_state},
+    messages::{components::*, generic::RegionExplorationInfo},
     AchievementDesc,
 };
 
 impl AchievementDesc {
+    fn known_chunks_pct(ctx: &ReducerContext, known_chunks: i32) -> f32 {
+        let eligible_world_chunk_count = RegionExplorationInfo::world_achievement_chunk_count(ctx);
+        if eligible_world_chunk_count == 0 {
+            0.0
+        } else {
+            known_chunks as f32 / eligible_world_chunk_count as f32
+        }
+    }
+
     pub fn discover_eligible(ctx: &ReducerContext, entity_id: u64) {
         // Discover any achievement that isn't already acquired and whose achievement requirements are met
         let known_achievements = ctx.db.knowledge_achievement_state().entity_id().find(&entity_id).unwrap();
@@ -171,14 +180,13 @@ impl AchievementDesc {
         let experience_state = ctx.db.experience_state().entity_id().find(&entity_id).unwrap();
         let known_chunks = ctx
             .db
-            .exploration_chunks_state()
+            .exploration_chunks_state_v2()
             .entity_id()
             .find(&entity_id)
             .unwrap()
-            .explored_chunks_count;
+            .achievement_explored_chunks_count();
 
-        let region = ctx.db.world_region_state().id().find(&0).unwrap();
-        let known_chunks_pct = known_chunks as f32 / region.world_chunk_count() as f32;
+        let known_chunks_pct = Self::known_chunks_pct(ctx, known_chunks);
 
         let mut acquired_achievements = Vec::new();
 
@@ -259,14 +267,13 @@ impl AchievementDesc {
 
         let known_chunks = ctx
             .db
-            .exploration_chunks_state()
+            .exploration_chunks_state_v2()
             .entity_id()
             .find(&player_entity_id)
             .unwrap()
-            .explored_chunks_count;
+            .achievement_explored_chunks_count();
 
-        let region = ctx.db.world_region_state().id().find(&0).unwrap();
-        let known_chunks_pct = known_chunks as f32 / region.world_chunk_count() as f32;
+        let known_chunks_pct = Self::known_chunks_pct(ctx, known_chunks);
 
         for required_achievement_id in required_achievements {
             let achievement = ctx.db.achievement_desc().id().find(&required_achievement_id).unwrap();
@@ -300,14 +307,13 @@ impl AchievementDesc {
         let experience_state = ctx.db.experience_state().entity_id().find(&entity_id).unwrap();
         let known_chunks = ctx
             .db
-            .exploration_chunks_state()
+            .exploration_chunks_state_v2()
             .entity_id()
             .find(&entity_id)
             .unwrap()
-            .explored_chunks_count;
+            .achievement_explored_chunks_count();
 
-        let region = ctx.db.world_region_state().id().find(&0).unwrap();
-        let known_chunks_pct = known_chunks as f32 / region.world_chunk_count() as f32;
+        let known_chunks_pct = Self::known_chunks_pct(ctx, known_chunks);
 
         let achievement = ctx.db.achievement_desc().id().find(&achievement_id).unwrap();
         return Self::evaluate_achievement(

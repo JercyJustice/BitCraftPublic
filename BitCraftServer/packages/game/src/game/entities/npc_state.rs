@@ -5,15 +5,16 @@ use spacetimedb::{log, ReducerContext, Table, TimeDuration, Timestamp};
 
 use crate::game::reducer_helpers::building_helpers::create_building_unsafe;
 use crate::{
+    building_state, location_state, mobile_entity_state, npc_desc, npc_state, parameters_desc, trade_order_state,
+    traveler_trade_order_desc, NpcType,
+};
+use crate::{
     game::game_state,
     messages::{
         components::{NpcState, TradeOrderState},
         static_data::BuildingSpawnDesc,
         util::OffsetCoordinatesFloat,
     },
-};
-use crate::{
-    location_state, mobile_entity_state, npc_desc, npc_state, parameters_desc, trade_order_state, traveler_trade_order_desc, NpcType,
 };
 
 use super::{building_state::BuildingState, location::MobileEntityState, resource_clump::OffsetCoordinatesSmall};
@@ -153,5 +154,16 @@ impl NpcState {
 
         // create new trade orders
         self.create_trade_orders(ctx);
+    }
+
+    pub fn refresh_all_traveler_trade_orders(ctx: &ReducerContext) {
+        for npc in ctx.db.npc_state().iter() {
+            if ctx.db.building_state().entity_id().find(&npc.building_entity_id).is_none() {
+                continue;
+            }
+
+            npc.delete_trade_orders(ctx);
+            npc.create_trade_orders(ctx);
+        }
     }
 }

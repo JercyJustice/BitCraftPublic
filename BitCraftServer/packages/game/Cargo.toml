@@ -27,6 +27,7 @@ glam = "0.30.9"
 [profile.release]
 opt-level = 's'
 lto = true
+overflow-checks = true
 
 [build-dependencies]
 glob = "0.3.0"

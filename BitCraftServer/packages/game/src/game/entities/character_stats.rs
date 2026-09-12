@@ -103,6 +103,21 @@ impl CharacterStatsState {
         0.0
     }
 
+    pub fn get_deployable_speed_multiplier(ctx: &ReducerContext, entity_id: u64, deployable_type: DeployableType) -> f32 {
+        Self::stat_for_deployable_type(deployable_type)
+            .map(|stat| Self::get_entity_stat(ctx, entity_id, stat))
+            .unwrap_or(1.0)
+    }
+
+    pub fn stat_for_deployable_type(deployable_type: DeployableType) -> Option<CharacterStatType> {
+        match deployable_type {
+            DeployableType::Cart => Some(CharacterStatType::CartSpeed),
+            DeployableType::Mount => Some(CharacterStatType::MountSpeed),
+            DeployableType::Boat => Some(CharacterStatType::BoatSpeed),
+            _ => None,
+        }
+    }
+
     fn stat_for_skill_speed(skill: SkillType) -> Option<CharacterStatType> {
         //DAB Note: this is temporary, see comment inside `SkillType` definition
         match skill {

@@ -125,6 +125,15 @@ pub struct RegionSignInParameters {
     pub grace_period_seconds: u64,
 }
 
+#[spacetimedb::table(name = region_exploration_info, public)]
+#[shared_table] //Owned by global, replicated to regions
+#[derive(Clone, Debug)]
+pub struct RegionExplorationInfo {
+    #[primary_key]
+    pub region_id: u8,
+    pub counts_toward_achievements: bool,
+}
+
 #[spacetimedb::table(name = gated_features)]
 pub struct GatedFeature {
     #[primary_key]

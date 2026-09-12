@@ -3,7 +3,7 @@ use spacetimedb::{ReducerContext, Table};
 
 use crate::{
     game::handlers::authentication::has_role,
-    messages::{authentication::Role, components::deployable_state},
+    messages::{authentication::Role, components::deployable_state_v2},
     unwrap_or_err,
 };
 
@@ -16,7 +16,7 @@ pub fn admin_rename_deployable(ctx: &ReducerContext, deployable_name: String, ne
     let name_lower = deployable_name.to_lowercase();
     let entity_id = unwrap_or_err!(
         ctx.db
-            .deployable_state()
+            .deployable_state_v2()
             .iter()
             .filter(|d| d.nickname.to_lowercase() == name_lower)
             .next(),
@@ -34,9 +34,9 @@ pub fn admin_rename_deployable_entity(ctx: &ReducerContext, entity_id: u64, new_
         return Err("Unauthorized".into());
     }
 
-    let mut deployable = unwrap_or_err!(ctx.db.deployable_state().entity_id().find(entity_id), "Deployable not found");
+    let mut deployable = unwrap_or_err!(ctx.db.deployable_state_v2().entity_id().find(entity_id), "Deployable not found");
     deployable.nickname = new_name;
-    ctx.db.deployable_state().entity_id().update(deployable);
+    ctx.db.deployable_state_v2().entity_id().update(deployable);
 
     Ok(())
 }

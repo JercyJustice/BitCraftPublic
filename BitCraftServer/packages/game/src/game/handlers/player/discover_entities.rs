@@ -47,7 +47,7 @@ pub fn discover_entities(ctx: &ReducerContext, request: PlayerDiscoverEntitiesRe
         if let Some(deposit) = ctx.db.resource_state().entity_id().find(entity_id) {
             discovery.discover_resource(ctx, deposit.resource_id);
         }
-        if let Some(deployable) = ctx.db.deployable_state().entity_id().find(entity_id) {
+        if let Some(deployable) = ctx.db.deployable_state_v2().entity_id().find(entity_id) {
             discovery.discover_deployable(ctx, deployable.deployable_description_id);
         }
         if let Some(trade_order) = ctx.db.trade_order_state().entity_id().find(entity_id) {

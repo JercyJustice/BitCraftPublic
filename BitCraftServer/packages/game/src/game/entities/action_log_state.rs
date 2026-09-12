@@ -28,7 +28,6 @@ impl ActionLogState {
         let to_entity_id = to_inventory.owner_entity_id;
 
         if Self::should_log(from_inventory, inventory_type_from) {
-            spacetimedb::log::info!("From {from_entity_id}");
             ctx.db.storage_log_state().insert(ActionLogState {
                 id: 0, //autoinc
                 object_entity_id: from_entity_id,

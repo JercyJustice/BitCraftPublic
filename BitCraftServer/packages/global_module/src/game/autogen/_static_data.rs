@@ -41,6 +41,9 @@ pub fn clear_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     for r in ctx.db.staged_building_desc().iter() {
         ctx.db.staged_building_desc().delete(r);
     }
+    for r in ctx.db.staged_building_map_icon_desc().iter() {
+        ctx.db.staged_building_map_icon_desc().delete(r);
+    }
     for r in ctx.db.staged_building_portal_desc().iter() {
         ctx.db.staged_building_portal_desc().delete(r);
     }
@@ -94,6 +97,9 @@ pub fn clear_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     }
     for r in ctx.db.staged_deconstruction_recipe_desc().iter() {
         ctx.db.staged_deconstruction_recipe_desc().delete(r);
+    }
+    for r in ctx.db.staged_deployable_appearance_override_desc().iter() {
+        ctx.db.staged_deployable_appearance_override_desc().delete(r);
     }
     for r in ctx.db.staged_deployable_desc().iter() {
         ctx.db.staged_deployable_desc().delete(r);
@@ -218,6 +224,21 @@ pub fn clear_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     for r in ctx.db.staged_pillar_shaping_desc().iter() {
         ctx.db.staged_pillar_shaping_desc().delete(r);
     }
+    for r in ctx.db.staged_placeable_desc().iter() {
+        ctx.db.staged_placeable_desc().delete(r);
+    }
+    for r in ctx.db.staged_placeable_group_desc().iter() {
+        ctx.db.staged_placeable_group_desc().delete(r);
+    }
+    for r in ctx.db.staged_placeable_growth_desc().iter() {
+        ctx.db.staged_placeable_growth_desc().delete(r);
+    }
+    for r in ctx.db.staged_placeable_interaction_desc().iter() {
+        ctx.db.staged_placeable_interaction_desc().delete(r);
+    }
+    for r in ctx.db.staged_placeable_placement_desc().iter() {
+        ctx.db.staged_placeable_placement_desc().delete(r);
+    }
     for r in ctx.db.staged_player_action_desc().iter() {
         ctx.db.staged_player_action_desc().delete(r);
     }
@@ -265,6 +286,9 @@ pub fn clear_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     }
     for r in ctx.db.staged_skill_desc().iter() {
         ctx.db.staged_skill_desc().delete(r);
+    }
+    for r in ctx.db.staged_skill_level_knowledge_desc().iter() {
+        ctx.db.staged_skill_level_knowledge_desc().delete(r);
     }
     for r in ctx.db.staged_stage_rewards_desc().iter() {
         ctx.db.staged_stage_rewards_desc().delete(r);
@@ -442,6 +466,20 @@ pub fn stage_building_desc(ctx: &ReducerContext, records: Vec<BuildingDesc>) -> 
     }
     for r in records {
         if let Err(e) = ctx.db.staged_building_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn stage_building_map_icon_desc(ctx: &ReducerContext, records: Vec<BuildingMapIconDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_building_map_icon_desc().try_insert(r.clone()) {
             spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
             return Err(e.to_string());
         }
@@ -694,6 +732,20 @@ pub fn stage_deconstruction_recipe_desc(ctx: &ReducerContext, records: Vec<Decon
     }
     for r in records {
         if let Err(e) = ctx.db.staged_deconstruction_recipe_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn stage_deployable_appearance_override_desc(ctx: &ReducerContext, records: Vec<DeployableAppearanceOverrideDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_deployable_appearance_override_desc().try_insert(r.clone()) {
             spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
             return Err(e.to_string());
         }
@@ -1276,6 +1328,76 @@ pub fn stage_pillar_shaping_desc(ctx: &ReducerContext, records: Vec<PillarShapin
 }
 
 #[spacetimedb::reducer]
+pub fn stage_placeable_desc(ctx: &ReducerContext, records: Vec<PlaceableDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_placeable_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn stage_placeable_group_desc(ctx: &ReducerContext, records: Vec<PlaceableGroupDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_placeable_group_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn stage_placeable_growth_desc(ctx: &ReducerContext, records: Vec<PlaceableGrowthDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_placeable_growth_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn stage_placeable_interaction_desc(ctx: &ReducerContext, records: Vec<PlaceableInteractionDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_placeable_interaction_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn stage_placeable_placement_desc(ctx: &ReducerContext, records: Vec<PlaceablePlacementDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_placeable_placement_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
 pub fn stage_player_action_desc(ctx: &ReducerContext, records: Vec<PlayerActionDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
@@ -1500,6 +1622,20 @@ pub fn stage_skill_desc(ctx: &ReducerContext, records: Vec<SkillDesc>) -> Result
 }
 
 #[spacetimedb::reducer]
+pub fn stage_skill_level_knowledge_desc(ctx: &ReducerContext, records: Vec<SkillLevelKnowledgeDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    for r in records {
+        if let Err(e) = ctx.db.staged_skill_level_knowledge_desc().try_insert(r.clone()) {
+            spacetimedb::log::error!("Failed to stage record {:?}: {}", r, e);
+            return Err(e.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
 pub fn stage_stage_rewards_desc(ctx: &ReducerContext, records: Vec<StageRewardsDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
@@ -1712,6 +1848,9 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
     if ctx.db.staged_building_desc().count() == 0 {
         return Err("Staged data for BuildingDesc is empty, aborting.".into());
     }
+    if ctx.db.staged_building_map_icon_desc().count() == 0 {
+        return Err("Staged data for BuildingMapIconDesc is empty, aborting.".into());
+    }
     if ctx.db.staged_building_portal_desc().count() == 0 {
         return Err("Staged data for BuildingPortalDesc is empty, aborting.".into());
     }
@@ -1765,6 +1904,9 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
     }
     if ctx.db.staged_deconstruction_recipe_desc().count() == 0 {
         return Err("Staged data for DeconstructionRecipeDesc is empty, aborting.".into());
+    }
+    if ctx.db.staged_deployable_appearance_override_desc().count() == 0 {
+        return Err("Staged data for DeployableAppearanceOverrideDesc is empty, aborting.".into());
     }
     if ctx.db.staged_deployable_desc().count() == 0 {
         return Err("Staged data for DeployableDesc is empty, aborting.".into());
@@ -1889,6 +2031,21 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
     if ctx.db.staged_pillar_shaping_desc().count() == 0 {
         return Err("Staged data for PillarShapingDesc is empty, aborting.".into());
     }
+    if ctx.db.staged_placeable_desc().count() == 0 {
+        return Err("Staged data for PlaceableDesc is empty, aborting.".into());
+    }
+    if ctx.db.staged_placeable_group_desc().count() == 0 {
+        return Err("Staged data for PlaceableGroupDesc is empty, aborting.".into());
+    }
+    if ctx.db.staged_placeable_growth_desc().count() == 0 {
+        return Err("Staged data for PlaceableGrowthDesc is empty, aborting.".into());
+    }
+    if ctx.db.staged_placeable_interaction_desc().count() == 0 {
+        return Err("Staged data for PlaceableInteractionDesc is empty, aborting.".into());
+    }
+    if ctx.db.staged_placeable_placement_desc().count() == 0 {
+        return Err("Staged data for PlaceablePlacementDesc is empty, aborting.".into());
+    }
     if ctx.db.staged_player_action_desc().count() == 0 {
         return Err("Staged data for PlayerActionDesc is empty, aborting.".into());
     }
@@ -1936,6 +2093,9 @@ pub fn validate_staged_data(ctx: &ReducerContext) -> Result<(), String> {
     }
     if ctx.db.staged_skill_desc().count() == 0 {
         return Err("Staged data for SkillDesc is empty, aborting.".into());
+    }
+    if ctx.db.staged_skill_level_knowledge_desc().count() == 0 {
+        return Err("Staged data for SkillLevelKnowledgeDesc is empty, aborting.".into());
     }
     if ctx.db.staged_stage_rewards_desc().count() == 0 {
         return Err("Staged data for StageRewardsDesc is empty, aborting.".into());

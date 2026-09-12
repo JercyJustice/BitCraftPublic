@@ -1,11 +1,11 @@
 use spacetimedb::ReducerContext;
 
 use crate::{
-    building_state, deployable_state,
-    game::{entities::inventory_type::InventoryType, permission_helper},
+    building_state, deployable_state_v2,
+    game::{entities::{building_state::InventoryState, inventory_type::InventoryType}, permission_helper},
     location_state, loot_chest_state,
-    messages::{components::{claim_state, dropped_inventory_state, BuildingState, Permission, PermissionState}, static_data::{building_desc, BuildingCategory}},
-    mobile_entity_state, mounting_state, unwrap_or_err, ClaimPermission, DeployableState, SmallHexTile,
+    messages::{components::{claim_state, dropped_inventory_state, BuildingState, Permission, PermissionState}, game_util::{ItemStack, ItemType}, static_data::{building_desc, cargo_desc, BuildingCategory}},
+    mobile_entity_state, mounting_state, unwrap_or_err, ClaimPermission, DeployableStateV2, SmallHexTile,
 };
 
 const MAX_INTERACTION_DISTANCE: i32 = 2;
@@ -42,7 +42,7 @@ fn validate_deployable(
     ctx: &ReducerContext,
     actor_id: u64,
     player_location: SmallHexTile,
-    deployable: &DeployableState,
+    deployable: &DeployableStateV2,
 ) -> Result<(), String> {
     if deployable.owner_id != actor_id {
         return Err("You don't have permission to interact with this deployable's inventory".into());
@@ -116,7 +116,7 @@ pub fn validate_interact(
         return Ok(InventoryType::Building);
     }
 
-    if let Some(deployable) = ctx.db.deployable_state().entity_id().find(&owner_entity_id) {
+    if let Some(deployable) = ctx.db.deployable_state_v2().entity_id().find(&owner_entity_id) {
         validate_deployable(ctx, actor_id, player_location, &deployable)?;
         return Ok(InventoryType::Deployable);
     }
@@ -142,6 +142,33 @@ pub fn validate_move(target_inventory_type: &InventoryType) -> Result<(), String
     }
 
     return Ok(());
+}
+
+pub fn validate_cargo_target(
+    ctx: &ReducerContext,
+    target_inventory: &InventoryState,
+    item_stack: &ItemStack,
+) -> Result<(), String> {
+    if item_stack.item_type != ItemType::Cargo {
+        return Ok(());
+    }
+
+    let cargo_desc = unwrap_or_err!(
+        ctx.db.cargo_desc().id().find(&item_stack.item_id),
+        "Invalid cargo id"
+    );
+
+    if cargo_desc.cannot_store_in_buildings
+        && ctx.db.building_state().entity_id().find(&target_inventory.owner_entity_id).is_some()
+    {
+        return Err("You cannot store this cargo in buildings.".into());
+    } else if cargo_desc.cannot_store_in_deployables
+        && ctx.db.deployable_state_v2().entity_id().find(&target_inventory.owner_entity_id).is_some()
+    {
+        return Err("You cannot store this cargo in deployables.".into());
+    }
+
+    Ok(())
 }
 
 pub fn validate_split(source_inventory_type: &InventoryType) -> Result<(), String> {

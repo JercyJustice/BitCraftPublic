@@ -16,12 +16,19 @@ use crate::{
     unwrap_or_err, unwrap_or_return,
 };
 
+use super::empires_shared::validate_siege_distance;
+
 #[spacetimedb::reducer]
 #[feature_gate("empire")]
 pub fn empire_siege_depleted_watchtower(ctx: &ReducerContext, request: EmpireStartSiegeRequest) -> Result<(), String> {
     let actor_id = game_state::actor_id(&ctx, true)?;
 
     HealthState::check_incapacitated(ctx, actor_id, true)?;
+    let player_location = game_state_filters::coordinates_any(ctx, actor_id);
+    let watchtower_location = game_state_filters::coordinates(ctx, request.building_entity_id);
+    if player_location.distance_to(watchtower_location) > 2 {
+        return Err("Too far".into());
+    }
 
     let defending_node = unwrap_or_err!(
         ctx.db.empire_node_state().entity_id().find(&request.building_entity_id),
@@ -87,16 +94,13 @@ fn empire_deploy_siege_engine_reduce(
         PlayerActionState::validate(ctx, actor_id, PlayerActionType::DeployDeployable, Some(1000))?;
     }
 
-    let node_location = game_state_filters::coordinates(ctx, building_entity_id);
-    let d = node_location.distance_to(coord.into());
-    let params = ctx.db.parameters_desc().version().find(&0).unwrap();
-    let min = params.empire_min_siege_distance;
-    let max = params.empire_max_siege_distance;
-    if d < min || d > max {
-        return Err(format!(
-            "You need to deploy this siege engine within {{0}} and {{1}} tiles from the target|~{min}|~{max}"
-        ));
-    }
+    validate_siege_distance(
+        ctx,
+        building_entity_id,
+        coord.into(),
+        "You need to deploy this siege engine",
+        0,
+    )?;
 
     if EmpireNodeSiegeState::has_active_siege(ctx, building_entity_id) {
         return Err("There is already a siege in progress".into());
@@ -147,7 +151,7 @@ pub fn send_message(
 ) {
     send_inter_module_message(
         ctx,
-        crate::messages::inter_module::MessageContentsV2::EmpireStartSiege(EmpireStartSiegeMsg {
+        crate::messages::inter_module::MessageContentsV5::EmpireStartSiege(EmpireStartSiegeMsg {
             building_coord: game_state_filters::coordinates(ctx, building_entity_id).into(),
             player_entity_id,
             building_entity_id,
@@ -173,7 +177,7 @@ pub fn handle_destination_result_on_sender(ctx: &ReducerContext, request: Empire
 
         if request.deployable_entity_id > 0 {
             ctx.db.mobile_entity_state().entity_id().delete(&request.deployable_entity_id);
-            ctx.db.deployable_state().entity_id().delete(&request.deployable_entity_id);
+            ctx.db.deployable_state_v2().entity_id().delete(&request.deployable_entity_id);
         }
 
         PlayerNotificationEvent::new_event(ctx, request.player_entity_id, error.unwrap(), NotificationSeverity::ReducerError);

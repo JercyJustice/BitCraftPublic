@@ -69,7 +69,14 @@ pub fn item_stack_move_all(ctx: &ReducerContext, request: PlayerItemStackMoveAll
         && !(source_inventory.owner_entity_id == target_inventory.owner_entity_id && source_inventory.inventory_index != 2)
     {
         target_inventory = InventoryState::get_player_wallet(ctx, target_inventory.owner_entity_id).unwrap();
+
+        // Because the target inventory has changed, we need to check this again
+        if source_inventory.entity_id == target_inventory.entity_id {
+            return Err("You cannot use this reducer on the same inventory instance".into());
+        }
     }
+    inventory_helper::validate_cargo_target(ctx, &target_inventory, &source_item)?;
+
     if !target_inventory.fits(ctx, source_item.clone_with_quantity(1)) {
         return Err("~Target inventory is full".into());
     }

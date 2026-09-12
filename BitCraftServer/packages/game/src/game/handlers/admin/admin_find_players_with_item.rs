@@ -5,7 +5,7 @@ use crate::{
     messages::{
         authentication::Role,
         components::{
-            claim_member_state, deployable_state, dropped_inventory_state, inventory_state, player_housing_state, player_state,
+            claim_member_state, deployable_state_v2, dropped_inventory_state, inventory_state, player_housing_state, player_state,
             player_username_state, InventoryState, PlayerHousingState,
         },
         game_util::ItemType,
@@ -67,7 +67,7 @@ pub fn log_quantity(ctx: &ReducerContext, item_id: i32, is_cargo: bool, player_e
 
     // deployable inventories
     let mut deployable_qty = 0;
-    for deployable in ctx.db.deployable_state().owner_id().filter(player_entity_id) {
+    for deployable in ctx.db.deployable_state_v2().owner_id().filter(player_entity_id) {
         if let Some(inventory) = ctx.db.inventory_state().owner_entity_id().filter(deployable.entity_id).next() {
             deployable_qty += quantity_of_item(&inventory, item_id, item_type)
         }

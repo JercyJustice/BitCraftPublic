@@ -336,6 +336,32 @@ fn import_building_desc_internal(ctx: &ReducerContext, records: Vec<BuildingDesc
 }
 
 #[spacetimedb::reducer]
+pub fn import_building_map_icon_desc(ctx: &ReducerContext, records: Vec<BuildingMapIconDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    import_building_map_icon_desc_internal(ctx, records)?;
+    Ok(())
+}
+fn import_building_map_icon_desc_internal(ctx: &ReducerContext, records: Vec<BuildingMapIconDesc>) -> Result<(), String> {
+    for id in ctx.db.building_map_icon_desc().iter().map(|item| item.building_id) {
+        ctx.db.building_map_icon_desc().building_id().delete(&id);
+    }
+    let len: usize = records.len();
+    log::info!("Will insert {} records of type BuildingMapIconDesc", len);
+    for record in records {
+        let id = record.building_id;
+        if let Err(err) = ctx.db.building_map_icon_desc().try_insert(record) {
+            return Err(format!(
+                "Couldn't insert BuildingMapIconDesc record with building_id {id}. Error message: {err}"
+            ));
+        }
+    }
+    log::info!("Inserted {} records of type BuildingMapIconDesc", len);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
 pub fn import_building_portal_desc(ctx: &ReducerContext, records: Vec<BuildingPortalDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
@@ -1100,17 +1126,17 @@ pub fn import_experience_state(ctx: &ReducerContext, records: Vec<ExperienceStat
 }
 
 #[spacetimedb::reducer]
-pub fn import_exploration_chunks_state(ctx: &ReducerContext, records: Vec<ExplorationChunksState>) {
+pub fn import_exploration_chunks_state(ctx: &ReducerContext, records: Vec<ExplorationChunksStateV2>) {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         log::error!("Invalid permissions");
         return ();
     }
-    log::info!("Will insert {} records of type ExplorationChunksState", records.len());
+    log::info!("Will insert {} records of type ExplorationChunksStateV2", records.len());
     let len = records.len();
     for record in records {
-        ctx.db.exploration_chunks_state().try_insert(record).unwrap();
+        ctx.db.exploration_chunks_state_v2().try_insert(record).unwrap();
     }
-    log::info!("Inserted {} records of type ExplorationChunksState", len);
+    log::info!("Inserted {} records of type ExplorationChunksStateV2", len);
 }
 
 #[spacetimedb::reducer]
@@ -2996,6 +3022,30 @@ fn import_empire_colors_desc_internal(ctx: &ReducerContext, records: Vec<EmpireC
 }
 
 #[spacetimedb::reducer]
+pub fn import_empire_icon_desc(ctx: &ReducerContext, records: Vec<EmpireIconDesc>) -> Result<(), String> {
+    if !has_role(ctx, &ctx.sender, Role::Admin) {
+        return Err("Invalid permissions".into());
+    }
+    import_empire_icon_desc_internal(ctx, records)?;
+    Ok(())
+}
+fn import_empire_icon_desc_internal(ctx: &ReducerContext, records: Vec<EmpireIconDesc>) -> Result<(), String> {
+    for id in ctx.db.empire_icon_desc().iter().map(|item| item.id) {
+        ctx.db.empire_icon_desc().id().delete(&id);
+    }
+    let len: usize = records.len();
+    log::info!("Will insert {} records of type EmpireIconDesc", len);
+    for record in records {
+        let id = record.id;
+        if let Err(err) = ctx.db.empire_icon_desc().try_insert(record) {
+            return Err(format!("Couldn't insert EmpireIconDesc record with id {id}. Error message: {err}"));
+        }
+    }
+    log::info!("Inserted {} records of type EmpireIconDesc", len);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
 pub fn import_wall_desc(ctx: &ReducerContext, records: Vec<WallDesc>) -> Result<(), String> {
     if !has_role(ctx, &ctx.sender, Role::Admin) {
         return Err("Invalid permissions".into());
@@ -3343,6 +3393,7 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     import_interior_spawn_desc_internal(ctx, collect_table(ctx.db.staged_interior_spawn_desc()))?;
     import_interior_portal_connections_desc_internal(ctx, collect_table(ctx.db.staged_interior_portal_connections_desc()))?;
     import_interior_network_desc_internal(ctx, collect_table(ctx.db.staged_interior_network_desc()))?;
+    import_building_map_icon_desc_internal(ctx, collect_table(ctx.db.staged_building_map_icon_desc()))?;
     import_building_claim_desc_internal(ctx, collect_table(ctx.db.staged_building_claim_desc()))?;
     import_building_repairs_desc_internal(ctx, collect_table(ctx.db.staged_building_repairs_desc()))?;
     import_building_spawn_desc_internal(ctx, collect_table(ctx.db.staged_building_spawn_desc()))?;
@@ -3378,6 +3429,7 @@ pub fn commit_staged_static_data(ctx: &ReducerContext) -> Result<(), String> {
     import_empire_notification_desc_internal(ctx, collect_table(ctx.db.staged_empire_notification_desc()))?;
     import_empire_territory_desc_internal(ctx, collect_table(ctx.db.staged_empire_territory_desc()))?;
     import_empire_colors_desc_internal(ctx, collect_table(ctx.db.staged_empire_colors_desc()))?;
+    import_empire_icon_desc_internal(ctx, collect_table(ctx.db.staged_empire_icon_desc()))?;
     import_wall_desc_internal(ctx, collect_table(ctx.db.staged_wall_desc()))?;
     import_gate_desc_internal(ctx, collect_table(ctx.db.staged_gate_desc()))?;
     import_pathfinding_desc_internal(ctx, collect_table(ctx.db.staged_pathfinding_desc()))?;

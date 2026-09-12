@@ -134,7 +134,7 @@ impl PlayerHousingState {
             };
             for mobile in ctx.db.mobile_entity_state().chunk_index().filter(chunk.chunk_index()) {
                 if ctx.db.player_state().entity_id().find(mobile.entity_id).is_some()
-                    || ctx.db.deployable_state().entity_id().find(mobile.entity_id).is_some()
+                    || ctx.db.deployable_state_v2().entity_id().find(mobile.entity_id).is_some()
                 {
                     // ignore players and ddeployables as they will be warped outside
                 } else {
@@ -319,7 +319,7 @@ impl PlayerHousingState {
                         location: teleport_oc_float,
                         reason,
                     });
-                } else if ctx.db.deployable_state().entity_id().find(mobile.entity_id).is_some() {
+                } else if ctx.db.deployable_state_v2().entity_id().find(mobile.entity_id).is_some() {
                     ctx.db.mounting_state().deployable_entity_id().delete(mobile.entity_id);
                     let mes = MobileEntityState::for_location(mobile.entity_id, teleport_oc_float, ctx.timestamp);
                     ctx.db.mobile_entity_state().entity_id().update(mes);

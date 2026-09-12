@@ -1,4 +1,3 @@
-use bitcraft_macro::feature_gate;
 use crate::game::reducer_helpers::player_action_helpers;
 use crate::game::terrain_chunk::TerrainChunkCache;
 use crate::game::{coordinates::*, game_state};
@@ -9,6 +8,7 @@ use crate::{
     messages::{action_request::PlayerTerraformRequest, components::*, static_data::*},
     unwrap_or_err,
 };
+use bitcraft_macro::feature_gate;
 use spacetimedb::{log, ReducerContext};
 use std::time::Duration;
 
@@ -127,7 +127,7 @@ fn reduce(
     let terrain_chunk = unwrap_or_err!(cache.filter_by_chunk_index(ctx, chunk_index), "Invalid terrain chunk");
 
     let offset_coordinates = terrain_coordinates;
-    let mut terrain_cell = terrain_chunk.get_entity(&offset_coordinates);
+    let mut terrain_cell = unwrap_or_err!(terrain_chunk.get_entity(&offset_coordinates), "Invalid terrain chunk");
 
     let building_entity_id = unwrap_or_err!(
         game_state_filters::building_id_at_coordinates(ctx, &game_state_filters::coordinates_any(ctx, actor_id)),
@@ -259,6 +259,15 @@ fn reduce(
             spent_actions = 0;
         }
 
+        let mut output = Vec::new();
+        if let Some(output_item_stacks) = &recipe.output_item_stacks {
+            for stack in output_item_stacks {
+                if let Some(rolled) = stack.roll(ctx, spent_actions) {
+                    output.push(rolled);
+                }
+            }
+        }
+
         terraform_progress_state.progress += actions_count;
         if terraform_progress_state.progress >= recipe.actions_count {
             terraform_progress_state.progress = 0;
@@ -295,6 +304,23 @@ fn reduce(
         let construction_skill_id = SkillType::Construction as i32;
         let experience_gain = f32::ceil(experience_per_progress * spent_actions as f32) as i32;
         ExperienceState::add_experience(ctx, actor_id, construction_skill_id, experience_gain);
+
+        if spent_actions > 0 {
+            EquipmentState::try_activate_profession_hit_buffs(ctx, actor_id, Some(SkillType::Construction))?;
+        }
+
+        if !output.is_empty() {
+            let terrain_drop_location = LargeHexTile::from(terrain_coordinates).center_small_tile();
+            InventoryState::deposit_to_player_inventory_and_nearby_deployables(
+                ctx,
+                actor_id,
+                &output,
+                |x| building.distance_to(ctx, &x),
+                true,
+                || vec![terrain_drop_location],
+                false,
+            )?;
+        }
 
         PlayerActionState::mark_as_consumed(ctx, actor_id)?;
     }

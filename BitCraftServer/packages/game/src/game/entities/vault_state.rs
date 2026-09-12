@@ -1,13 +1,13 @@
 use spacetimedb::{ReducerContext, Table};
 
 use crate::{
-    deployable_collectible_state, deployable_state,
+    deployable_collectible_state, deployable_state_v2,
     game::game_state,
     messages::{
         components::{VaultCollectible, VaultState},
         static_data::*,
     },
-    player_prefs_state, vault_state, DeployableCollectibleState, DeployableState, PlayerState,
+    player_prefs_state, vault_state, DeployableCollectibleState, DeployableStateV2, PlayerState,
 };
 
 impl VaultState {
@@ -27,6 +27,27 @@ impl VaultState {
 
     pub fn has_collectible(&self, id: i32) -> bool {
         return self.collectibles.iter().any(|c| c.id == id);
+    }
+
+    pub fn remove_collectible_quantity(&mut self, collectible_id: i32, quantity: u32) -> u32 {
+        if quantity == 0 {
+            return 0;
+        }
+
+        let Some(index) = self.collectibles.iter().position(|c| c.id == collectible_id) else {
+            return 0;
+        };
+
+        let owned = self.collectibles[index].count.max(0) as u32;
+        let removed = owned.min(quantity);
+
+        if removed == owned {
+            self.collectibles.remove(index);
+        } else {
+            self.collectibles[index].count -= removed as i32;
+        }
+
+        removed
     }
 
     pub fn add_collectible(&mut self, ctx: &ReducerContext, collectible_id: i32, add_if_locked: bool) -> Result<(), String> {
@@ -68,13 +89,14 @@ impl VaultState {
                     let username = PlayerState::username_by_id(ctx, self.entity_id).unwrap();
                     let deployable = ctx
                         .db
-                        .deployable_state()
-                        .try_insert(DeployableState {
+                        .deployable_state_v2()
+                        .try_insert(DeployableStateV2 {
                             entity_id: game_state::create_entity(ctx),
                             owner_id: self.entity_id,
                             claim_entity_id: 0,
                             direction: 0,
                             deployable_description_id: deployable_description.id,
+                            appearance_override_id: 0,
                             nickname: format!("{}'s {}", username, deployable_description.name),
                             hidden: false,
                         })

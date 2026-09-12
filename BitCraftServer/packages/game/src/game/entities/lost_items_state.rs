@@ -10,7 +10,7 @@ use crate::{
     messages::{
         components::{
             building_state, buy_order_state, closed_listing_state, inventory_state, lost_items_state, passive_craft_state,
-            progressive_action_state, sell_order_state, AlertState, ClosedListingState, DeployableState, DimensionNetworkState,
+            progressive_action_state, sell_order_state, AlertState, ClosedListingState, DeployableStateV2, DimensionNetworkState,
             LostItemsState, PassiveCraftStatus,
         },
         game_util::ItemStack,
@@ -169,7 +169,7 @@ impl LostItemsState {
         }
     }
 
-    pub fn generate_lost_items_for_deployable(ctx: &ReducerContext, deployable: &DeployableState, overworld_location: SmallHexTile) {
+    pub fn generate_lost_items_for_deployable(ctx: &ReducerContext, deployable: &DeployableStateV2, overworld_location: SmallHexTile) {
         Self::generate_lost_items_from_inventories(ctx, deployable.entity_id, deployable.owner_id, overworld_location);
     }
 

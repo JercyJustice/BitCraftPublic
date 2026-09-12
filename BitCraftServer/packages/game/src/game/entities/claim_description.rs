@@ -151,6 +151,10 @@ impl ClaimState {
         officer_permission: bool,
         co_owner_permission: bool,
     ) -> Result<(), String> {
+        if self.neutral {
+            return Err("Cannot be a member of a neutral claim.".into());
+        }
+
         let claim_member = ClaimMemberState {
             entity_id: game_state::create_entity(ctx),
             claim_entity_id: self.entity_id,

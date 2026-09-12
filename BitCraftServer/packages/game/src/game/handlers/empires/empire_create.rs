@@ -69,6 +69,26 @@ pub fn empire_create(ctx: &ReducerContext, request: EmpireCreateRequest) -> Resu
         return Err("This claim is already part of an empire".into());
     }
 
+    if ctx
+        .db
+        .empire_icon_desc()
+        .id()
+        .find(&request.icon_id)
+        .is_none_or(|icon| icon.is_shape)
+    {
+        return Err("Invalid empire icon".into());
+    }
+
+    if ctx
+        .db
+        .empire_icon_desc()
+        .id()
+        .find(&request.shape_id)
+        .is_none_or(|icon| !icon.is_shape)
+    {
+        return Err("Invalid empire shape".into());
+    }
+
     // empire colors can only be verified on the global module?
     if ctx.db.empire_color_desc().id().find(&request.color1_id).is_none()
         || ctx.db.empire_color_desc().id().find(&request.color2_id).is_none()
@@ -86,7 +106,7 @@ pub fn empire_create(ctx: &ReducerContext, request: EmpireCreateRequest) -> Resu
 
     send_inter_module_message(
         ctx,
-        crate::messages::inter_module::MessageContentsV2::EmpireCreate(EmpireCreateMsg {
+        crate::messages::inter_module::MessageContentsV5::EmpireCreate(EmpireCreateMsg {
             player_entity_id: actor_id,
             building_entity_id: request.building_entity_id,
             color1_id: request.color1_id,

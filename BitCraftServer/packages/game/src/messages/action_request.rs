@@ -76,6 +76,13 @@ pub struct PlayerExtractRequest {
     pub clear_from_claim: bool, // no xp, no requirements, no yield
 }
 
+#[derive(SpacetimeType, Copy, Clone, Debug)]
+pub struct PlayerPlaceableInteractRequest {
+    pub interaction_id: i32,
+    pub target_entity_id: u64,
+    pub timestamp: u64,
+}
+
 #[derive(SpacetimeType)]
 pub struct PlayerPassiveCraftStartRequest {
     pub recipe_id: i32,
@@ -131,6 +138,15 @@ pub struct PlayerProjectSitePlaceRequest {
     pub construction_recipe_id: i32,
     pub resource_placement_recipe_id: i32,
     pub facing_direction: i32,
+}
+
+#[derive(SpacetimeType, Copy, Clone, Debug)]
+pub struct PlayerPlaceablePlaceRequest {
+    pub coordinates: OffsetCoordinatesSmallMessage,
+    pub placeable_placement_id: i32,
+    pub facing_direction: i32,
+    pub replace_oldest_in_full_group: bool,
+    pub timestamp: u64,
 }
 
 #[derive(SpacetimeType, Debug)]

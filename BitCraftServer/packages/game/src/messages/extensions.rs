@@ -2,7 +2,9 @@ use spacetimedb::{ReducerContext, Table};
 
 use super::{
     components::{Biome, Permission, PermissionGroup},
-    generic::{globals, region_sign_in_parameters, RegionSignInParameters},
+    generic::{
+        globals, region_exploration_info, region_sign_in_parameters, world_region_state, RegionExplorationInfo, RegionSignInParameters,
+    },
     static_data::*,
 };
 
@@ -182,6 +184,19 @@ impl ResourcePlacementRecipeDesc {
     }
 }
 
+impl PlaceableInteractionDesc {
+    pub fn get_skill_type(&self) -> Option<SkillType> {
+        let skill_id = match self.experience_per_progress.first() {
+            Some(exp) => exp.skill_id,
+            None => 0,
+        };
+        if skill_id > SkillType::ANY as i32 {
+            return Some(SkillType::to_enum(skill_id));
+        }
+        return None;
+    }
+}
+
 impl EmpireNotificationType {
     pub fn from_i32(value: i32) -> EmpireNotificationType {
         match value {
@@ -211,5 +226,30 @@ impl RegionSignInParameters {
         }
 
         None
+    }
+}
+
+impl RegionExplorationInfo {
+    pub fn counts_toward_achievements(ctx: &ReducerContext, region_id: u8) -> bool {
+        ctx.db
+            .region_exploration_info()
+            .region_id()
+            .find(region_id)
+            .map(|info| info.counts_toward_achievements)
+            .unwrap_or(true)
+    }
+
+    pub fn world_achievement_chunk_count(ctx: &ReducerContext) -> i32 {
+        let region = ctx.db.world_region_state().id().find(&0).unwrap();
+        let chunks_per_region = region.region_width_chunks as i32 * region.region_height_chunks as i32;
+        let excluded_region_count = ctx
+            .db
+            .region_exploration_info()
+            .iter()
+            .filter(|info| !info.counts_toward_achievements && info.region_id >= 1 && info.region_id <= region.region_count)
+            .count() as i32;
+        let eligible_region_count = region.region_count as i32 - excluded_region_count;
+
+        eligible_region_count * chunks_per_region
     }
 }

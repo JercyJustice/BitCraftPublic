@@ -1,4 +1,3 @@
-use bitcraft_macro::feature_gate;
 use crate::game::discovery::Discovery;
 use crate::game::entities::building_state::InventoryState;
 use crate::game::entities::inventory_type;
@@ -13,6 +12,7 @@ use crate::{
     building_desc, cargo_desc, equipment_desc, item_desc, skill_desc, tool_desc, unwrap_or_err, weapon_desc, weapon_type_desc,
     AchievementDesc, BuildingFunction,
 };
+use bitcraft_macro::feature_gate;
 use spacetimedb::ReducerContext;
 
 #[spacetimedb::reducer]
@@ -153,6 +153,8 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, from_pocket: &PocketKey, to_p
     let mut discovery = Discovery::new(actor_id);
 
     if is_cargo {
+        inventory_helper::validate_cargo_target(ctx, &to_inventory, &from_contents)?;
+
         if let Some(building) = ctx.db.building_state().entity_id().find(&to_inventory.owner_entity_id) {
             let building_desc = ctx.db.building_desc().id().find(&building.building_description_id).unwrap();
             if let Some(function) = BuildingFunction::from_inventory_index(&building_desc, to_inventory.inventory_index) {
@@ -221,6 +223,9 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, from_pocket: &PocketKey, to_p
         }
     } else {
         let to_contents = to_inventory.get_pocket_contents(to_index).unwrap();
+        if is_cargo {
+            inventory_helper::validate_cargo_target(ctx, &from_inventory, &to_contents)?;
+        }
 
         if from_contents.item_id != to_contents.item_id {
             if is_cargo && to_contents.quantity > 1 {

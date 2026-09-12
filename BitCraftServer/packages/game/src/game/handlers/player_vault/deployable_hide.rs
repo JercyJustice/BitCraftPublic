@@ -1,4 +1,4 @@
-use crate::{deployable_state, game::reducer_helpers::deployable_helpers, messages::authentication::ServerIdentity};
+use crate::{deployable_state_v2, game::reducer_helpers::deployable_helpers, messages::authentication::ServerIdentity};
 use spacetimedb::{log, ReducerContext};
 
 #[spacetimedb::table(name = hide_deployable_timer, scheduled(hide_deployable, at = scheduled_at))]
@@ -18,9 +18,9 @@ pub fn hide_deployable(ctx: &ReducerContext, timer: HideDeployableTimer) {
         return;
     }
 
-    if let Some(mut deployable) = ctx.db.deployable_state().entity_id().find(&timer.entity_id) {
+    if let Some(mut deployable) = ctx.db.deployable_state_v2().entity_id().find(&timer.entity_id) {
         deployable.hidden = true;
-        ctx.db.deployable_state().entity_id().update(deployable);
+        ctx.db.deployable_state_v2().entity_id().update(deployable);
 
         //Disambark all passengers
         deployable_helpers::expel_passengers(ctx, timer.entity_id, false, false);

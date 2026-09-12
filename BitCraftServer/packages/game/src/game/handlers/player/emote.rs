@@ -101,7 +101,7 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, emote_id: i32, dry_run: bool)
         }
 
         //validate emotes that cannot be use in certain deployables
-        if let Some(deployable_state) = ctx.db.deployable_state().entity_id().find(&mounting_state.deployable_entity_id) {
+        if let Some(deployable_state) = ctx.db.deployable_state_v2().entity_id().find(&mounting_state.deployable_entity_id) {
             let deployable_desc = unwrap_or_err!(
                 ctx.db.deployable_desc().id().find(&deployable_state.deployable_description_id),
                 "Deployable does not exist"

@@ -5,6 +5,7 @@ use crate::{
     game::{
         discovery::Discovery,
         game_state::{self, game_state_filters},
+        reducer_helpers::deployable_helpers,
     },
     messages::{action_request::PlayerCollectibleActivateRequest, components::*, empire_shared::empire_player_data_state, static_data::*},
     unwrap_or_err,
@@ -17,6 +18,17 @@ pub fn collectible_activate(ctx: &ReducerContext, request: PlayerCollectibleActi
     PlayerTimestampState::refresh(ctx, actor_id, ctx.timestamp);
 
     reduce(ctx, actor_id, request.vault_index, request.activated, false)
+}
+
+fn get_deployable_deploybale_appearance_override(
+    ctx: &ReducerContext,
+    collectible_id: i32,
+) -> Result<DeployableAppearanceOverrideDesc, String> {
+    ctx.db
+        .deployable_appearance_override_desc()
+        .collectible_id()
+        .find(&collectible_id)
+        .ok_or_else(|| format!("Missing deployable appearance override static data for collectible {{0}}.|~{collectible_id}"))
 }
 
 pub fn reduce(ctx: &ReducerContext, actor_id: u64, vault_index: i32, activated: bool, dry_run: bool) -> Result<(), String> {
@@ -52,7 +64,34 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, vault_index: i32, activated: 
         }
     }
 
-    let max_count = collectible_desc.max_equip_count;
+    let deploybale_appearance_override = if collectible_desc.collectible_type == CollectibleType::DeployableAppearanceOverride {
+        Some(get_deployable_deploybale_appearance_override(ctx, collectible_id)?)
+    } else {
+        None
+    };
+
+    let collectible_is_activated = collectibles
+        .get(vault_index as usize)
+        .map(|collectible| collectible.activated)
+        .unwrap_or(false);
+
+    if collectible_is_activated != activated {
+        if let Some(deploybale_appearance_override) = &deploybale_appearance_override {
+            if deployable_helpers::has_deployed_deployable_with_model_address(
+                ctx,
+                actor_id,
+                &deploybale_appearance_override.affected_model_address,
+            ) {
+                return Err("Cannot change the appearance of a deployable while it's deployed, store it first.".into());
+            }
+        }
+    }
+
+    let max_count = if collectible_desc.collectible_type == CollectibleType::DeployableAppearanceOverride {
+        i32::MAX
+    } else {
+        collectible_desc.max_equip_count
+    };
 
     if max_count == 0 {
         return Err("Cannot activate this collectible.".into());
@@ -112,6 +151,30 @@ pub fn reduce(ctx: &ReducerContext, actor_id: u64, vault_index: i32, activated: 
                             if other_collectible_desc.collectible_type == collectible_desc.invalidates_type {
                                 other_col.activated = false;
                             }
+                        }
+                    }
+                }
+
+                if let Some(deploybale_appearance_override) = &deploybale_appearance_override {
+                    for j in 0..collectibles.len() {
+                        if j == i {
+                            continue;
+                        }
+
+                        let other_col = &mut collectibles[j];
+                        if !other_col.activated {
+                            continue;
+                        }
+
+                        let other_collectible_desc =
+                            unwrap_or_err!(ctx.db.collectible_desc().id().find(&other_col.id), "Corrupted vault inventory.");
+                        if other_collectible_desc.collectible_type != CollectibleType::DeployableAppearanceOverride {
+                            continue;
+                        }
+
+                        let other = get_deployable_deploybale_appearance_override(ctx, other_col.id)?;
+                        if other.affected_model_address == deploybale_appearance_override.affected_model_address {
+                            other_col.activated = false;
                         }
                     }
                 }

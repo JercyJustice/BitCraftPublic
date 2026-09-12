@@ -9,7 +9,7 @@ use crate::messages::{
     components::{LocationState, PavedTileState},
     static_data::*,
 };
-use crate::{location_state, paved_tile_state, ResourceState};
+use crate::{location_state, paved_tile_state};
 
 use super::building_state::InventoryState;
 
@@ -117,10 +117,7 @@ impl PavedTileState {
             return Err("Failed to insert pavement".into());
         }
 
-        // Despawn resources under paving
-        if let Some(deposit) = ResourceState::get_at_location(ctx, &target_coord.into()) {
-            deposit.despawn_self(ctx);
-        }
+        // Previously despawned resources under paving, this was removed because it was unintentionally removing resources that were part of the resource spawns
 
         Ok(())
     }

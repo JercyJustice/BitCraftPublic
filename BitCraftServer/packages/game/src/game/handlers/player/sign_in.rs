@@ -52,7 +52,8 @@ pub fn sign_in(ctx: &ReducerContext, _request: PlayerSignInRequest) -> Result<()
     }
 
     if ctx.db.signed_in_player_state().entity_id().find(actor_id).is_some() {
-        return Err("Already signed in".into());
+        // Reconnect of an already signed-in player; the session continues.
+        return Ok(());
     }
 
     let user = unwrap_or_err!(ctx.db.user_state().identity().find(&ctx.sender), "No user found");
@@ -102,7 +103,8 @@ pub fn sign_in(ctx: &ReducerContext, _request: PlayerSignInRequest) -> Result<()
     player.signed_in = true;
     player.session_start_timestamp = game_state::unix(ctx.timestamp);
     player.sign_in_timestamp = game_state::unix(ctx.timestamp);
-    player.refresh_traveler_tasks(ctx);
+
+    TravelerTaskCreditState::refresh_player_credits(ctx, actor_id);
 
     let mut inventory = unwrap_or_err!(InventoryState::get_player_inventory(ctx, actor_id), "Player has no inventory");
 
@@ -164,7 +166,7 @@ pub fn sign_in(ctx: &ReducerContext, _request: PlayerSignInRequest) -> Result<()
     // Display hidden deployables
     let deployable_ids: Vec<_> = ctx
         .db
-        .deployable_state()
+        .deployable_state_v2()
         .owner_id()
         .filter(actor_id)
         .map(|deployable| (deployable.entity_id, deployable.hidden))
@@ -175,9 +177,9 @@ pub fn sign_in(ctx: &ReducerContext, _request: PlayerSignInRequest) -> Result<()
 
         //set hidden deployable visible
         if hidden {
-            let mut deployable = ctx.db.deployable_state().entity_id().find(&entity_id).unwrap();
+            let mut deployable = ctx.db.deployable_state_v2().entity_id().find(&entity_id).unwrap();
             deployable.hidden = false;
-            ctx.db.deployable_state().entity_id().update(deployable);
+            ctx.db.deployable_state_v2().entity_id().update(deployable);
         }
     }
 

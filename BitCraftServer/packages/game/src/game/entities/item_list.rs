@@ -41,11 +41,7 @@ impl ItemListDesc {
             return vec![item_stack];
         }
 
-        let mut resolved_item_list: Vec<ItemStack> = Vec::new();
-        for _ in 0..item_stack.quantity {
-            resolved_item_list.extend(Self::extract_item_stacks(ctx, item_list_id, extracting_player_id).iter());
-        }
-        resolved_item_list
+        Self::extract_item_stacks_multiple(ctx, item_list_id, item_stack.quantity, extracting_player_id)
     }
 
     pub fn extract_item_stacks(ctx: &ReducerContext, item_list_id: i32, extracting_player_id: Option<u64>) -> Vec<ItemStack> {
@@ -88,7 +84,7 @@ impl ItemListDesc {
                         }
 
                         // ItemList containing itemlists might not be efficient for high amount of rolls
-                        item_stacks.extend(Self::extract_item_stacks(ctx, item_desc.item_list_id, rolling_player_id));
+                        item_stacks.extend(Self::extract_item_stacks_from_item(ctx, *item_stack, rolling_player_id));
                     }
                     break;
                 }

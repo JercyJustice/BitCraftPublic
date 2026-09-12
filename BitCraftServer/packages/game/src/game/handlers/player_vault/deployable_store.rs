@@ -80,7 +80,7 @@ fn reduce(ctx: &ReducerContext, actor_id: u64, request: &DeployableStoreRequest,
     }
 
     let deployable_state = unwrap_or_err!(
-        ctx.db.deployable_state().entity_id().find(&request.deployable_entity_id),
+        ctx.db.deployable_state_v2().entity_id().find(&request.deployable_entity_id),
         "Deployable does not exist."
     );
 
@@ -113,7 +113,7 @@ fn reduce(ctx: &ReducerContext, actor_id: u64, request: &DeployableStoreRequest,
 }
 
 fn reduce_recover(ctx: &ReducerContext, actor_id: u64, request: &DeployableStoreRequest, dry_run: bool) -> Result<(), String> {
-    if let Some(deployable_state) = ctx.db.deployable_state().entity_id().find(&request.deployable_entity_id) {
+    if let Some(deployable_state) = ctx.db.deployable_state_v2().entity_id().find(&request.deployable_entity_id) {
         // Deployable is on this region
         // make sure the actor is the deployable owner
         if deployable_state.owner_id != actor_id {
@@ -138,7 +138,7 @@ fn reduce_recover(ctx: &ReducerContext, actor_id: u64, request: &DeployableStore
         //We don't know which region deployable is on, so we just blast messages to all regions and see if one of them succeeds
         send_inter_module_message(
             ctx,
-            crate::messages::inter_module::MessageContentsV2::RecoverDeployable(crate::messages::inter_module::RecoverDeployableMsg {
+            crate::messages::inter_module::MessageContentsV5::RecoverDeployable(crate::messages::inter_module::RecoverDeployableMsg {
                 player_entity_id: actor_id,
                 deployable_entity_id: request.deployable_entity_id,
                 deployable_desc_id: collectible.deployable_desc_id,

@@ -115,7 +115,7 @@ pub fn sign_out_internal(ctx: &ReducerContext, identity: Identity, insert_grace_
             }
 
             //start hide deployable timer
-            for deployable in ctx.db.deployable_state().owner_id().filter(player_entity_id) {
+            for deployable in ctx.db.deployable_state_v2().owner_id().filter(player_entity_id) {
                 let deployable_desc = ctx
                     .db
                     .deployable_desc()

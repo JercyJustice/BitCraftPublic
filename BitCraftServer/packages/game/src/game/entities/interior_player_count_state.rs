@@ -12,7 +12,6 @@ impl InteriorPlayerCountState {
     }
 
     pub fn inc(ctx: &ReducerContext, dimension_network_entity_id: u64) {
-        spacetimedb::log::info!("inc {dimension_network_entity_id}");
         if let Some(mut c) = ctx
             .db
             .interior_player_count_state()

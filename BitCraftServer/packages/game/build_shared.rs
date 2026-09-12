@@ -305,42 +305,62 @@ pub fn build_shared_tables() {
         }
         writeln("");
 
-        writeln("#[derive(SpacetimeType, Clone, Debug)]");
-        writeln("pub struct InterModuleTableUpdates {");
-        for (table, _pk) in &all_shared_tables {
-            let snake = camel_to_snake(table);
-            writeln(format!("    pub {snake}: Option<Vec<{table}Op>>,").as_str());
-        }
-        writeln("}\n");
+        let legacy_shared_tables: Vec<(String, String)> = all_shared_tables
+            .iter()
+            .filter(|(table, _pk)| table != "RegionExplorationInfo")
+            .cloned()
+            .collect();
 
-        writeln("impl InterModuleTableUpdates {");
-        writeln("    pub fn new() -> Self {");
-        writeln("        Self {");
-        for (table, _pk) in &all_shared_tables {
-            let snake = camel_to_snake(table);
-            writeln(format!("            {snake}: None,").as_str());
-        }
-        writeln("        }");
-        writeln("    }"); // pub fn new()
+        let write_updates_struct = |name: &str, tables: &Vec<(String, String)>| -> String {
+            let mut output = String::new();
+            let mut writeln = |s: &str| {
+                output.push_str(s);
+                output.push_str("\n");
+            };
 
-        writeln("    pub fn apply_updates(self, ctx: &ReducerContext) {");
-        for (table, pk) in &all_shared_tables {
-            let snake = camel_to_snake(table);
-            writeln(format!("        if let Some(v) = self.{} {{", snake).as_str());
-            writeln("            for op in v {");
-            writeln("                match op {");
-            if custom_inter_module_insert_tables.contains(table) {
-                writeln(format!("                    {table}Op::Insert(val) => _ = {table}::inter_module_insert(ctx, val),").as_str());
-            } else {
-                writeln(format!("                    {table}Op::Insert(val) => _ = ctx.db.{snake}().insert(val),").as_str());
+            writeln("#[derive(SpacetimeType, Clone, Debug)]");
+            writeln(format!("pub struct {name} {{").as_str());
+            for (table, _pk) in tables {
+                let snake = camel_to_snake(table);
+                writeln(format!("    pub {snake}: Option<Vec<{table}Op>>,").as_str());
             }
-            writeln(format!("                    {table}Op::Delete(val) => _ = ctx.db.{snake}().{pk}().delete(val.{pk}),").as_str());
-            writeln("                }");
-            writeln("            }");
+            writeln("}\n");
+
+            writeln(format!("impl {name} {{").as_str());
+            writeln("    pub fn new() -> Self {");
+            writeln("        Self {");
+            for (table, _pk) in tables {
+                let snake = camel_to_snake(table);
+                writeln(format!("            {snake}: None,").as_str());
+            }
             writeln("        }");
-        }
-        writeln("    }"); // pub fn apply_updates()
-        writeln("}"); //impl InterModuleTableUpdates
+            writeln("    }");
+
+            writeln("    pub fn apply_updates(self, ctx: &ReducerContext) {");
+            for (table, pk) in tables {
+                let snake = camel_to_snake(table);
+                writeln(format!("        if let Some(v) = self.{} {{", snake).as_str());
+                writeln("            for op in v {");
+                writeln("                match op {");
+                if custom_inter_module_insert_tables.contains(table) {
+                    writeln(format!("                    {table}Op::Insert(val) => _ = {table}::inter_module_insert(ctx, val),").as_str());
+                } else {
+                    writeln(format!("                    {table}Op::Insert(val) => _ = ctx.db.{snake}().insert(val),").as_str());
+                }
+                writeln(format!("                    {table}Op::Delete(val) => _ = ctx.db.{snake}().{pk}().delete(val.{pk}),").as_str());
+                writeln("                }");
+                writeln("            }");
+                writeln("        }");
+            }
+            writeln("    }");
+            writeln("}");
+            output
+        };
+
+        drop(writeln);
+        output.push_str(write_updates_struct("InterModuleTableUpdates", &legacy_shared_tables).as_str());
+        output.push('\n');
+        output.push_str(write_updates_struct("InterModuleTableUpdatesV2", &all_shared_tables).as_str());
     }
 
     write_if_file_changed("src/inter_module/_autogen.rs", output);

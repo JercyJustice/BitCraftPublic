@@ -35,6 +35,26 @@ pub fn process_message_on_destination(ctx: &ReducerContext, request: EmpireCreat
         "This claim does not have the tech to form an empire"
     );
 
+    if ctx
+        .db
+        .empire_icon_desc()
+        .id()
+        .find(&request.icon_id)
+        .is_none_or(|icon| icon.is_shape)
+    {
+        return Err("Invalid empire icon".into());
+    }
+
+    if ctx
+        .db
+        .empire_icon_desc()
+        .id()
+        .find(&request.shape_id)
+        .is_none_or(|icon| !icon.is_shape)
+    {
+        return Err("Invalid empire shape".into());
+    }
+
     if ctx.db.empire_color_desc().id().find(&request.color1_id).is_none()
         || ctx.db.empire_color_desc().id().find(&request.color2_id).is_none()
     {

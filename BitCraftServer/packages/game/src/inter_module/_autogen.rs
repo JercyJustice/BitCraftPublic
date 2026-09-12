@@ -102,6 +102,11 @@ pub enum RegionControlInfoOp {
     Delete(RegionControlInfo),
 }
 #[derive(SpacetimeType, Clone, Debug)]
+pub enum RegionExplorationInfoOp {
+    Insert(RegionExplorationInfo),
+    Delete(RegionExplorationInfo),
+}
+#[derive(SpacetimeType, Clone, Debug)]
 pub enum RegionPopulationInfoOp {
     Insert(RegionPopulationInfo),
     Delete(RegionPopulationInfo),
@@ -334,6 +339,269 @@ impl InterModuleTableUpdates {
                 match op {
                     RegionControlInfoOp::Insert(val) => _ = ctx.db.region_control_info().insert(val),
                     RegionControlInfoOp::Delete(val) => _ = ctx.db.region_control_info().region_id().delete(val.region_id),
+                }
+            }
+        }
+        if let Some(v) = self.region_population_info {
+            for op in v {
+                match op {
+                    RegionPopulationInfoOp::Insert(val) => _ = ctx.db.region_population_info().insert(val),
+                    RegionPopulationInfoOp::Delete(val) => _ = ctx.db.region_population_info().region_id().delete(val.region_id),
+                }
+            }
+        }
+        if let Some(v) = self.region_sign_in_parameters {
+            for op in v {
+                match op {
+                    RegionSignInParametersOp::Insert(val) => _ = ctx.db.region_sign_in_parameters().insert(val),
+                    RegionSignInParametersOp::Delete(val) => _ = ctx.db.region_sign_in_parameters().region_id().delete(val.region_id),
+                }
+            }
+        }
+        if let Some(v) = self.user_authentication_state {
+            for op in v {
+                match op {
+                    UserAuthenticationStateOp::Insert(val) => _ = ctx.db.user_authentication_state().insert(val),
+                    UserAuthenticationStateOp::Delete(val) => _ = ctx.db.user_authentication_state().identity().delete(val.identity),
+                }
+            }
+        }
+        if let Some(v) = self.user_moderation_state {
+            for op in v {
+                match op {
+                    UserModerationStateOp::Insert(val) => _ = ctx.db.user_moderation_state().insert(val),
+                    UserModerationStateOp::Delete(val) => _ = ctx.db.user_moderation_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.user_state {
+            for op in v {
+                match op {
+                    UserStateOp::Insert(val) => _ = ctx.db.user_state().insert(val),
+                    UserStateOp::Delete(val) => _ = ctx.db.user_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+    }
+}
+
+#[derive(SpacetimeType, Clone, Debug)]
+pub struct InterModuleTableUpdatesV2 {
+    pub blocked_identity: Option<Vec<BlockedIdentityOp>>,
+    pub building_nickname_state: Option<Vec<BuildingNicknameStateOp>>,
+    pub building_state: Option<Vec<BuildingStateOp>>,
+    pub claim_lowercase_name_state: Option<Vec<ClaimLowercaseNameStateOp>>,
+    pub claim_member_state: Option<Vec<ClaimMemberStateOp>>,
+    pub claim_state: Option<Vec<ClaimStateOp>>,
+    pub empire_chunk_state: Option<Vec<EmpireChunkStateOp>>,
+    pub empire_node_siege_state: Option<Vec<EmpireNodeSiegeStateOp>>,
+    pub empire_node_state: Option<Vec<EmpireNodeStateOp>>,
+    pub empire_player_data_state: Option<Vec<EmpirePlayerDataStateOp>>,
+    pub empire_rank_state: Option<Vec<EmpireRankStateOp>>,
+    pub empire_settlement_state: Option<Vec<EmpireSettlementStateOp>>,
+    pub empire_state: Option<Vec<EmpireStateOp>>,
+    pub identity_role: Option<Vec<IdentityRoleOp>>,
+    pub location_state: Option<Vec<LocationStateOp>>,
+    pub player_housing_state: Option<Vec<PlayerHousingStateOp>>,
+    pub player_report_state: Option<Vec<PlayerReportStateOp>>,
+    pub region_connection_info: Option<Vec<RegionConnectionInfoOp>>,
+    pub region_control_info: Option<Vec<RegionControlInfoOp>>,
+    pub region_exploration_info: Option<Vec<RegionExplorationInfoOp>>,
+    pub region_population_info: Option<Vec<RegionPopulationInfoOp>>,
+    pub region_sign_in_parameters: Option<Vec<RegionSignInParametersOp>>,
+    pub user_authentication_state: Option<Vec<UserAuthenticationStateOp>>,
+    pub user_moderation_state: Option<Vec<UserModerationStateOp>>,
+    pub user_state: Option<Vec<UserStateOp>>,
+}
+
+impl InterModuleTableUpdatesV2 {
+    pub fn new() -> Self {
+        Self {
+            blocked_identity: None,
+            building_nickname_state: None,
+            building_state: None,
+            claim_lowercase_name_state: None,
+            claim_member_state: None,
+            claim_state: None,
+            empire_chunk_state: None,
+            empire_node_siege_state: None,
+            empire_node_state: None,
+            empire_player_data_state: None,
+            empire_rank_state: None,
+            empire_settlement_state: None,
+            empire_state: None,
+            identity_role: None,
+            location_state: None,
+            player_housing_state: None,
+            player_report_state: None,
+            region_connection_info: None,
+            region_control_info: None,
+            region_exploration_info: None,
+            region_population_info: None,
+            region_sign_in_parameters: None,
+            user_authentication_state: None,
+            user_moderation_state: None,
+            user_state: None,
+        }
+    }
+    pub fn apply_updates(self, ctx: &ReducerContext) {
+        if let Some(v) = self.blocked_identity {
+            for op in v {
+                match op {
+                    BlockedIdentityOp::Insert(val) => _ = ctx.db.blocked_identity().insert(val),
+                    BlockedIdentityOp::Delete(val) => _ = ctx.db.blocked_identity().identity().delete(val.identity),
+                }
+            }
+        }
+        if let Some(v) = self.building_nickname_state {
+            for op in v {
+                match op {
+                    BuildingNicknameStateOp::Insert(val) => _ = ctx.db.building_nickname_state().insert(val),
+                    BuildingNicknameStateOp::Delete(val) => _ = ctx.db.building_nickname_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.building_state {
+            for op in v {
+                match op {
+                    BuildingStateOp::Insert(val) => _ = ctx.db.building_state().insert(val),
+                    BuildingStateOp::Delete(val) => _ = ctx.db.building_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.claim_lowercase_name_state {
+            for op in v {
+                match op {
+                    ClaimLowercaseNameStateOp::Insert(val) => _ = ctx.db.claim_lowercase_name_state().insert(val),
+                    ClaimLowercaseNameStateOp::Delete(val) => _ = ctx.db.claim_lowercase_name_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.claim_member_state {
+            for op in v {
+                match op {
+                    ClaimMemberStateOp::Insert(val) => _ = ctx.db.claim_member_state().insert(val),
+                    ClaimMemberStateOp::Delete(val) => _ = ctx.db.claim_member_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.claim_state {
+            for op in v {
+                match op {
+                    ClaimStateOp::Insert(val) => _ = ctx.db.claim_state().insert(val),
+                    ClaimStateOp::Delete(val) => _ = ctx.db.claim_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.empire_chunk_state {
+            for op in v {
+                match op {
+                    EmpireChunkStateOp::Insert(val) => _ = ctx.db.empire_chunk_state().insert(val),
+                    EmpireChunkStateOp::Delete(val) => _ = ctx.db.empire_chunk_state().chunk_index().delete(val.chunk_index),
+                }
+            }
+        }
+        if let Some(v) = self.empire_node_siege_state {
+            for op in v {
+                match op {
+                    EmpireNodeSiegeStateOp::Insert(val) => _ = ctx.db.empire_node_siege_state().insert(val),
+                    EmpireNodeSiegeStateOp::Delete(val) => _ = ctx.db.empire_node_siege_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.empire_node_state {
+            for op in v {
+                match op {
+                    EmpireNodeStateOp::Insert(val) => _ = ctx.db.empire_node_state().insert(val),
+                    EmpireNodeStateOp::Delete(val) => _ = ctx.db.empire_node_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.empire_player_data_state {
+            for op in v {
+                match op {
+                    EmpirePlayerDataStateOp::Insert(val) => _ = ctx.db.empire_player_data_state().insert(val),
+                    EmpirePlayerDataStateOp::Delete(val) => _ = ctx.db.empire_player_data_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.empire_rank_state {
+            for op in v {
+                match op {
+                    EmpireRankStateOp::Insert(val) => _ = ctx.db.empire_rank_state().insert(val),
+                    EmpireRankStateOp::Delete(val) => _ = ctx.db.empire_rank_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.empire_settlement_state {
+            for op in v {
+                match op {
+                    EmpireSettlementStateOp::Insert(val) => _ = ctx.db.empire_settlement_state().insert(val),
+                    EmpireSettlementStateOp::Delete(val) => _ = ctx.db.empire_settlement_state().building_entity_id().delete(val.building_entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.empire_state {
+            for op in v {
+                match op {
+                    EmpireStateOp::Insert(val) => _ = ctx.db.empire_state().insert(val),
+                    EmpireStateOp::Delete(val) => _ = ctx.db.empire_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.identity_role {
+            for op in v {
+                match op {
+                    IdentityRoleOp::Insert(val) => _ = ctx.db.identity_role().insert(val),
+                    IdentityRoleOp::Delete(val) => _ = ctx.db.identity_role().identity().delete(val.identity),
+                }
+            }
+        }
+        if let Some(v) = self.location_state {
+            for op in v {
+                match op {
+                    LocationStateOp::Insert(val) => _ = ctx.db.location_state().insert(val),
+                    LocationStateOp::Delete(val) => _ = ctx.db.location_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.player_housing_state {
+            for op in v {
+                match op {
+                    PlayerHousingStateOp::Insert(val) => _ = ctx.db.player_housing_state().insert(val),
+                    PlayerHousingStateOp::Delete(val) => _ = ctx.db.player_housing_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.player_report_state {
+            for op in v {
+                match op {
+                    PlayerReportStateOp::Insert(val) => _ = PlayerReportState::inter_module_insert(ctx, val),
+                    PlayerReportStateOp::Delete(val) => _ = ctx.db.player_report_state().entity_id().delete(val.entity_id),
+                }
+            }
+        }
+        if let Some(v) = self.region_connection_info {
+            for op in v {
+                match op {
+                    RegionConnectionInfoOp::Insert(val) => _ = ctx.db.region_connection_info().insert(val),
+                    RegionConnectionInfoOp::Delete(val) => _ = ctx.db.region_connection_info().id().delete(val.id),
+                }
+            }
+        }
+        if let Some(v) = self.region_control_info {
+            for op in v {
+                match op {
+                    RegionControlInfoOp::Insert(val) => _ = ctx.db.region_control_info().insert(val),
+                    RegionControlInfoOp::Delete(val) => _ = ctx.db.region_control_info().region_id().delete(val.region_id),
+                }
+            }
+        }
+        if let Some(v) = self.region_exploration_info {
+            for op in v {
+                match op {
+                    RegionExplorationInfoOp::Insert(val) => _ = ctx.db.region_exploration_info().insert(val),
+                    RegionExplorationInfoOp::Delete(val) => _ = ctx.db.region_exploration_info().region_id().delete(val.region_id),
                 }
             }
         }

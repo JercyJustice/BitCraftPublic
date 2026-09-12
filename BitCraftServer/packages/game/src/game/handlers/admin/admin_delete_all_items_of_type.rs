@@ -5,7 +5,7 @@ use crate::{
     messages::{
         authentication::Role,
         components::{
-            deployable_state, dropped_inventory_state, inventory_state, player_housing_state, player_lowercase_username_state,
+            deployable_state_v2, dropped_inventory_state, inventory_state, player_housing_state, player_lowercase_username_state,
             InventoryState, PlayerHousingState,
         },
         game_util::ItemType,
@@ -38,7 +38,7 @@ pub fn reduce(ctx: &ReducerContext, player_username: String, item_id: i32, is_ca
     }
 
     // Delete items from deployables
-    for deployable in ctx.db.deployable_state().owner_id().filter(player_entity_id) {
+    for deployable in ctx.db.deployable_state_v2().owner_id().filter(player_entity_id) {
         if let Some(inventory) = ctx.db.inventory_state().owner_entity_id().filter(deployable.entity_id).next() {
             purge_inventory_from(ctx, inventory, item_id, is_cargo);
         }

@@ -28,7 +28,7 @@ pub fn player_cancel_region_transfer(ctx: &ReducerContext) -> Result<(), String>
         actor_id,
         prev.previous_region_location,
         prev.with_vehicle,
-        prev.teleport_energy_cost,
+        -prev.teleport_energy_cost,
     )?;
     ctx.db.user_previous_region_state().identity().delete(&ctx.sender);
 

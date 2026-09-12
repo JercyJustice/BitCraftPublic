@@ -1,6 +1,6 @@
 use bitcraft_macro::*;
 use spacetimedb::SpacetimeType;
-use spacetimedb::{Identity, Timestamp};
+use spacetimedb::{ConnectionId, Identity, Timestamp};
 
 use crate::messages::game_util::{ActiveBuff, ExperienceStack, ExperienceStackF32, ItemStack, Pocket, TradePocket};
 use crate::messages::static_data::EquipmentSlot;
@@ -109,6 +109,10 @@ pub enum Biome {
     Cave,
     Jungle,
     Sapwoods,
+    DesertedBeach,
+    TropicalCanopy,
+    VolcanicCrag,
+    UnchartedOcean,
 }
 
 #[derive(spacetimedb::SpacetimeType, Clone, Copy, Debug, Default, PartialEq, Eq, EnumIter, PartialOrd, Ord, Hash)]
@@ -160,6 +164,8 @@ pub enum PlayerActionType {
     DestroyPillarShaping,
     AbilityCustom,
     Prospect,
+    PlacePlaceable,
+    InteractPlaceable,
 }
 
 #[derive(spacetimedb::SpacetimeType, Clone, Copy, PartialEq, Debug)]
@@ -792,7 +798,7 @@ pub struct PlayerState {
     pub time_signed_in: i32,
     pub sign_in_timestamp: i32,
     pub signed_in: bool, // Keeping this attribute for optimization even if the value could be found by filtering SignedInPlayerState by entityId
-    pub traveler_tasks_expiration: i32,
+    pub traveler_tasks_expiration: i32, // [FINAL RELEASE] Obsolete, replaced by TravelerTaskCreditState
 }
 
 #[spacetimedb::table(name = player_username_state, public)]
@@ -914,6 +920,26 @@ pub struct DeployableState {
     pub hidden: bool,
 }
 
+#[spacetimedb::table(name = deployable_state_v2, public,
+    index(name = owner_id, btree(columns = [owner_id])),
+    index(name = claim_entity_id, btree(columns = [claim_entity_id])))]
+#[derive(bitcraft_macro::Operations, Clone, Debug)]
+#[operations(delete)]
+pub struct DeployableStateV2 {
+    // Sort fields in order of decreasing size/alignment
+    // to take advantage of a serialization fast-path in SpacetimeDB.
+    #[primary_key]
+    pub entity_id: u64,
+
+    pub owner_id: u64,
+    pub claim_entity_id: u64,
+    pub direction: i32, // for deployables and initial orientation. Not updated in realtime as you move.
+    pub deployable_description_id: i32,
+    pub nickname: String, //This will be used as tooltip text
+    pub hidden: bool,
+    pub appearance_override_id: i32,
+}
+
 #[spacetimedb::table(name = mounting_state, public, index(name = deployable_entity_id, btree(columns = [deployable_entity_id])))]
 #[derive(bitcraft_macro::Operations, Clone)]
 #[operations(delete)]
@@ -985,6 +1011,19 @@ pub struct ResourceState {
     pub entity_id: u64,
 
     pub resource_id: i32,
+    pub direction_index: i32,
+}
+
+#[spacetimedb::table(name = placeable_state, public,
+    index(name = owner_entity_id, btree(columns = [owner_entity_id])),
+    index(name = placeable_id, btree(columns = [placeable_id])))]
+#[derive(Clone, Debug, bitcraft_macro::Operations)]
+#[operations(delete)]
+pub struct PlaceableState {
+    #[primary_key]
+    pub entity_id: u64,
+    pub owner_entity_id: u64,
+    pub placeable_id: i32,
     pub direction_index: i32,
 }
 
@@ -1230,6 +1269,18 @@ pub struct ExplorationChunksState {
 
     pub bitmap: Vec<u64>, //Essentially a bitfield. Index=(Z*W+X)/64, bit=(Z*W+X)%64
     pub explored_chunks_count: i32,
+}
+
+#[spacetimedb::table(name = exploration_chunks_state_v2, public)]
+#[derive(Clone, bitcraft_macro::Operations, Debug)]
+#[operations(delete)]
+pub struct ExplorationChunksStateV2 {
+    #[primary_key]
+    pub entity_id: u64,
+
+    pub bitmap: Vec<u64>, //Essentially a bitfield. Index=(Z*W+X)/64, bit=(Z*W+X)%64
+    pub explored_chunks_count: i32,
+    pub achievement_explored_chunks_count: i32,
 }
 
 #[spacetimedb::table(name = loot_chest_state, public)]
@@ -1508,6 +1559,17 @@ pub struct SignedInPlayerState {
     pub entity_id: u64,
 }
 
+// The newest connection opened by a player's identity.  reducer calls
+// from any other connection are rejected as stale.
+// Disconnects from stale connections are ignored.
+#[spacetimedb::table(name = active_connection_state)]
+#[derive(Clone, Debug)]
+pub struct ActiveConnectionState {
+    #[primary_key]
+    pub entity_id: u64,
+    pub connection_id: ConnectionId,
+}
+
 #[spacetimedb::table(name = unclaimed_shards_state)]
 #[derive(Clone, Debug)]
 pub struct UnclaimedShardsState {
@@ -1666,6 +1728,19 @@ pub struct TravelerTaskState {
     pub traveler_id: i32,
     pub task_id: i32,
     pub completed: bool,
+}
+
+#[spacetimedb::table(name = traveler_task_credit_state, public,
+    index(name = player_entity_id, btree(columns = [player_entity_id])),
+    index(name = player_and_traveler_id, btree(columns = [player_entity_id, traveler_id])))]
+#[derive(Clone, Debug)]
+pub struct TravelerTaskCreditState {
+    #[primary_key]
+    pub entity_id: u64,
+    pub player_entity_id: u64,
+    pub traveler_id: i32,
+    pub credits: u32,
+    pub last_reset: i32,
 }
 
 #[spacetimedb::table(name = sell_order_state, public, 

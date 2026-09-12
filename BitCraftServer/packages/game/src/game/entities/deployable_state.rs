@@ -1,10 +1,10 @@
 use spacetimedb::ReducerContext;
 
 use super::project_site_state::SmallHexTile;
-use crate::messages::components::DeployableState;
-use crate::{deployable_desc, deployable_state, mobile_entity_state, mounting_state};
+use crate::messages::components::DeployableStateV2;
+use crate::{deployable_desc, deployable_state_v2, mobile_entity_state, mounting_state};
 
-impl DeployableState {
+impl DeployableStateV2 {
     pub fn coordinates(ctx: &ReducerContext, deployable_entity_id: u64) -> SmallHexTile {
         ctx.db
             .mobile_entity_state()
@@ -35,7 +35,7 @@ impl DeployableState {
             .filter(deployable_entity_id)
             .map(|m| m.deployable_slot)
             .collect();
-        let deployable = ctx.db.deployable_state().entity_id().find(&deployable_entity_id).unwrap();
+        let deployable = ctx.db.deployable_state_v2().entity_id().find(&deployable_entity_id).unwrap();
         let deployable_desc = ctx
             .db
             .deployable_desc()

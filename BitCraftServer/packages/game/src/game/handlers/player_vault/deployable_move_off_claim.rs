@@ -23,7 +23,7 @@ pub fn deployable_move_off_claim(ctx: &ReducerContext, deployable_entity_id: u64
     let claim_tile = unwrap_or_err!(ClaimTileState::get_at_location(ctx, &center), "Deployable is not on a claim");
 
     let mut deployable = unwrap_or_err!(
-        ctx.db.deployable_state().entity_id().find(&deployable_entity_id),
+        ctx.db.deployable_state_v2().entity_id().find(&deployable_entity_id),
         "Deployable does not exist"
     );
     if deployable.owner_id != actor_id {
@@ -91,7 +91,7 @@ pub fn deployable_move_off_claim(ctx: &ReducerContext, deployable_entity_id: u64
 
     if deployable.claim_entity_id != 0 {
         deployable.claim_entity_id = 0;
-        ctx.db.deployable_state().entity_id().update(deployable);
+        ctx.db.deployable_state_v2().entity_id().update(deployable);
     }
 
     ctx.db.mobile_entity_state().entity_id().update(new_location);
